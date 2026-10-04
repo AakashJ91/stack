@@ -42,10 +42,65 @@ var screen_shake_trauma: float = 0.0
 
 var active_box: Node3D = null
 
-# Curated monochrome color families (Sapphire, Emerald, Amethyst, Sunset Amber, Ruby, Teal, Rose Quartz, Topaz)
-const THEME_HUES: Array[float] = [0.58, 0.44, 0.76, 0.06, 0.96, 0.50, 0.88, 0.13]
-var theme_index: int = 0
-var current_base_hue: float = 0.58
+var pedestal_rim: MeshInstance3D
+
+# Curated high-aesthetic color palettes for stacking runs
+# Modes: "rainbow" (continuous silky spectrum) and "gradient" (harmonious designer colorways)
+const PALETTES: Array[Dictionary] = [
+	{
+		"name": "Prismatic Spectrum",
+		"mode": "rainbow",
+		"speed": 0.026,
+		"sat": 0.78,
+		"val": 0.95
+	},
+	{
+		"name": "Cyber Sunset",
+		"mode": "gradient",
+		"colors": [
+			Color(0.58, 0.18, 0.96), # Electric Violet
+			Color(0.92, 0.12, 0.68), # Magenta Fuchsia
+			Color(0.98, 0.28, 0.38), # Neon Coral
+			Color(1.00, 0.52, 0.12), # Sunset Orange
+			Color(1.00, 0.78, 0.18), # Golden Amber
+			Color(0.96, 0.38, 0.65)  # Rose Quartz
+		]
+	},
+	{
+		"name": "Ocean Aurora",
+		"mode": "gradient",
+		"colors": [
+			Color(0.12, 0.38, 0.98), # Royal Cobalt
+			Color(0.08, 0.65, 0.98), # Electric Blue
+			Color(0.05, 0.88, 0.85), # Neon Turquoise
+			Color(0.12, 0.95, 0.58), # Mint Emerald
+			Color(0.20, 0.82, 0.98)  # Cyan Glow
+		]
+	},
+	{
+		"name": "Royal Jewels",
+		"mode": "gradient",
+		"colors": [
+			Color(0.55, 0.12, 0.92), # Imperial Amethyst
+			Color(0.88, 0.10, 0.40), # Crimson Ruby
+			Color(0.98, 0.35, 0.15), # Fire Opal
+			Color(1.00, 0.72, 0.14), # Citrine Gold
+			Color(0.78, 0.15, 0.82)  # Vivid Orchid
+		]
+	},
+	{
+		"name": "Synthwave Neon",
+		"mode": "gradient",
+		"colors": [
+			Color(0.35, 0.15, 0.95), # Cyber Indigo
+			Color(0.98, 0.12, 0.62), # Hot Neon Pink
+			Color(0.72, 0.25, 0.95), # Bright Lavender
+			Color(0.05, 0.82, 0.95)  # Electric Aqua
+		]
+	}
+]
+var palette_index: int = 0
+var current_palette_start_hue: float = 0.58
 
 func _ready() -> void:
 	_setup_desktop_window_size()
@@ -70,8 +125,16 @@ func _setup_lighting_and_env() -> void:
 	if env:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(0.08, 0.09, 0.14) # Deep slate midnight
-		env.ambient_light_color = Color(0.75, 0.8, 0.9)
-		env.ambient_light_energy = 0.85
+		env.ambient_light_color = Color(0.72, 0.78, 0.90)
+		env.ambient_light_energy = 0.80
+		env.glow_enabled = true
+		env.glow_intensity = 0.65
+		env.glow_bloom = 0.16
+	
+	var light = $DirectionalLight3D as DirectionalLight3D
+	if light:
+		light.light_color = Color(1.0, 0.98, 0.94)
+		light.light_energy = 1.15
 
 func _create_pedestal() -> void:
 	base_pedestal = MeshInstance3D.new()
@@ -80,26 +143,26 @@ func _create_pedestal() -> void:
 	base_pedestal.mesh = box_m
 	
 	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.18, 0.22, 0.3)
-	mat.metallic = 0.3
-	mat.roughness = 0.4
+	mat.albedo_color = Color(0.16, 0.19, 0.26)
+	mat.metallic = 0.25
+	mat.roughness = 0.35
 	base_pedestal.material_override = mat
 	base_pedestal.position = Vector3(0, -0.7, 0)
 	add_child(base_pedestal)
 	
 	# Pedestal Top Accent Ring
-	var rim = MeshInstance3D.new()
+	pedestal_rim = MeshInstance3D.new()
 	var rim_mesh = BoxMesh.new()
 	rim_mesh.size = Vector3(2.82, 0.06, 2.82)
-	rim.mesh = rim_mesh
+	pedestal_rim.mesh = rim_mesh
 	var rim_mat = StandardMaterial3D.new()
 	rim_mat.albedo_color = Color(0.4, 0.6, 0.95)
 	rim_mat.emission_enabled = true
 	rim_mat.emission = Color(0.3, 0.6, 1.0)
-	rim_mat.emission_energy_multiplier = 0.8
-	rim.material_override = rim_mat
-	rim.position = Vector3(0, 0.0, 0)
-	add_child(rim)
+	rim_mat.emission_energy_multiplier = 0.85
+	pedestal_rim.material_override = rim_mat
+	pedestal_rim.position = Vector3(0, 0.0, 0)
+	add_child(pedestal_rim)
 
 func reset_game() -> void:
 	# Clear existing stack boxes
@@ -129,9 +192,17 @@ func reset_game() -> void:
 	game_over_panel.visible = false
 	new_best_badge.visible = false
 	
-	# Choose monochrome color family for this game session
-	current_base_hue = THEME_HUES[theme_index % THEME_HUES.size()]
-	theme_index += 1
+	# Cycle to next designer palette and randomize starting spectrum hue
+	palette_index = (palette_index + 1) % PALETTES.size()
+	current_palette_start_hue = randf()
+	
+	# Harmonize pedestal accent rim with the starting hue
+	var first_box_color = _get_box_shade(0)
+	if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
+		var rm = pedestal_rim.material_override as StandardMaterial3D
+		rm.albedo_color = first_box_color
+		rm.emission = first_box_color
+		rm.emission_energy_multiplier = 0.85
 	
 	# Initial slider level
 	slider.set_target_level(current_top_y, current_target_pos, 0)
@@ -229,11 +300,17 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 		# Snap to center
 		box.global_position = Vector3(target_x, current_top_y + (BOX_SIZE.y * 0.5), target_z)
 		current_target_pos = Vector3(target_x, 0, target_z)
+		
+		# Sympathetic compression on top block of stack
+		if stack.size() > 0 and is_instance_valid(stack.back()) and stack.back().has_method("absorb_impact"):
+			stack.back().absorb_impact()
+		
 		box.settle(true)
 		
 		sound_mgr.play_perfect(combo)
 		_show_combo_fx(combo)
 		_spawn_sparkle_fx(box.global_position)
+		_trigger_cascade_wave()
 		_on_box_placed_successfully(box)
 		
 	elif dist <= MAX_OVERHANG_DISTANCE:
@@ -244,6 +321,11 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 		
 		# Settle at placed location
 		current_target_pos = Vector3(drop_x, 0, drop_z)
+		
+		# Sympathetic compression on top block of stack
+		if stack.size() > 0 and is_instance_valid(stack.back()) and stack.back().has_method("absorb_impact"):
+			stack.back().absorb_impact()
+		
 		box.settle(false)
 		
 		sound_mgr.play_land()
@@ -258,6 +340,14 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 		sound_mgr.play_game_over()
 		trigger_screen_shake(0.7)
 		_trigger_game_over()
+
+func _trigger_cascade_wave() -> void:
+	# Cascading neon ripple down the top few blocks of the tower
+	var count = min(stack.size(), 4)
+	for i in range(count):
+		var b = stack[stack.size() - 1 - i]
+		if is_instance_valid(b) and b.has_method("flash_sympathetic"):
+			get_tree().create_timer((i + 1) * 0.05).timeout.connect(b.flash_sympathetic)
 
 func _on_box_placed_successfully(box: Node3D) -> void:
 	stack.append(box)
@@ -290,41 +380,56 @@ func _spawn_sparkle_fx(pos: Vector3) -> void:
 	var particles = CPUParticles3D.new()
 	particles.emitting = true
 	particles.one_shot = true
-	particles.explosiveness = 0.9
-	particles.amount = 24
-	particles.lifetime = 0.6
+	particles.explosiveness = 0.92
+	particles.amount = 26
+	particles.lifetime = 0.65
 	particles.global_position = pos + Vector3(0, BOX_SIZE.y * 0.5, 0)
 	particles.direction = Vector3.UP
 	particles.spread = 180.0
 	particles.initial_velocity_min = 3.5
-	particles.initial_velocity_max = 6.0
-	particles.gravity = Vector3(0, -6.0, 0)
-	particles.scale_amount_min = 0.12
+	particles.initial_velocity_max = 6.5
+	particles.gravity = Vector3(0, -6.5, 0)
+	particles.scale_amount_min = 0.1
 	particles.scale_amount_max = 0.22
-	particles.color = Color(1.0, 0.88, 0.3)
-	add_child(particles)
+	particles.color = Color(1.0, 0.9, 0.35)
 	
-	# Free when done
+	var cube_mesh = BoxMesh.new()
+	cube_mesh.size = Vector3(0.12, 0.12, 0.12)
+	var cube_mat = StandardMaterial3D.new()
+	cube_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	cube_mat.albedo_color = Color(1.0, 0.92, 0.4)
+	cube_mesh.material = cube_mat
+	particles.mesh = cube_mesh
+	
+	add_child(particles)
 	get_tree().create_timer(1.0).timeout.connect(particles.queue_free)
 
 func _spawn_impact_dust(pos: Vector3) -> void:
 	var particles = CPUParticles3D.new()
 	particles.emitting = true
 	particles.one_shot = true
-	particles.explosiveness = 0.85
-	particles.amount = 14
-	particles.lifetime = 0.4
+	particles.explosiveness = 0.88
+	particles.amount = 16
+	particles.lifetime = 0.45
 	particles.global_position = pos - Vector3(0, BOX_SIZE.y * 0.4, 0)
-	particles.direction = Vector3(0, 0.2, 0)
+	particles.direction = Vector3(0, 0.3, 0)
 	particles.spread = 180.0
-	particles.initial_velocity_min = 1.5
-	particles.initial_velocity_max = 3.2
-	particles.gravity = Vector3(0, -3.0, 0)
+	particles.initial_velocity_min = 1.6
+	particles.initial_velocity_max = 3.5
+	particles.gravity = Vector3(0, -3.5, 0)
 	particles.scale_amount_min = 0.08
-	particles.scale_amount_max = 0.16
-	particles.color = Color(0.9, 0.9, 0.95, 0.6)
-	add_child(particles)
+	particles.scale_amount_max = 0.18
+	particles.color = Color(0.9, 0.92, 1.0, 0.7)
 	
+	var dust_mesh = BoxMesh.new()
+	dust_mesh.size = Vector3(0.08, 0.08, 0.08)
+	var dust_mat = StandardMaterial3D.new()
+	dust_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	dust_mat.albedo_color = Color(0.9, 0.92, 1.0, 0.7)
+	dust_mesh.material = dust_mat
+	particles.mesh = dust_mesh
+	
+	add_child(particles)
 	get_tree().create_timer(0.8).timeout.connect(particles.queue_free)
 
 func trigger_screen_shake(amount: float) -> void:
@@ -413,16 +518,18 @@ func _on_window_resized() -> void:
 		else:
 			camera.size = base_size
 
-# Dynamically generates varied shades (luminance & saturation) from the EXACT SAME base color
+# Generates smooth, vibrant gradient colors through curated designer palettes or prismatic rainbow
 func _get_box_shade(index: int) -> Color:
-	var h = current_base_hue
-	
-	# Smooth oscillating ombre curve (cycles every ~12 blocks)
-	var phase = fmod(index * 0.26, TAU)
-	var t = (sin(phase) + 1.0) * 0.5 # 0.0 to 1.0
-	
-	# Shade variation: deep rich tone (v=0.52, s=0.88) to bright luminous tone (v=0.98, s=0.52)
-	var s = lerp(0.88, 0.52, t)
-	var v = lerp(0.52, 0.98, t)
-	
-	return Color.from_hsv(h, s, v)
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	if pal["mode"] == "rainbow":
+		var h = fmod(current_palette_start_hue + index * float(pal["speed"]), 1.0)
+		return Color.from_hsv(h, float(pal["sat"]), float(pal["val"]))
+	else:
+		var colors = pal["colors"] as Array
+		var count = colors.size()
+		var step = index * 0.22 # Smooth transition every ~4-5 blocks
+		var idx = int(step) % count
+		var next_idx = (idx + 1) % count
+		var t = fmod(step, 1.0)
+		var smooth_t = (1.0 - cos(t * PI)) * 0.5
+		return (colors[idx] as Color).lerp(colors[next_idx] as Color, smooth_t)

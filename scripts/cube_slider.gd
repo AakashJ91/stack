@@ -21,7 +21,9 @@ var current_slide_dir: Vector3 = Vector3.RIGHT
 
 # Alignment guide / shadow projection
 var guide_mesh_instance: MeshInstance3D
+var guide_inner_ring: MeshInstance3D
 var guide_material: StandardMaterial3D
+var guide_inner_material: StandardMaterial3D
 
 func _ready() -> void:
 	_setup_guide_projection()
@@ -39,6 +41,20 @@ func _setup_guide_projection() -> void:
 	guide_mesh_instance.material_override = guide_material
 	guide_mesh_instance.visible = false
 	add_child(guide_mesh_instance)
+	
+	# Concentric inner target reticle for landing accuracy
+	guide_inner_ring = MeshInstance3D.new()
+	var inner_box = BoxMesh.new()
+	inner_box.size = Vector3(0.8, 0.03, 0.8)
+	guide_inner_ring.mesh = inner_box
+	guide_inner_ring.rotation.y = deg_to_rad(45.0)
+	
+	guide_inner_material = StandardMaterial3D.new()
+	guide_inner_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	guide_inner_material.albedo_color = Color(1.0, 1.0, 1.0, 0.3)
+	guide_inner_material.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	guide_inner_ring.material_override = guide_inner_material
+	guide_mesh_instance.add_child(guide_inner_ring)
 
 func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> void:
 	current_top_y = top_y
@@ -67,13 +83,24 @@ func _process(delta: float) -> void:
 	
 	# Smooth oscillating slide: offset = amplitude * sin(time)
 	var offset = slide_amplitude * sin(current_time)
+	var velocity_factor = cos(current_time) # +1 to -1 indicating instantaneous velocity
 	
-	var box_y = current_top_y + hover_height + (current_box.box_size.y * 0.5 if is_instance_valid(current_box) else 0.4)
+	# Floating anti-gravity hover bobbing
+	var hover_bob = sin(current_time * 3.4) * 0.08
+	
+	var box_y = current_top_y + hover_height + (current_box.box_size.y * 0.5 if is_instance_valid(current_box) else 0.4) + hover_bob
 	var slide_pos = current_target_center + (current_slide_dir * offset)
 	slide_pos.y = box_y
 	
+	var dist_to_target = Vector2(slide_pos.x - current_target_center.x, slide_pos.z - current_target_center.z).length()
+	var is_aligned = dist_to_target <= 0.32
+	
 	if is_instance_valid(current_box) and current_box.state == current_box.BoxState.ATTACHED:
 		current_box.global_position = slide_pos
+		
+		# Drive banking, squash/stretch, and core glow on the cube
+		if current_box.has_method("update_slider_motion"):
+			current_box.update_slider_motion(delta, velocity_factor, current_axis, is_aligned, current_time)
 		
 		# Update guide projection shadow on top of tower
 		if guide_mesh_instance:
@@ -81,14 +108,20 @@ func _process(delta: float) -> void:
 			guide_pos.y = current_top_y + 0.02
 			guide_mesh_instance.global_position = guide_pos
 			
-			# Pulse guide alpha subtly with matching cube color
-			var dist_to_target = Vector2(slide_pos.x - current_target_center.x, slide_pos.z - current_target_center.z).length()
-			var proximity = clamp(1.0 - (dist_to_target / 1.5), 0.0, 1.0)
-			if "box_color" in current_box:
-				var c = current_box.box_color
-				guide_material.albedo_color = Color(c.r, c.g, c.b, 0.18 + (proximity * 0.22))
+			var proximity = clamp(1.0 - (dist_to_target / 1.6), 0.0, 1.0)
+			var base_c = current_box.box_color if "box_color" in current_box else Color(1.0, 0.9, 0.4)
+			
+			if is_aligned:
+				# Locked on! Fast lively pulse
+				var pulse_alpha = 0.45 + (sin(current_time * 14.0) * 0.15)
+				guide_material.albedo_color = Color(1.0, 0.92, 0.4, pulse_alpha)
+				guide_inner_material.albedo_color = Color(1.0, 1.0, 0.7, pulse_alpha + 0.25)
+				guide_inner_ring.scale = Vector3.ONE * (1.1 + sin(current_time * 16.0) * 0.15)
 			else:
-				guide_material.albedo_color = Color(1.0, 1.0, 0.4, 0.15 + (proximity * 0.25))
+				var alpha = 0.12 + (proximity * 0.28)
+				guide_material.albedo_color = Color(base_c.r, base_c.g, base_c.b, alpha)
+				guide_inner_material.albedo_color = Color(base_c.r, base_c.g, base_c.b, alpha * 1.5)
+				guide_inner_ring.scale = Vector3.ONE
 
 func release_box() -> Node3D:
 	if not is_instance_valid(current_box) or current_box.state != current_box.BoxState.ATTACHED:
