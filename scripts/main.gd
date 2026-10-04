@@ -45,6 +45,8 @@ var screen_shake_trauma: float = 0.0
 var active_box: Node3D = null
 
 var pedestal_rim: MeshInstance3D
+var pedestal_mat: ShaderMaterial
+var pedestal_mist_particles: CPUParticles3D
 
 # Gradient Background Components
 var bg_quad: MeshInstance3D
@@ -187,6 +189,20 @@ func _transition_gradient_background(target_top: Color, target_bottom: Color) ->
 		if bg_gradient and bg_gradient.colors.size() >= 2:
 			bg_gradient.colors = PackedColorArray([bg_gradient.colors[0], c])
 	, current_bottom, target_bottom, 0.7)
+	
+	if is_instance_valid(pedestal_mat):
+		var cur_mist = pedestal_mat.get_shader_parameter("mist_color")
+		if cur_mist == null:
+			cur_mist = target_bottom
+		bg_tween.tween_method(func(c: Color):
+			if is_instance_valid(pedestal_mat):
+				pedestal_mat.set_shader_parameter("mist_color", c)
+		, cur_mist, target_bottom, 0.7)
+	
+	if is_instance_valid(pedestal_mist_particles):
+		var mist_tint = target_bottom.lerp(Color.WHITE, 0.35)
+		mist_tint.a = 0.25
+		pedestal_mist_particles.color = mist_tint
 
 func _update_height_gradient_tint(height_index: int) -> void:
 	if not bg_gradient:
@@ -216,17 +232,54 @@ func _setup_lighting_and_env() -> void:
 		light.light_energy = 0.80
 
 func _create_pedestal() -> void:
+	# Elongated base pillar extending 24 units deep into the mist
 	base_pedestal = MeshInstance3D.new()
 	var box_m = BoxMesh.new()
-	box_m.size = Vector3(2.8, 1.4, 2.8)
+	box_m.size = Vector3(2.8, 24.0, 2.8)
 	base_pedestal.mesh = box_m
 	
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.16, 0.19, 0.26)
-	mat.metallic = 0.25
-	mat.roughness = 0.35
-	base_pedestal.material_override = mat
-	base_pedestal.position = Vector3(0, -0.7, 0)
+	var shader = Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode blend_mix, depth_draw_always, cull_back;
+
+uniform vec4 top_color : source_color = vec4(0.16, 0.19, 0.26, 1.0);
+uniform vec4 mist_color : source_color = vec4(0.10, 0.13, 0.20, 0.0);
+uniform float fade_start_y = -1.2;
+uniform float fade_end_y = -18.0;
+uniform float metallic : hint_range(0.0, 1.0) = 0.25;
+uniform float roughness : hint_range(0.0, 1.0) = 0.35;
+
+varying float v_world_y;
+
+void vertex() {
+	v_world_y = (MODEL_MATRIX * vec4(VERTEX, 1.0)).y;
+}
+
+void fragment() {
+	float t = clamp((v_world_y - fade_end_y) / (fade_start_y - fade_end_y), 0.0, 1.0);
+	float fade = t * t * (3.0 - 2.0 * t); // Smooth Hermite curve
+	
+	vec3 col = mix(mist_color.rgb, top_color.rgb, fade);
+	ALBEDO = col;
+	ALPHA = fade;
+	METALLIC = metallic * fade;
+	ROUGHNESS = mix(0.9, roughness, fade);
+}
+"""
+	pedestal_mat = ShaderMaterial.new()
+	pedestal_mat.shader = shader
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	var bot_c = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+	pedestal_mat.set_shader_parameter("top_color", Color(0.16, 0.19, 0.26, 1.0))
+	pedestal_mat.set_shader_parameter("mist_color", bot_c)
+	pedestal_mat.set_shader_parameter("fade_start_y", -1.2)
+	pedestal_mat.set_shader_parameter("fade_end_y", -18.0)
+	pedestal_mat.set_shader_parameter("metallic", 0.25)
+	pedestal_mat.set_shader_parameter("roughness", 0.35)
+	
+	base_pedestal.material_override = pedestal_mat
+	base_pedestal.position = Vector3(0, -12.0, 0)
 	add_child(base_pedestal)
 	
 	# Pedestal Top Accent Ring
@@ -242,6 +295,71 @@ func _create_pedestal() -> void:
 	pedestal_rim.material_override = rim_mat
 	pedestal_rim.position = Vector3(0, 0.0, 0)
 	add_child(pedestal_rim)
+	
+	# Soft ethereal mist ring around the lower column
+	_setup_pedestal_mist()
+
+func _setup_pedestal_mist() -> void:
+	pedestal_mist_particles = CPUParticles3D.new()
+	pedestal_mist_particles.amount = 16
+	pedestal_mist_particles.lifetime = 4.5
+	pedestal_mist_particles.preprocess = 4.0
+	pedestal_mist_particles.speed_scale = 0.75
+	pedestal_mist_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	pedestal_mist_particles.emission_ring_radius = 2.5
+	pedestal_mist_particles.emission_ring_inner_radius = 0.8
+	pedestal_mist_particles.emission_ring_height = 4.0
+	pedestal_mist_particles.emission_ring_axis = Vector3.UP
+	pedestal_mist_particles.position = Vector3(0, -6.0, 0)
+	pedestal_mist_particles.gravity = Vector3(0, 0.12, 0)
+	pedestal_mist_particles.direction = Vector3(0, 0.5, 0)
+	pedestal_mist_particles.spread = 180.0
+	pedestal_mist_particles.initial_velocity_min = 0.06
+	pedestal_mist_particles.initial_velocity_max = 0.18
+	
+	var mist_curve = Curve.new()
+	mist_curve.add_point(Vector2(0.0, 0.0))
+	mist_curve.add_point(Vector2(0.3, 0.85))
+	mist_curve.add_point(Vector2(0.7, 0.85))
+	mist_curve.add_point(Vector2(1.0, 0.0))
+	pedestal_mist_particles.scale_amount_curve = mist_curve
+	pedestal_mist_particles.scale_amount_min = 1.4
+	pedestal_mist_particles.scale_amount_max = 2.8
+	
+	var quad = QuadMesh.new()
+	quad.size = Vector2(2.8, 2.8)
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	
+	# Radial gradient for soft mist puff
+	var tex = GradientTexture2D.new()
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	var g = Gradient.new()
+	g.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.35),
+		Color(1.0, 1.0, 1.0, 0.10),
+		Color(1.0, 1.0, 1.0, 0.0)
+	])
+	g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	tex.gradient = g
+	tex.width = 64
+	tex.height = 64
+	mat.albedo_texture = tex
+	quad.material = mat
+	
+	pedestal_mist_particles.mesh = quad
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	var bot_c = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+	var mist_tint = bot_c.lerp(Color.WHITE, 0.35)
+	mist_tint.a = 0.25
+	pedestal_mist_particles.color = mist_tint
+	
+	add_child(pedestal_mist_particles)
 
 func reset_game() -> void:
 	# Clear existing stack boxes
