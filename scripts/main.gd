@@ -70,6 +70,11 @@ var challenge_perfect_multiplier: float = 1.0
 var active_ribbon_tab: String = "home"
 var tap_pulse_tween: Tween = null
 
+# Skin / palette tile refs for in-place style updates (no drawer rebuild)
+var _skin_tile_btns: Array = []
+var _pal_tile_btns: Array = []
+var _pal_section_root: Control = null
+
 var active_box: Node3D = null
 
 var pedestal_rim: MeshInstance3D
@@ -88,9 +93,10 @@ var bg_tween: Tween = null
 # Textured Skins System
 const SKIN_TEXTURES = {
 	"marble": preload("res://textures/skin_marble.png"),
-	"wood": preload("res://textures/skin_wood.png"),
-	"cyber": preload("res://textures/skin_cyber.png"),
 	"terrazzo": preload("res://textures/skin_terrazzo.png"),
+	"glass": preload("res://textures/skin_glass.png"),
+	"frosted": preload("res://textures/skin_frosted.png"),
+	"dusty": preload("res://textures/skin_dusty.png"),
 }
 
 const SKINS: Array[Dictionary] = [
@@ -119,32 +125,8 @@ const SKINS: Array[Dictionary] = [
 		"uv_scale": Vector2(0.55, 0.55)
 	},
 	{
-		"id": "wood",
-		"name": "Nordic Cedar Wood",
-		"icon": "🪵",
-		"desc": "Warm organic cedar wood grain with ring bands and longitudinal grain fibers.",
-		"type": "textured",
-		"strength": 0.75,
-		"emission": 0.0,
-		"roughness": 0.42,
-		"metallic": 0.02,
-		"uv_scale": Vector2(0.60, 0.60)
-	},
-	{
-		"id": "cyber",
-		"name": "Cyber Holo Matrix",
-		"icon": "⚡",
-		"desc": "Futuristic isometric circuit grid with pulsating neon tech traces and node pads.",
-		"type": "textured",
-		"strength": 0.85,
-		"emission": 1.4,
-		"roughness": 0.25,
-		"metallic": 0.12,
-		"uv_scale": Vector2(0.85, 0.85)
-	},
-	{
 		"id": "terrazzo",
-		"name": "Modern Terrazzo Stone",
+		"name": "Modern Terrazzo",
 		"icon": "🪨",
 		"desc": "Architectural composite stone with embedded polished quartz and mineral flakes.",
 		"type": "textured",
@@ -153,7 +135,43 @@ const SKINS: Array[Dictionary] = [
 		"roughness": 0.36,
 		"metallic": 0.04,
 		"uv_scale": Vector2(0.70, 0.70)
-	}
+	},
+	{
+		"id": "glass",
+		"name": "Clear Glass",
+		"icon": "🔷",
+		"desc": "Ultra-smooth polished glass surface with faint diagonal specular reflection streaks.",
+		"type": "textured",
+		"strength": 0.60,
+		"emission": 0.0,
+		"roughness": 0.06,
+		"metallic": 0.08,
+		"uv_scale": Vector2(0.50, 0.50)
+	},
+	{
+		"id": "frosted",
+		"name": "Frosted Glass",
+		"icon": "❄️",
+		"desc": "Soft milky diffusion surface etched with fine crystalline micro-scratches.",
+		"type": "textured",
+		"strength": 0.72,
+		"emission": 0.0,
+		"roughness": 0.72,
+		"metallic": 0.01,
+		"uv_scale": Vector2(0.60, 0.60)
+	},
+	{
+		"id": "dusty",
+		"name": "Dusty Sand",
+		"icon": "🏜️",
+		"desc": "Warm sandy-beige surface with coarse aggregate grain and fine dust particulate speckling.",
+		"type": "textured",
+		"strength": 0.80,
+		"emission": 0.0,
+		"roughness": 0.88,
+		"metallic": 0.00,
+		"uv_scale": Vector2(0.75, 0.75)
+	},
 ]
 var active_skin_id: String = "classic"
 
@@ -172,9 +190,13 @@ func _update_active_skins_in_scene() -> void:
 		active_box.apply_skin(skin_cfg)
 		if active_box.has_method("set_color"):
 			active_box.set_color(_get_box_shade(stack.size()))
-	for b in stack:
-		if is_instance_valid(b) and b.has_method("apply_skin"):
-			b.apply_skin(skin_cfg)
+	for i in range(stack.size()):
+		var b = stack[i]
+		if is_instance_valid(b):
+			if b.has_method("apply_skin"):
+				b.apply_skin(skin_cfg)
+			if b.has_method("set_color"):
+				b.set_color(_get_box_shade(i))
 
 # Curated high-aesthetic pastel color palettes for stacking runs
 # Each palette has its own dedicated complementary atmospheric gradient background
@@ -240,6 +262,60 @@ const PALETTES: Array[Dictionary] = [
 		],
 		"bg_top": Color(0.09, 0.12, 0.20),    # Deep Arctic Slate
 		"bg_bottom": Color(0.17, 0.14, 0.25) # Soft Nordic Lilac
+	},
+	{
+		"name": "Translucent Prism",
+		"mode": "rainbow",
+		"is_transparent": true,
+		"speed": 0.026,
+		"sat": 0.62,
+		"val": 0.96,
+		"alpha": 0.55,
+		"bg_top": Color(0.06, 0.07, 0.16),    # Dark Deep Space
+		"bg_bottom": Color(0.16, 0.12, 0.26) # Translucent Aurora Violet
+	},
+	{
+		"name": "Translucent Jelly",
+		"mode": "gradient",
+		"is_transparent": true,
+		"colors": [
+			Color(0.98, 0.28, 0.52, 0.56), # Lucid Ruby Pink
+			Color(0.82, 0.35, 0.96, 0.56), # Lucid Violet Amethyst
+			Color(0.30, 0.64, 0.98, 0.56), # Lucid Azure Sapphire
+			Color(0.20, 0.88, 0.72, 0.56), # Lucid Emerald Jade
+			Color(0.98, 0.78, 0.22, 0.56), # Lucid Citrine Topaz
+			Color(0.98, 0.46, 0.28, 0.56)  # Lucid Sunset Coral
+		],
+		"bg_top": Color(0.07, 0.08, 0.18),    # Deep Midnight Sapphire
+		"bg_bottom": Color(0.20, 0.11, 0.26) # Rich Jelly Fuchsia
+	},
+	{
+		"name": "Frosted Crystal",
+		"mode": "gradient",
+		"is_transparent": true,
+		"colors": [
+			Color(0.96, 0.68, 0.82, 0.52), # Frosted Rose Quartz
+			Color(0.80, 0.72, 0.98, 0.52), # Frosted Lavender
+			Color(0.60, 0.82, 0.98, 0.52), # Frosted Glacier Blue
+			Color(0.55, 0.94, 0.86, 0.52), # Frosted Aquamarine
+			Color(0.96, 0.88, 0.66, 0.52)  # Frosted Soft Champagne
+		],
+		"bg_top": Color(0.08, 0.12, 0.20),    # Polar Slate
+		"bg_bottom": Color(0.14, 0.18, 0.28) # Crystalline Blue
+	},
+	{
+		"name": "Smoky Obsidian",
+		"mode": "gradient",
+		"is_transparent": true,
+		"colors": [
+			Color(0.36, 0.44, 0.58, 0.62), # Smoky Slate Glass
+			Color(0.58, 0.42, 0.55, 0.62), # Smoky Mauve Glass
+			Color(0.28, 0.52, 0.55, 0.62), # Smoky Teal Glass
+			Color(0.60, 0.48, 0.36, 0.62), # Smoky Amber Topaz
+			Color(0.44, 0.38, 0.55, 0.62)  # Smoky Dusk Glass
+		],
+		"bg_top": Color(0.05, 0.06, 0.10),    # Obsidian Void
+		"bg_bottom": Color(0.12, 0.13, 0.19) # Smoky Dark Veil
 	}
 ]
 var palette_index: int = 0
@@ -780,10 +856,13 @@ func _setup_ribbon_listeners() -> void:
 func _set_active_tab(tab_name: String) -> void:
 	active_ribbon_tab = tab_name
 	
+	# Active tab: transparent background, thin blue top-border underline
 	var active_style = StyleBoxFlat.new()
-	active_style.bg_color = Color(0.20, 0.38, 0.68, 0.85)
-	active_style.set_corner_radius_all(20)
+	active_style.bg_color = Color(0, 0, 0, 0)
+	active_style.border_width_top = 2
+	active_style.border_color = Color(0.45, 0.72, 1.0, 1.0)
 	
+	# Inactive tab: completely flat, muted
 	var inactive_style = StyleBoxFlat.new()
 	inactive_style.bg_color = Color(0, 0, 0, 0)
 	
@@ -800,12 +879,12 @@ func _set_active_tab(tab_name: String) -> void:
 			btn.add_theme_stylebox_override("normal", active_style)
 			btn.add_theme_stylebox_override("hover", active_style)
 			btn.add_theme_stylebox_override("pressed", active_style)
-			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+			btn.add_theme_color_override("font_color", Color(0.90, 0.95, 1.0, 1.0))
 		else:
 			btn.add_theme_stylebox_override("normal", inactive_style)
 			btn.add_theme_stylebox_override("hover", inactive_style)
 			btn.add_theme_stylebox_override("pressed", inactive_style)
-			btn.add_theme_color_override("font_color", Color(0.70, 0.76, 0.88, 0.75))
+			btn.add_theme_color_override("font_color", Color(0.52, 0.60, 0.76, 0.70))
 
 func _open_drawer(title_text: String) -> void:
 	drawer_title.text = title_text
@@ -823,248 +902,338 @@ func _close_drawer() -> void:
 func _create_card_container() -> PanelContainer:
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.15, 0.23, 0.95)
-	style.border_color = Color(0.26, 0.36, 0.58, 0.6)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(14)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 12
-	style.content_margin_bottom = 12
+	style.bg_color = Color(0.09, 0.11, 0.17, 0.90)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
 func _create_card_button(btn_text: String, is_active: bool) -> Button:
 	var btn = Button.new()
 	btn.text = btn_text
-	btn.custom_minimum_size = Vector2(0, 36)
-	btn.add_theme_font_size_override("font_size", 14)
+	btn.custom_minimum_size = Vector2(0, 34)
+	btn.add_theme_font_size_override("font_size", 13)
 	var btn_style = StyleBoxFlat.new()
-	btn_style.set_corner_radius_all(10)
+	btn_style.set_corner_radius_all(5)
 	if is_active:
-		btn_style.bg_color = Color(0.18, 0.65, 0.45, 0.92)
+		btn_style.bg_color = Color(0.14, 0.58, 0.40, 0.95)
 		btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	else:
-		btn_style.bg_color = Color(0.20, 0.40, 0.75, 0.9)
-		btn.add_theme_color_override("font_color", Color(0.95, 0.96, 1, 1))
+		btn_style.bg_color = Color(0.16, 0.36, 0.70, 0.85)
+		btn.add_theme_color_override("font_color", Color(0.88, 0.92, 1, 1))
 	btn.add_theme_stylebox_override("normal", btn_style)
 	btn.add_theme_stylebox_override("hover", btn_style)
 	btn.add_theme_stylebox_override("pressed", btn_style)
 	return btn
 
-func _open_skins_drawer() -> void:
-	_open_drawer("STACK SKINS")
-	
-	# --- SECTION 1: CLASSIC SATIN SKIN & COLOR OPTIONS ---
-	var classic_section_lbl = Label.new()
-	classic_section_lbl.text = "🧊 CLASSIC SATIN SKIN & COLOR OPTIONS"
-	classic_section_lbl.add_theme_font_size_override("font_size", 14)
-	classic_section_lbl.add_theme_color_override("font_color", Color(0.78, 0.85, 1.0, 0.9))
-	drawer_content.add_child(classic_section_lbl)
-	
-	var is_classic_active = (active_skin_id == "classic")
-	var classic_card = _create_card_container()
-	var c_vbox = VBoxContainer.new()
-	c_vbox.add_theme_constant_override("separation", 10)
-	classic_card.add_child(c_vbox)
-	
-	# Classic Header Row
-	var c_header = HBoxContainer.new()
-	var c_title = Label.new()
-	c_title.text = "🧊 Classic Satin Finish"
-	c_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	c_title.add_theme_font_size_override("font_size", 16)
-	c_title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
-	c_header.add_child(c_title)
-	
-	if is_classic_active:
-		var c_badge = Label.new()
-		c_badge.text = "✓ ACTIVE"
-		c_badge.add_theme_font_size_override("font_size", 13)
-		c_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-		c_header.add_child(c_badge)
-	c_vbox.add_child(c_header)
-	
-	var c_desc = Label.new()
-	c_desc.text = "Original minimalist beveled pastel blocks with soft edge ambient occlusion."
-	c_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	c_desc.add_theme_font_size_override("font_size", 13)
-	c_desc.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
-	c_vbox.add_child(c_desc)
-	
-	if not is_classic_active:
-		var equip_classic_btn = _create_card_button("EQUIP CLASSIC SATIN SKIN", false)
-		equip_classic_btn.pressed.connect(func():
-			active_skin_id = "classic"
-			sound_mgr.play_click()
-			_update_active_skins_in_scene()
-			_open_skins_drawer()
-		)
-		c_vbox.add_child(equip_classic_btn)
-	
-	# Color Palettes header inside classic card
-	var pal_subhead = Label.new()
-	pal_subhead.text = "🎨 COLOR PALETTES FOR CLASSIC SKIN:"
-	pal_subhead.add_theme_font_size_override("font_size", 12)
-	pal_subhead.add_theme_color_override("font_color", Color(0.65, 0.75, 0.90, 0.75))
-	c_vbox.add_child(pal_subhead)
-	
-	for i in range(PALETTES.size()):
-		var pal = PALETTES[i]
-		var is_pal_active = (is_classic_active and i == palette_index)
-		
-		var pal_row = PanelContainer.new()
-		var p_style = StyleBoxFlat.new()
-		p_style.bg_color = Color(0.09, 0.11, 0.18, 0.8)
-		p_style.set_corner_radius_all(10)
-		p_style.content_margin_left = 12
-		p_style.content_margin_right = 12
-		p_style.content_margin_top = 8
-		p_style.content_margin_bottom = 8
-		if is_pal_active:
-			p_style.border_color = Color(0.35, 0.75, 1.0, 0.8)
-			p_style.set_border_width_all(1)
-		pal_row.add_theme_stylebox_override("panel", p_style)
-		
-		var row_vbox = VBoxContainer.new()
-		row_vbox.add_theme_constant_override("separation", 6)
-		pal_row.add_child(row_vbox)
-		
-		var top_line = HBoxContainer.new()
-		var name_lbl = Label.new()
-		name_lbl.text = pal.get("name", "Palette " + str(i + 1))
-		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_lbl.add_theme_font_size_override("font_size", 14)
-		name_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
-		top_line.add_child(name_lbl)
-		
-		if is_pal_active:
-			var equipped_lbl = Label.new()
-			equipped_lbl.text = "✓ EQUIPPED"
-			equipped_lbl.add_theme_font_size_override("font_size", 12)
-			equipped_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-			top_line.add_child(equipped_lbl)
-		row_vbox.add_child(top_line)
-		
-		# Swatches
-		var swatches_row = HBoxContainer.new()
-		swatches_row.add_theme_constant_override("separation", 6)
-		if pal.get("mode", "") == "rainbow":
-			var sample_hues = [0.0, 0.16, 0.33, 0.5, 0.66, 0.83]
-			for h in sample_hues:
-				var swatch = ColorRect.new()
-				swatch.custom_minimum_size = Vector2(28, 18)
-				swatch.color = Color.from_hsv(h, float(pal.get("sat", 0.54)), float(pal.get("val", 0.92)))
-				swatches_row.add_child(swatch)
+func _make_tile_style(selected: bool, corner: int) -> StyleBoxFlat:
+	var st = StyleBoxFlat.new()
+	st.set_corner_radius_all(corner)
+	st.content_margin_left = 6
+	st.content_margin_right = 6
+	st.content_margin_top = 6
+	st.content_margin_bottom = 6
+	if selected:
+		st.bg_color = Color(0.14, 0.20, 0.34, 1.0)
+		st.set_border_width_all(2)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.90)
+	else:
+		st.bg_color = Color(0.10, 0.12, 0.18, 0.90)
+	return st
+
+func _refresh_skin_tiles() -> void:
+	for i in _skin_tile_btns.size():
+		var btn: Button = _skin_tile_btns[i]
+		if not is_instance_valid(btn):
+			continue
+		var skin_id: String = SKINS[i]["id"]
+		var sel = (active_skin_id == skin_id)
+		var st = _make_tile_style(sel, 6)
+		var st_h = st.duplicate() as StyleBoxFlat
+		st_h.bg_color = st.bg_color.lightened(0.06)
+		btn.add_theme_stylebox_override("normal", st)
+		btn.add_theme_stylebox_override("hover", st_h)
+		btn.add_theme_stylebox_override("pressed", st)
+		# Update name label color (child[0]=icon, child[1]=name_lbl)
+		var inner = btn.get_child(0)
+		if inner and inner.get_child_count() >= 2:
+			var nlbl = inner.get_child(1) as Label
+			if nlbl:
+				nlbl.add_theme_color_override("font_color",
+					Color(0.80, 0.86, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
+			# Show/hide ✓ badge (child index 2 when equipped)
+			if sel and inner.get_child_count() < 3:
+				var badge = Label.new()
+				badge.text = "✓"
+				badge.add_theme_font_size_override("font_size", 11)
+				badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+				badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				inner.add_child(badge)
+			elif not sel and inner.get_child_count() >= 3:
+				inner.get_child(2).queue_free()
+	# Palette section is always visible for all skins
+	if is_instance_valid(_pal_section_root):
+		_pal_section_root.visible = true
+
+func _refresh_pal_tiles() -> void:
+	for i in _pal_tile_btns.size():
+		var btn: Button = _pal_tile_btns[i]
+		if not is_instance_valid(btn):
+			continue
+		var sel = (i == palette_index)
+		var st = StyleBoxFlat.new()
+		st.set_corner_radius_all(5)
+		st.content_margin_left = 6
+		st.content_margin_right = 6
+		st.content_margin_top = 6
+		st.content_margin_bottom = 6
+		if sel:
+			st.bg_color = Color(0.12, 0.18, 0.30, 1.0)
+			st.set_border_width_all(2)
+			st.border_color = Color(1.0, 1.0, 1.0, 0.90)
 		else:
-			var colors = pal.get("colors", []) as Array
-			for c in colors:
-				var swatch = ColorRect.new()
-				swatch.custom_minimum_size = Vector2(28, 18)
-				swatch.color = c as Color
-				swatches_row.add_child(swatch)
-		row_vbox.add_child(swatches_row)
-		
-		if not is_pal_active:
-			var apply_btn = _create_card_button("APPLY PALETTE", false)
-			var chosen_idx = i
-			apply_btn.pressed.connect(func():
-				active_skin_id = "classic"
-				palette_index = chosen_idx
-				sound_mgr.play_click()
-				var p_data = PALETTES[palette_index]
-				var top_c = p_data.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
-				var bot_c = p_data.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
-				_transition_gradient_background(top_c, bot_c)
-				
-				var first_color = _get_box_shade(0)
-				if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
-					var rm = pedestal_rim.material_override as StandardMaterial3D
-					rm.albedo_color = first_color
-					rm.emission = first_color
-				_update_active_skins_in_scene()
-				_open_skins_drawer()
-			)
-			row_vbox.add_child(apply_btn)
-		
-		c_vbox.add_child(pal_row)
+			st.bg_color = Color(0.09, 0.11, 0.17, 0.90)
+		var st_h = st.duplicate() as StyleBoxFlat
+		st_h.bg_color = st.bg_color.lightened(0.06)
+		btn.add_theme_stylebox_override("normal", st)
+		btn.add_theme_stylebox_override("hover", st_h)
+		btn.add_theme_stylebox_override("pressed", st)
+		# Update name label color (p_inner child[0]=swatch_row, [1]=p_name)
+		var p_inner = btn.get_child(0)
+		if p_inner and p_inner.get_child_count() >= 2:
+			var pnlbl = p_inner.get_child(1) as Label
+			if pnlbl:
+				pnlbl.add_theme_color_override("font_color",
+					Color(0.80, 0.86, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
+			# Show/hide ✓ badge (child index 2)
+			if sel and p_inner.get_child_count() < 3:
+				var p_check = Label.new()
+				p_check.text = "✓"
+				p_check.add_theme_font_size_override("font_size", 11)
+				p_check.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+				p_check.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				p_check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				p_inner.add_child(p_check)
+			elif not sel and p_inner.get_child_count() >= 3:
+				p_inner.get_child(2).queue_free()
+
+func _open_skins_drawer() -> void:
+	_open_drawer("SKINS")
+	_skin_tile_btns.clear()
+	_pal_tile_btns.clear()
+	_pal_section_root = null
 	
-	drawer_content.add_child(classic_card)
-	
-	# --- SECTION 2: NEW TEXTURED SKINS ---
-	var spacer = Control.new()
-	spacer.custom_minimum_size = Vector2(0, 10)
-	drawer_content.add_child(spacer)
-	
-	var texture_section_lbl = Label.new()
-	texture_section_lbl.text = "✨ NEW TEXTURED SKINS"
-	texture_section_lbl.add_theme_font_size_override("font_size", 14)
-	texture_section_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.40, 0.95))
-	drawer_content.add_child(texture_section_lbl)
+	# --- ALL SKINS GRID (3 columns of square tiles) ---
+	var skins_grid = GridContainer.new()
+	skins_grid.columns = 3
+	skins_grid.add_theme_constant_override("h_separation", 8)
+	skins_grid.add_theme_constant_override("v_separation", 8)
+	skins_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	drawer_content.add_child(skins_grid)
 	
 	for s in SKINS:
-		if s["type"] != "textured":
-			continue
-		
 		var is_equipped = (active_skin_id == s["id"])
-		var card = _create_card_container()
-		var vbox = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 8)
-		card.add_child(vbox)
+		var tile_btn = Button.new()
+		tile_btn.flat = true
+		tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile_btn.custom_minimum_size = Vector2(0, 96)
 		
-		# Header
-		var header_row = HBoxContainer.new()
-		var title_lbl = Label.new()
-		title_lbl.text = s["icon"] + " " + s["name"]
-		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		title_lbl.add_theme_font_size_override("font_size", 16)
-		title_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
-		header_row.add_child(title_lbl)
+		var tile_style = _make_tile_style(is_equipped, 6)
+		var tile_hover = tile_style.duplicate() as StyleBoxFlat
+		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
+		tile_btn.add_theme_stylebox_override("normal", tile_style)
+		tile_btn.add_theme_stylebox_override("hover", tile_hover)
+		tile_btn.add_theme_stylebox_override("pressed", tile_style)
+		
+		# Inner VBox: icon + name (+ badge if equipped)
+		var inner = VBoxContainer.new()
+		inner.alignment = BoxContainer.ALIGNMENT_CENTER
+		inner.add_theme_constant_override("separation", 3)
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		tile_btn.add_child(inner)
+		
+		var icon_lbl = Label.new()
+		icon_lbl.text = s["icon"]
+		icon_lbl.add_theme_font_size_override("font_size", 30)
+		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(icon_lbl)
+		
+		var name_lbl = Label.new()
+		name_lbl.text = s["name"].to_upper()
+		name_lbl.add_theme_font_size_override("font_size", 9)
+		name_lbl.add_theme_color_override("font_color",
+			Color(0.80, 0.86, 1.0, 0.95) if is_equipped else Color(0.58, 0.65, 0.80, 0.80))
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(name_lbl)
 		
 		if is_equipped:
 			var badge = Label.new()
-			badge.text = "✓ EQUIPPED"
-			badge.add_theme_font_size_override("font_size", 13)
+			badge.text = "✓"
+			badge.add_theme_font_size_override("font_size", 11)
 			badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-			header_row.add_child(badge)
-		vbox.add_child(header_row)
+			badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			inner.add_child(badge)
 		
-		# Description
-		var desc_lbl = Label.new()
-		desc_lbl.text = s["desc"]
-		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc_lbl.add_theme_font_size_override("font_size", 13)
-		desc_lbl.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
-		vbox.add_child(desc_lbl)
+		# Connect equip action — update in-place, no drawer rebuild
+		var skin_id = s["id"]
+		tile_btn.pressed.connect(func():
+			if active_skin_id == skin_id:
+				return
+			active_skin_id = skin_id
+			sound_mgr.play_click()
+			_update_active_skins_in_scene()
+			_refresh_skin_tiles()
+		)
+		_skin_tile_btns.append(tile_btn)
+		skins_grid.add_child(tile_btn)
+	
+	# --- PALETTE SECTION (always created; shown only when Classic is active) ---
+	var pal_section = VBoxContainer.new()
+	pal_section.add_theme_constant_override("separation", 8)
+	pal_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pal_section.visible = true
+	_pal_section_root = pal_section
+	drawer_content.add_child(pal_section)
+	
+	var _spacer = Control.new()
+	_spacer.custom_minimum_size = Vector2(0, 6)
+	pal_section.add_child(_spacer)
+	
+	var pal_header = Label.new()
+	pal_header.text = "COLOR PALETTES"
+	pal_header.add_theme_font_size_override("font_size", 12)
+	pal_header.add_theme_color_override("font_color", Color(0.55, 0.64, 0.82, 0.80))
+	pal_section.add_child(pal_header)
+	
+	var pal_grid = GridContainer.new()
+	pal_grid.columns = 3
+	pal_grid.add_theme_constant_override("h_separation", 8)
+	pal_grid.add_theme_constant_override("v_separation", 8)
+	pal_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pal_section.add_child(pal_grid)
+	
+	for i in range(PALETTES.size()):
+		var pal = PALETTES[i]
+		var is_pal_active = (i == palette_index)
 		
-		# Material Highlights Tag
-		var tag_lbl = Label.new()
-		var tag_text = ""
-		if s["id"] == "marble":
-			tag_text = "💎 Polished Specular | Italian Quartz Veining"
-		elif s["id"] == "wood":
-			tag_text = "🌲 Satin Cedar | Elongated Organic Grain Rings"
-		elif s["id"] == "cyber":
-			tag_text = "⚡ Glowing Neon Traces | Dual Isometric Grid"
-		elif s["id"] == "terrazzo":
-			tag_text = "🪨 Multi-tone Chips | Modern Architectural Composite"
-		tag_lbl.text = tag_text
-		tag_lbl.add_theme_font_size_override("font_size", 12)
-		tag_lbl.add_theme_color_override("font_color", Color(0.65, 0.78, 0.95, 0.75))
-		vbox.add_child(tag_lbl)
+		var pal_btn = Button.new()
+		pal_btn.flat = true
+		pal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pal_btn.custom_minimum_size = Vector2(0, 88)
 		
-		# Action button
-		var btn = _create_card_button("✓ EQUIPPED" if is_equipped else "EQUIP " + s["name"].to_upper(), is_equipped)
-		if not is_equipped:
-			var skin_id = s["id"]
-			btn.pressed.connect(func():
-				active_skin_id = skin_id
-				sound_mgr.play_click()
-				_update_active_skins_in_scene()
-				_open_skins_drawer()
-			)
-		vbox.add_child(btn)
-		drawer_content.add_child(card)
+		var ps = StyleBoxFlat.new()
+		ps.set_corner_radius_all(5)
+		ps.content_margin_left = 6
+		ps.content_margin_right = 6
+		ps.content_margin_top = 6
+		ps.content_margin_bottom = 6
+		if is_pal_active:
+			ps.bg_color = Color(0.12, 0.18, 0.30, 1.0)
+			ps.set_border_width_all(2)
+			ps.border_color = Color(1.0, 1.0, 1.0, 0.90)
+		else:
+			ps.bg_color = Color(0.09, 0.11, 0.17, 0.90)
+		var ps_h = ps.duplicate() as StyleBoxFlat
+		ps_h.bg_color = ps.bg_color.lightened(0.06)
+		pal_btn.add_theme_stylebox_override("normal", ps)
+		pal_btn.add_theme_stylebox_override("hover", ps_h)
+		pal_btn.add_theme_stylebox_override("pressed", ps)
+		
+		var p_inner = VBoxContainer.new()
+		p_inner.alignment = BoxContainer.ALIGNMENT_CENTER
+		p_inner.add_theme_constant_override("separation", 4)
+		p_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p_inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pal_btn.add_child(p_inner)
+		
+		# Color swatch strip
+		var swatch_row = HBoxContainer.new()
+		swatch_row.add_theme_constant_override("separation", 2)
+		swatch_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		swatch_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var is_trans = pal.get("is_transparent", false)
+		if pal.get("mode", "") == "rainbow":
+			var sample_hues = [0.0, 0.16, 0.33, 0.5, 0.66, 0.83]
+			var pal_alpha = float(pal.get("alpha", 1.0))
+			for h in sample_hues:
+				var sw = PanelContainer.new()
+				sw.custom_minimum_size = Vector2(14, 14)
+				sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var sc = Color.from_hsv(h, float(pal.get("sat", 0.54)), float(pal.get("val", 0.92)))
+				sc.a = pal_alpha
+				var sb = StyleBoxFlat.new()
+				sb.bg_color = sc
+				sb.set_corner_radius_all(2)
+				if is_trans:
+					sb.set_border_width_all(1)
+					sb.border_color = Color(1.0, 1.0, 1.0, 0.5)
+				sw.add_theme_stylebox_override("panel", sb)
+				swatch_row.add_child(sw)
+		else:
+			var colors = pal.get("colors", []) as Array
+			for c in colors:
+				var sw = PanelContainer.new()
+				sw.custom_minimum_size = Vector2(14, 14)
+				sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var sb = StyleBoxFlat.new()
+				sb.bg_color = c as Color
+				sb.set_corner_radius_all(2)
+				if is_trans:
+					sb.set_border_width_all(1)
+					sb.border_color = Color(1.0, 1.0, 1.0, 0.5)
+				sw.add_theme_stylebox_override("panel", sb)
+				swatch_row.add_child(sw)
+		p_inner.add_child(swatch_row)
+		
+		var p_name = Label.new()
+		p_name.text = pal.get("name", "Palette " + str(i + 1))
+		p_name.add_theme_font_size_override("font_size", 9)
+		p_name.add_theme_color_override("font_color",
+			Color(0.80, 0.86, 1.0, 0.95) if is_pal_active else Color(0.58, 0.65, 0.80, 0.80))
+		p_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		p_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		p_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p_inner.add_child(p_name)
+		
+		if is_pal_active:
+			var p_check = Label.new()
+			p_check.text = "✓"
+			p_check.add_theme_font_size_override("font_size", 11)
+			p_check.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+			p_check.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			p_check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			p_inner.add_child(p_check)
+		
+		# Connect palette select — update in-place, no drawer rebuild
+		var chosen_idx = i
+		pal_btn.pressed.connect(func():
+			if palette_index == chosen_idx:
+				return
+			palette_index = chosen_idx
+			sound_mgr.play_click()
+			var p_data = PALETTES[palette_index]
+			var top_c = p_data.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
+			var bot_c = p_data.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+			_transition_gradient_background(top_c, bot_c)
+			var first_color = _get_box_shade(0)
+			if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
+				var rm = pedestal_rim.material_override as StandardMaterial3D
+				rm.albedo_color = first_color
+				rm.emission = first_color
+			_update_active_skins_in_scene()
+			_refresh_pal_tiles()
+		)
+		_pal_tile_btns.append(pal_btn)
+		pal_grid.add_child(pal_btn)
 
 func _open_challenge_drawer() -> void:
 	_open_drawer("CHALLENGE MODES")
@@ -1635,7 +1804,10 @@ func _get_box_shade(index: int) -> Color:
 	var pal = PALETTES[palette_index % PALETTES.size()]
 	if pal["mode"] == "rainbow":
 		var h = fmod(current_palette_start_hue + index * float(pal["speed"]), 1.0)
-		return Color.from_hsv(h, float(pal["sat"]), float(pal["val"]))
+		var c = Color.from_hsv(h, float(pal["sat"]), float(pal["val"]))
+		if pal.has("alpha"):
+			c.a = float(pal["alpha"])
+		return c
 	else:
 		var colors = pal["colors"] as Array
 		var count = colors.size()

@@ -26,7 +26,7 @@ static func _get_cube_shader() -> Shader:
 		_cube_shader = Shader.new()
 		_cube_shader.code = """
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, depth_draw_always, cull_back, diffuse_burley, specular_schlick_ggx;
 
 uniform vec4 base_color : source_color = vec4(0.48, 0.76, 0.96, 1.0);
 uniform vec3 box_half_size = vec3(1.2, 0.4, 1.2);
@@ -121,6 +121,14 @@ void fragment() {
 	}
 	if (length(total_emission) > 0.001) {
 		EMISSION = total_emission;
+	}
+	
+	// Transparency / Alpha support
+	if (base_color.a < 0.999) {
+		float edge_density = (1.0 - ao_t) * 0.22 + chamfer * 0.45;
+		ALPHA = clamp(base_color.a + edge_density, 0.0, 1.0);
+	} else {
+		ALPHA = 1.0;
 	}
 }
 """
@@ -260,6 +268,7 @@ func _apply_color() -> void:
 	
 	if trail_particles:
 		var trail_c = Color.from_hsv(box_color.h, clamp(box_color.s * 0.9, 0.4, 0.7), box_color.v)
+		trail_c.a = box_color.a
 		trail_particles.color = trail_c
 		if trail_particles.mesh and trail_particles.mesh is BoxMesh:
 			var pm = (trail_particles.mesh as BoxMesh).material as StandardMaterial3D
@@ -267,7 +276,9 @@ func _apply_color() -> void:
 				pm.albedo_color = trail_c
 	
 	if drop_particles:
-		drop_particles.color = Color.from_hsv(box_color.h, clamp(box_color.s * 0.8, 0.35, 0.6), box_color.v)
+		var drop_c = Color.from_hsv(box_color.h, clamp(box_color.s * 0.8, 0.35, 0.6), box_color.v)
+		drop_c.a = box_color.a
+		drop_particles.color = drop_c
 
 # Called continuously while attached to slider
 func update_slider_motion(delta: float, velocity_factor: float, axis_index: int, is_aligned: bool, hover_time: float) -> void:

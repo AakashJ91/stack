@@ -226,9 +226,115 @@ def generate_terrazzo(size=512):
     pil_out.save("textures/skin_terrazzo.png")
     print("Saved textures/skin_terrazzo.png")
 
+def generate_glass(size=512):
+    print("Generating seamless Glass texture...")
+    np.random.seed(111)
+    arr = np.zeros((size, size, 4), dtype=np.float32)
+
+    # Faint diagonal specular streaks (reflection bands)
+    x = np.arange(size, dtype=np.float32)
+    y = np.arange(size, dtype=np.float32)
+    xx, yy = np.meshgrid(x, y)
+    diag = (xx + yy * 0.55) / size
+    streak1 = np.sin(diag * np.pi * 6.0) * 0.5 + 0.5
+    streak1 = np.power(streak1, 6.0)  # narrow bright bands
+
+    diag2 = (xx * 0.4 + yy) / size
+    streak2 = np.sin(diag2 * np.pi * 8.0 + 1.2) * 0.5 + 0.5
+    streak2 = np.power(streak2, 8.0)
+
+    streaks = np.clip(streak1 * 0.7 + streak2 * 0.3, 0.0, 1.0)
+
+    # Very subtle micro-ripple noise
+    ripple = create_seamless_noise(size, octaves=4, seed=222)
+    ripple = (ripple - 0.5) * 0.02
+
+    # Base: near-white (high brightness, very low saturation — clear glass)
+    albedo = np.clip(0.92 + streaks * 0.08 + ripple, 0.0, 1.0)
+
+    # Glass tint: very slightly blue-cyan
+    arr[:, :, 0] = (albedo * 0.96 * 255).astype(np.uint8)
+    arr[:, :, 1] = (albedo * 0.98 * 255).astype(np.uint8)
+    arr[:, :, 2] = (albedo * 255).astype(np.uint8)
+    # Alpha = specular gloss mask (very high everywhere, peaks at streaks)
+    arr[:, :, 3] = np.clip((0.88 + streaks * 0.12) * 255, 0, 255).astype(np.uint8)
+
+    pil_img = Image.fromarray(arr.astype(np.uint8), mode="RGBA")
+    pil_img.save("textures/skin_glass.png")
+    print("Saved textures/skin_glass.png")
+
+
+def generate_frosted(size=512):
+    print("Generating seamless Frosted Glass texture...")
+    np.random.seed(333)
+
+    # Multi-octave soft noise base — fine crystalline etch pattern
+    n1 = create_seamless_noise(size, octaves=5, seed=444)
+    n2 = create_seamless_noise(size, octaves=8, seed=555)  # fine grain
+
+    # Combine: overall soft cloud + fine surface scratch
+    combined = n1 * 0.55 + n2 * 0.45
+
+    # Narrow micro-scratch lines (directional)
+    x = np.arange(size, dtype=np.float32)
+    y = np.arange(size, dtype=np.float32)
+    xx, yy = np.meshgrid(x, y)
+    scratch = np.sin((xx * 0.7 + yy * 0.3) * 0.18) * 0.5 + 0.5
+    scratch = np.power(scratch, 10.0) * 0.12
+
+    # Albedo: soft white-milky (0.85 – 0.96)
+    albedo = np.clip(0.82 + combined * 0.16 + scratch, 0.0, 1.0)
+
+    # Slight cool-white tint
+    arr = np.zeros((size, size, 4), dtype=np.uint8)
+    arr[:, :, 0] = (albedo * 0.97 * 255).astype(np.uint8)
+    arr[:, :, 1] = (albedo * 0.99 * 255).astype(np.uint8)
+    arr[:, :, 2] = (albedo * 255).astype(np.uint8)
+    # Alpha specular: lower (frosted = diffuse / matte)
+    arr[:, :, 3] = np.clip((0.35 + combined * 0.25) * 255, 0, 255).astype(np.uint8)
+
+    pil_img = Image.fromarray(arr, mode="RGBA")
+    # Slight blur to simulate diffusion haze
+    pil_img = pil_img.filter(ImageFilter.GaussianBlur(radius=0.8))
+    pil_img.save("textures/skin_frosted.png")
+    print("Saved textures/skin_frosted.png")
+
+
+def generate_dusty(size=512):
+    print("Generating seamless Dusty texture...")
+    np.random.seed(666)
+
+    # Base coarse-grain noise (sandy aggregate)
+    n1 = create_seamless_noise(size, octaves=4, seed=777)
+    n2 = create_seamless_noise(size, octaves=7, seed=888)  # fine speckle
+
+    # Scattered fine dust particles
+    n3 = create_seamless_noise(size, octaves=9, seed=999)
+    dust = np.power(np.clip(n3, 0.0, 1.0), 3.5) * 0.15  # dark specks
+
+    combined = n1 * 0.50 + n2 * 0.35 + dust * 0.15
+
+    # Warm sandy-beige tone
+    albedo = np.clip(0.70 + combined * 0.28, 0.0, 1.0)
+
+    arr = np.zeros((size, size, 4), dtype=np.uint8)
+    # Warm tint: R heavy, G slightly lower, B lower still
+    arr[:, :, 0] = np.clip(albedo * 255, 0, 255).astype(np.uint8)
+    arr[:, :, 1] = np.clip(albedo * 0.91 * 255, 0, 255).astype(np.uint8)
+    arr[:, :, 2] = np.clip(albedo * 0.80 * 255, 0, 255).astype(np.uint8)
+    # Alpha specular: low (very matte dusty surface)
+    arr[:, :, 3] = np.clip((0.20 + n1 * 0.18) * 255, 0, 255).astype(np.uint8)
+
+    pil_img = Image.fromarray(arr, mode="RGBA")
+    pil_img.save("textures/skin_dusty.png")
+    print("Saved textures/skin_dusty.png")
+
+
 if __name__ == "__main__":
     generate_marble()
-    generate_wood()
-    generate_cyber()
     generate_terrazzo()
+    generate_glass()
+    generate_frosted()
+    generate_dusty()
     print("All textures generated successfully!")
+
