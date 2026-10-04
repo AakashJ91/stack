@@ -47,6 +47,8 @@ var active_box: Node3D = null
 var pedestal_rim: MeshInstance3D
 var pedestal_mat: ShaderMaterial
 var pedestal_mist_particles: CPUParticles3D
+var fog_sheets: Array[MeshInstance3D] = []
+var fog_materials: Array[ShaderMaterial] = []
 
 # Gradient Background Components
 var bg_quad: MeshInstance3D
@@ -133,6 +135,7 @@ func _ready() -> void:
 	_setup_lighting_and_env()
 	_setup_gradient_background()
 	_create_pedestal()
+	_setup_realistic_fog_sheets()
 	base_camera_pivot_y = camera_pivot.position.y
 	target_camera_y = base_camera_pivot_y
 	target_camera_x = camera_pivot.position.x
@@ -203,6 +206,24 @@ func _transition_gradient_background(target_top: Color, target_bottom: Color) ->
 		var mist_tint = target_bottom.lerp(Color.WHITE, 0.35)
 		mist_tint.a = 0.25
 		pedestal_mist_particles.color = mist_tint
+	
+	# Update realistic environment height fog color
+	var env = $WorldEnvironment.environment
+	if env and env.fog_enabled:
+		var target_fog_c = target_bottom.lerp(Color(0.65, 0.75, 0.90), 0.25)
+		bg_tween.tween_property(env, "fog_light_color", target_fog_c, 0.7)
+	
+	# Update rolling mist shader sheets color
+	var target_sheet_c = target_bottom.lerp(Color(0.85, 0.90, 1.0), 0.18)
+	for f_mat in fog_materials:
+		if is_instance_valid(f_mat):
+			var cur_fc = f_mat.get_shader_parameter("fog_color")
+			if cur_fc == null:
+				cur_fc = target_sheet_c
+			bg_tween.tween_method(func(c: Color):
+				if is_instance_valid(f_mat):
+					f_mat.set_shader_parameter("fog_color", Color(c.r, c.g, c.b, 0.42))
+			, cur_fc, target_sheet_c, 0.7)
 
 func _update_height_gradient_tint(height_index: int) -> void:
 	if not bg_gradient:
@@ -225,6 +246,19 @@ func _setup_lighting_and_env() -> void:
 		env.glow_enabled = true
 		env.glow_intensity = 0.30
 		env.glow_bloom = 0.05
+		
+		# Realistic Atmospheric Height Fog
+		env.fog_enabled = true
+		env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+		var pal = PALETTES[palette_index % PALETTES.size()]
+		var bot_c = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+		env.fog_light_color = bot_c.lerp(Color(0.65, 0.75, 0.90), 0.25)
+		env.fog_light_energy = 0.95
+		env.fog_density = 0.014
+		env.fog_aerial_perspective = 0.45
+		env.fog_sky_affect = 0.25
+		env.fog_height = -0.5
+		env.fog_height_density = 0.20
 	
 	var light = $DirectionalLight3D as DirectionalLight3D
 	if light:
@@ -360,6 +394,93 @@ func _setup_pedestal_mist() -> void:
 	pedestal_mist_particles.color = mist_tint
 	
 	add_child(pedestal_mist_particles)
+
+func _setup_realistic_fog_sheets() -> void:
+	for sheet in fog_sheets:
+		if is_instance_valid(sheet):
+			sheet.queue_free()
+	fog_sheets.clear()
+	fog_materials.clear()
+	
+	# Procedural smooth simplex noise for rolling mist tendrils
+	var noise = FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.frequency = 0.016
+	noise.fractal_octaves = 3
+	
+	var noise_tex = NoiseTexture2D.new()
+	noise_tex.seamless = true
+	noise_tex.noise = noise
+	noise_tex.width = 256
+	noise_tex.height = 256
+	
+	var fog_shader = Shader.new()
+	fog_shader.code = """
+shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
+
+uniform sampler2D noise_tex : repeat_enable, filter_linear;
+uniform vec4 fog_color : source_color = vec4(0.15, 0.18, 0.28, 0.45);
+uniform vec2 scroll_speed = vec2(0.012, 0.008);
+uniform vec2 scroll_speed2 = vec2(-0.008, 0.015);
+uniform float density = 0.65;
+uniform float edge_fade_radius = 24.0;
+
+varying vec3 v_world_pos;
+
+void vertex() {
+	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	vec2 uv1 = v_world_pos.xz * 0.055 + TIME * scroll_speed;
+	vec2 uv2 = v_world_pos.xz * 0.085 + TIME * scroll_speed2;
+	
+	float n1 = texture(noise_tex, uv1).r;
+	float n2 = texture(noise_tex, uv2).r;
+	float noise_val = smoothstep(0.12, 0.88, (n1 * 0.6 + n2 * 0.4));
+	
+	float dist = length(v_world_pos.xz);
+	float circle_fade = clamp(1.0 - (dist / edge_fade_radius), 0.0, 1.0);
+	circle_fade = circle_fade * circle_fade * (3.0 - 2.0 * circle_fade);
+	
+	ALBEDO = fog_color.rgb;
+	ALPHA = noise_val * circle_fade * fog_color.a * density;
+}
+"""
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	var bot_c = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+	var base_fog_color = bot_c.lerp(Color(0.85, 0.90, 1.0), 0.18)
+	
+	# Staggered height layers creating authentic 3D parallax depth
+	var layer_configs = [
+		{"y": -2.2, "size": 32.0, "density": 0.35, "s1": Vector2(0.014, 0.008), "s2": Vector2(-0.009, 0.015), "radius": 16.0},
+		{"y": -4.6, "size": 42.0, "density": 0.50, "s1": Vector2(-0.011, 0.014), "s2": Vector2(0.015, -0.008), "radius": 22.0},
+		{"y": -8.0, "size": 54.0, "density": 0.68, "s1": Vector2(0.018, -0.012), "s2": Vector2(-0.014, 0.010), "radius": 28.0},
+		{"y": -12.5, "size": 68.0, "density": 0.85, "s1": Vector2(-0.015, -0.009), "s2": Vector2(0.012, 0.016), "radius": 34.0}
+	]
+	
+	for cfg in layer_configs:
+		var mat = ShaderMaterial.new()
+		mat.shader = fog_shader
+		mat.set_shader_parameter("noise_tex", noise_tex)
+		mat.set_shader_parameter("fog_color", Color(base_fog_color.r, base_fog_color.g, base_fog_color.b, 0.42))
+		mat.set_shader_parameter("density", cfg["density"])
+		mat.set_shader_parameter("scroll_speed", cfg["s1"])
+		mat.set_shader_parameter("scroll_speed2", cfg["s2"])
+		mat.set_shader_parameter("edge_fade_radius", cfg["radius"])
+		
+		var mesh_inst = MeshInstance3D.new()
+		var plane = PlaneMesh.new()
+		plane.size = Vector2(cfg["size"], cfg["size"])
+		mesh_inst.mesh = plane
+		mesh_inst.material_override = mat
+		mesh_inst.position = Vector3(0, cfg["y"], 0)
+		mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		
+		add_child(mesh_inst)
+		fog_sheets.append(mesh_inst)
+		fog_materials.append(mat)
 
 func reset_game() -> void:
 	# Clear existing stack boxes
