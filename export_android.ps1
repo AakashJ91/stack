@@ -18,9 +18,24 @@ Write-Host "Building Android APK..." -ForegroundColor Yellow
 
 if ($LASTEXITCODE -eq 0 -and (Test-Path "build/IsoPendulumStacker.apk")) {
     Copy-Item -Path "build/IsoPendulumStacker.apk" -Destination "IsoPendulumStacker.apk" -Force
+    
+    # Auto-sign APK with apksigner to ensure 100% device install compatibility
+    $javaPath = "C:\Program Files\Android\Android Studio1\jbr"
+    $apkSignerPath = "C:\Users\aakas\AppData\Local\Android\Sdk\build-tools\36.1.0\apksigner.bat"
+    $debugKeystore = "$env:USERPROFILE\.android\debug.keystore"
+    
+    if ((Test-Path $apkSignerPath) -and (Test-Path $debugKeystore)) {
+        if (Test-Path $javaPath) {
+            $env:JAVA_HOME = $javaPath
+            $env:Path = "$javaPath\bin;$env:Path"
+        }
+        Write-Host "Signing APK with debug keystore..." -ForegroundColor Yellow
+        & $apkSignerPath sign --ks $debugKeystore --ks-pass pass:android --ks-key-alias androiddebugkey "IsoPendulumStacker.apk" | Out-Null
+    }
+
     $sizeMb = [math]::Round((Get-Item "IsoPendulumStacker.apk").Length / 1MB, 2)
     Write-Host "`n===================================================" -ForegroundColor Green
-    Write-Host "SUCCESS! APK generated successfully: IsoPendulumStacker.apk ($sizeMb MB)" -ForegroundColor Green
+    Write-Host "SUCCESS! APK generated and signed: IsoPendulumStacker.apk ($sizeMb MB)" -ForegroundColor Green
     Write-Host "===================================================" -ForegroundColor Green
 } else {
     Write-Host "`n[ERROR] Godot Android export failed with code $LASTEXITCODE" -ForegroundColor Red

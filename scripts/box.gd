@@ -31,6 +31,10 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 uniform vec4 base_color : source_color = vec4(0.48, 0.76, 0.96, 1.0);
 uniform vec3 box_half_size = vec3(1.2, 0.4, 1.2);
 uniform sampler2D surface_grain : repeat_enable, filter_linear;
+uniform sampler2D skin_texture : repeat_enable, filter_linear;
+uniform float skin_texture_strength : hint_range(0.0, 1.0) = 0.0;
+uniform float skin_emission_strength : hint_range(0.0, 5.0) = 0.0;
+uniform vec2 uv_scale = vec2(0.65, 0.65);
 uniform float bevel_width = 0.09;
 uniform float chamfer_width = 0.022;
 uniform float roughness : hint_range(0.0, 1.0) = 0.32;
@@ -89,15 +93,34 @@ void fragment() {
 	// 5. Vertical soft volumetric shading
 	float vert_shade = (v_local_pos.y / box_half_size.y) * 0.04;
 	
-	vec3 col = base_color.rgb * ao + vec3(chamfer) + vec3(grain) + vec3(top_inset) + vec3(vert_shade);
+	// 6. Skin Texture Sampling & Dynamic Blending
+	vec3 base_rgb = base_color.rgb;
+	float skin_spec = 1.0;
+	vec3 skin_emit = vec3(0.0);
+	
+	if (skin_texture_strength > 0.001) {
+		vec4 skin_tex_val = texture(skin_texture, uv * uv_scale);
+		vec3 tinted_tex = base_rgb * skin_tex_val.rgb;
+		base_rgb = mix(base_rgb, tinted_tex, skin_texture_strength);
+		skin_spec = mix(1.0, skin_tex_val.a, skin_texture_strength * 0.35);
+		if (skin_emission_strength > 0.001) {
+			skin_emit = base_color.rgb * (skin_tex_val.a * skin_emission_strength);
+		}
+	}
+	
+	vec3 col = base_rgb * ao + vec3(chamfer) + vec3(grain) + vec3(top_inset) + vec3(vert_shade);
 	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
 	
-	ROUGHNESS = mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t);
+	ROUGHNESS = clamp(mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t) * skin_spec, 0.08, 0.95);
 	METALLIC = metallic;
 	SPECULAR = 0.55;
 	
+	vec3 total_emission = skin_emit;
 	if (emission_energy > 0.001) {
-		EMISSION = emission_color.rgb * emission_energy;
+		total_emission += emission_color.rgb * emission_energy;
+	}
+	if (length(total_emission) > 0.001) {
+		EMISSION = total_emission;
 	}
 }
 """
@@ -159,6 +182,10 @@ func _build_mesh() -> void:
 	material.set_shader_parameter("surface_grain", TEX_SURFACE_GRAIN)
 	material.set_shader_parameter("box_half_size", box_size * 0.5)
 	material.set_shader_parameter("base_color", box_color)
+	material.set_shader_parameter("skin_texture", TEX_SURFACE_GRAIN)
+	material.set_shader_parameter("skin_texture_strength", 0.0)
+	material.set_shader_parameter("skin_emission_strength", 0.0)
+	material.set_shader_parameter("uv_scale", Vector2(0.65, 0.65))
 	mesh_instance.material_override = material
 	tilt_root.add_child(mesh_instance)
 	
@@ -208,6 +235,24 @@ func _build_mesh() -> void:
 func set_color(color: Color) -> void:
 	box_color = color
 	_apply_color()
+
+func apply_skin(skin_config: Dictionary) -> void:
+	if not material:
+		return
+	var tex = skin_config.get("texture", null)
+	var strength = float(skin_config.get("strength", 0.0))
+	var emission = float(skin_config.get("emission", 0.0))
+	var rough = float(skin_config.get("roughness", 0.32))
+	var metal = float(skin_config.get("metallic", 0.03))
+	var uv_sc = skin_config.get("uv_scale", Vector2(0.65, 0.65))
+	
+	if tex:
+		material.set_shader_parameter("skin_texture", tex)
+	material.set_shader_parameter("skin_texture_strength", strength)
+	material.set_shader_parameter("skin_emission_strength", emission)
+	material.set_shader_parameter("roughness", rough)
+	material.set_shader_parameter("metallic", metal)
+	material.set_shader_parameter("uv_scale", uv_sc)
 
 func _apply_color() -> void:
 	if material:

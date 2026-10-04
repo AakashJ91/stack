@@ -3,9 +3,9 @@ extends Node3D
 const StackBox = preload("res://scripts/box.gd")
 const CubeSlider = preload("res://scripts/cube_slider.gd")
 
-enum GameState { READY, PLAYING, DROPPING, GAME_OVER }
+enum GameState { MENU, READY, PLAYING, DROPPING, GAME_OVER }
 
-var state: GameState = GameState.READY
+var state: GameState = GameState.MENU
 var score: int = 0
 var high_score: int = 0
 var combo: int = 0
@@ -23,11 +23,13 @@ var current_target_pos: Vector3 = Vector3.ZERO
 # Camera tracking
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
+const BASE_CAMERA_SIZE: float = 12.8
 var target_camera_y: float = 0.0
 var base_camera_pivot_y: float = 0.0
 var target_camera_x: float = 0.0
 var target_camera_z: float = 0.0
 var screen_shake_trauma: float = 0.0
+var game_over_zoom_tween: Tween = null
 
 # Nodes
 @onready var slider: Node3D = $Slider
@@ -41,6 +43,32 @@ var screen_shake_trauma: float = 0.0
 @onready var best_score_label = $UI/GameOverPanel/VBox/BestScore
 @onready var new_best_badge = $UI/GameOverPanel/VBox/NewBestBadge
 @onready var sound_btn = $UI/HUD/SoundBtn
+@onready var home_btn = $UI/GameOverPanel/VBox/HomeBtn
+
+# Main Menu & Ribbon UI
+@onready var main_menu = $UI/MainMenu
+@onready var top_section = $UI/MainMenu/TopSection
+@onready var game_title = $UI/MainMenu/TopSection/GameTitle
+@onready var menu_best_score = $UI/MainMenu/TopSection/MenuBestScore
+@onready var tap_to_play_btn = $UI/MainMenu/TapToPlayBtn
+@onready var tap_to_play_label = $UI/MainMenu/TapToPlayBtn/VBox/TapToPlayLabel
+@onready var play_icon = $UI/MainMenu/TapToPlayBtn/VBox/PlayIcon
+@onready var bottom_ribbon = $UI/MainMenu/BottomRibbon
+@onready var btn_skin = $UI/MainMenu/BottomRibbon/HBox/BtnSkin
+@onready var btn_challenge = $UI/MainMenu/BottomRibbon/HBox/BtnChallenge
+@onready var btn_home = $UI/MainMenu/BottomRibbon/HBox/BtnHome
+@onready var btn_levels = $UI/MainMenu/BottomRibbon/HBox/BtnLevels
+@onready var drawer_modal = $UI/MainMenu/DrawerModal
+@onready var drawer_title = $UI/MainMenu/DrawerModal/VBox/HeaderHBox/DrawerTitle
+@onready var close_drawer_btn = $UI/MainMenu/DrawerModal/VBox/HeaderHBox/CloseDrawerBtn
+@onready var drawer_content = $UI/MainMenu/DrawerModal/VBox/Scroll/ContentContainer
+
+# Challenge & UI Modes
+var active_challenge_id: String = "classic"
+var challenge_speed_multiplier: float = 1.0
+var challenge_perfect_multiplier: float = 1.0
+var active_ribbon_tab: String = "home"
+var tap_pulse_tween: Tween = null
 
 var active_box: Node3D = null
 
@@ -56,6 +84,97 @@ var bg_gradient: Gradient
 var bg_texture: GradientTexture2D
 var bg_material: StandardMaterial3D
 var bg_tween: Tween = null
+
+# Textured Skins System
+const SKIN_TEXTURES = {
+	"marble": preload("res://textures/skin_marble.png"),
+	"wood": preload("res://textures/skin_wood.png"),
+	"cyber": preload("res://textures/skin_cyber.png"),
+	"terrazzo": preload("res://textures/skin_terrazzo.png"),
+}
+
+const SKINS: Array[Dictionary] = [
+	{
+		"id": "classic",
+		"name": "Classic Satin",
+		"icon": "🧊",
+		"desc": "Original clean beveled pastel blocks with smooth satin shading and ambient occlusion.",
+		"type": "classic",
+		"strength": 0.0,
+		"emission": 0.0,
+		"roughness": 0.32,
+		"metallic": 0.03,
+		"uv_scale": Vector2(0.65, 0.65)
+	},
+	{
+		"id": "marble",
+		"name": "Carrara Marble",
+		"icon": "🏛️",
+		"desc": "Polished Italian quartz with high-gloss crystalline veining and fine cracks.",
+		"type": "textured",
+		"strength": 0.70,
+		"emission": 0.0,
+		"roughness": 0.16,
+		"metallic": 0.05,
+		"uv_scale": Vector2(0.55, 0.55)
+	},
+	{
+		"id": "wood",
+		"name": "Nordic Cedar Wood",
+		"icon": "🪵",
+		"desc": "Warm organic cedar wood grain with ring bands and longitudinal grain fibers.",
+		"type": "textured",
+		"strength": 0.75,
+		"emission": 0.0,
+		"roughness": 0.42,
+		"metallic": 0.02,
+		"uv_scale": Vector2(0.60, 0.60)
+	},
+	{
+		"id": "cyber",
+		"name": "Cyber Holo Matrix",
+		"icon": "⚡",
+		"desc": "Futuristic isometric circuit grid with pulsating neon tech traces and node pads.",
+		"type": "textured",
+		"strength": 0.85,
+		"emission": 1.4,
+		"roughness": 0.25,
+		"metallic": 0.12,
+		"uv_scale": Vector2(0.85, 0.85)
+	},
+	{
+		"id": "terrazzo",
+		"name": "Modern Terrazzo Stone",
+		"icon": "🪨",
+		"desc": "Architectural composite stone with embedded polished quartz and mineral flakes.",
+		"type": "textured",
+		"strength": 0.68,
+		"emission": 0.0,
+		"roughness": 0.36,
+		"metallic": 0.04,
+		"uv_scale": Vector2(0.70, 0.70)
+	}
+]
+var active_skin_id: String = "classic"
+
+func get_current_skin_config() -> Dictionary:
+	for s in SKINS:
+		if s["id"] == active_skin_id:
+			var cfg = s.duplicate()
+			if s["id"] in SKIN_TEXTURES:
+				cfg["texture"] = SKIN_TEXTURES[s["id"]]
+			return cfg
+	return SKINS[0].duplicate()
+
+func _update_active_skins_in_scene() -> void:
+	var skin_cfg = get_current_skin_config()
+	if is_instance_valid(active_box) and active_box.has_method("apply_skin"):
+		active_box.apply_skin(skin_cfg)
+		if active_box.has_method("set_color"):
+			active_box.set_color(_get_box_shade(stack.size()))
+	for b in stack:
+		if is_instance_valid(b) and b.has_method("apply_skin"):
+			b.apply_skin(skin_cfg)
 
 # Curated high-aesthetic pastel color palettes for stacking runs
 # Each palette has its own dedicated complementary atmospheric gradient background
@@ -144,8 +263,10 @@ func _ready() -> void:
 	slider.box_released.connect(_on_box_released)
 	sound_btn.pressed.connect(_on_sound_btn_pressed)
 	$UI/GameOverPanel/VBox/RestartBtn.pressed.connect(restart_game)
+	home_btn.pressed.connect(show_main_menu)
 	
-	reset_game()
+	_setup_ribbon_listeners()
+	show_main_menu()
 
 func _setup_gradient_background() -> void:
 	bg_quad = MeshInstance3D.new()
@@ -482,6 +603,607 @@ void fragment() {
 		fog_sheets.append(mesh_inst)
 		fog_materials.append(mat)
 
+const CHALLENGES: Array[Dictionary] = [
+	{
+		"id": "classic",
+		"title": "🌈 Classic Stacker",
+		"desc": "Original gentle ramp-up speed. Standard precision.",
+		"speed": 1.0,
+		"perf": 1.0
+	},
+	{
+		"id": "speed",
+		"title": "⚡ Speed Rush",
+		"desc": "1.4x hyper slide speed. For twitch reflex masters!",
+		"speed": 1.4,
+		"perf": 1.0
+	},
+	{
+		"id": "zen",
+		"title": "🧘 Zen Harmony",
+		"desc": "Relaxed 0.72x tempo & forgiving alignment. Pure tranquility.",
+		"speed": 0.72,
+		"perf": 1.25
+	},
+	{
+		"id": "precision",
+		"title": "💎 Precision Master",
+		"desc": "Stricter perfect threshold with double bonus score (+4 pts)!",
+		"speed": 1.08,
+		"perf": 0.68
+	}
+]
+
+const MILESTONES: Array[Dictionary] = [
+	{"req": 5, "name": "Novice Stacker", "icon": "🥉", "desc": "Stack 5 blocks in a single run"},
+	{"req": 15, "name": "Steady Builder", "icon": "🥈", "desc": "Reach a height of 15 blocks"},
+	{"req": 30, "name": "Tower Specialist", "icon": "🥇", "desc": "Reach a height of 30 blocks"},
+	{"req": 50, "name": "Sky Architect", "icon": "💎", "desc": "Construct a 50 block skyscraper"},
+	{"req": 75, "name": "Cloud Piercer", "icon": "👑", "desc": "Surpass the clouds at 75 blocks"},
+	{"req": 100, "name": "Cosmic Zenith", "icon": "🌌", "desc": "Reach the cosmos at 100 blocks"}
+]
+
+func show_main_menu() -> void:
+	state = GameState.MENU
+	if game_over_zoom_tween:
+		game_over_zoom_tween.kill()
+		game_over_zoom_tween = null
+	
+	# Clear existing stack boxes
+	for b in stack:
+		if is_instance_valid(b):
+			b.queue_free()
+	stack.clear()
+	
+	if is_instance_valid(active_box):
+		active_box.queue_free()
+		active_box = null
+	
+	# Reset camera to starting position
+	target_camera_y = base_camera_pivot_y
+	target_camera_x = 0.0
+	target_camera_z = 0.0
+	camera_pivot.position = Vector3(0.0, base_camera_pivot_y, 0.0)
+	_on_window_resized()
+	
+	# Hide in-game HUD & Game Over panel
+	score_label.visible = false
+	combo_label.visible = false
+	prompt_label.visible = false
+	game_over_panel.visible = false
+	
+	# Show Main Menu
+	main_menu.visible = true
+	main_menu.modulate.a = 1.0
+	menu_best_score.text = "BEST: " + str(high_score)
+	
+	# Close any open drawer and reset tab to home
+	_close_drawer()
+	_set_active_tab("home")
+	
+	# Start pulsing tap to play button
+	_start_tap_pulse()
+	
+	# Setup attractive idling slider box over pedestal
+	current_top_y = 0.0
+	current_target_pos = Vector3.ZERO
+	slider.set_target_level(current_top_y, current_target_pos, 0)
+	slider.speed_multiplier = 0.85 * challenge_speed_multiplier
+	_spawn_menu_preview_box()
+
+func _spawn_menu_preview_box() -> void:
+	if is_instance_valid(active_box):
+		active_box.queue_free()
+		active_box = null
+	
+	var new_box = StackBox.new()
+	new_box.box_size = BOX_SIZE
+	add_child(new_box)
+	active_box = new_box
+	var box_color = _get_box_shade(0)
+	new_box.set_color(box_color)
+	new_box.apply_skin(get_current_skin_config())
+	slider.attach_box(new_box)
+
+func _start_tap_pulse() -> void:
+	if tap_pulse_tween:
+		tap_pulse_tween.kill()
+	tap_pulse_tween = create_tween().set_loops()
+	tap_pulse_tween.tween_property(tap_to_play_btn, "modulate:a", 0.55, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tap_pulse_tween.tween_property(tap_to_play_btn, "modulate:a", 1.0, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func start_game_from_menu() -> void:
+	if state != GameState.MENU:
+		return
+	
+	sound_mgr.play_click()
+	if tap_pulse_tween:
+		tap_pulse_tween.kill()
+		tap_pulse_tween = null
+	
+	_close_drawer()
+	
+	# Smooth fade-out of menu
+	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(main_menu, "modulate:a", 0.0, 0.2)
+	tween.tween_callback(func():
+		main_menu.visible = false
+	)
+	
+	score = 0
+	combo = 0
+	state = GameState.READY
+	current_top_y = 0.0
+	current_target_pos = Vector3.ZERO
+	
+	score_label.text = "0"
+	score_label.visible = true
+	combo_label.visible = false
+	prompt_label.visible = true
+	if not OS.has_feature("android") and not OS.has_feature("mobile"):
+		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
+	else:
+		prompt_label.text = "TAP SCREEN TO DROP"
+	
+	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
+	if is_instance_valid(active_box):
+		active_box.landed.connect(_on_box_landed)
+
+func _setup_ribbon_listeners() -> void:
+	tap_to_play_btn.pressed.connect(start_game_from_menu)
+	btn_home.pressed.connect(func():
+		sound_mgr.play_click()
+		_close_drawer()
+		_set_active_tab("home")
+	)
+	btn_skin.pressed.connect(func():
+		sound_mgr.play_click()
+		_set_active_tab("skin")
+		_open_skins_drawer()
+	)
+	btn_challenge.pressed.connect(func():
+		sound_mgr.play_click()
+		_set_active_tab("challenge")
+		_open_challenge_drawer()
+	)
+	btn_levels.pressed.connect(func():
+		sound_mgr.play_click()
+		_set_active_tab("levels")
+		_open_levels_drawer()
+	)
+	close_drawer_btn.pressed.connect(func():
+		sound_mgr.play_click()
+		_close_drawer()
+		_set_active_tab("home")
+	)
+
+func _set_active_tab(tab_name: String) -> void:
+	active_ribbon_tab = tab_name
+	
+	var active_style = StyleBoxFlat.new()
+	active_style.bg_color = Color(0.20, 0.38, 0.68, 0.85)
+	active_style.set_corner_radius_all(20)
+	
+	var inactive_style = StyleBoxFlat.new()
+	inactive_style.bg_color = Color(0, 0, 0, 0)
+	
+	var tabs = {
+		"skin": btn_skin,
+		"challenge": btn_challenge,
+		"home": btn_home,
+		"levels": btn_levels
+	}
+	
+	for key in tabs.keys():
+		var btn: Button = tabs[key]
+		if key == tab_name:
+			btn.add_theme_stylebox_override("normal", active_style)
+			btn.add_theme_stylebox_override("hover", active_style)
+			btn.add_theme_stylebox_override("pressed", active_style)
+			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		else:
+			btn.add_theme_stylebox_override("normal", inactive_style)
+			btn.add_theme_stylebox_override("hover", inactive_style)
+			btn.add_theme_stylebox_override("pressed", inactive_style)
+			btn.add_theme_color_override("font_color", Color(0.70, 0.76, 0.88, 0.75))
+
+func _open_drawer(title_text: String) -> void:
+	drawer_title.text = title_text
+	drawer_modal.visible = true
+	drawer_modal.modulate.a = 0.0
+	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(drawer_modal, "modulate:a", 1.0, 0.22)
+	
+	for child in drawer_content.get_children():
+		child.queue_free()
+
+func _close_drawer() -> void:
+	drawer_modal.visible = false
+
+func _create_card_container() -> PanelContainer:
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.15, 0.23, 0.95)
+	style.border_color = Color(0.26, 0.36, 0.58, 0.6)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(14)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
+func _create_card_button(btn_text: String, is_active: bool) -> Button:
+	var btn = Button.new()
+	btn.text = btn_text
+	btn.custom_minimum_size = Vector2(0, 36)
+	btn.add_theme_font_size_override("font_size", 14)
+	var btn_style = StyleBoxFlat.new()
+	btn_style.set_corner_radius_all(10)
+	if is_active:
+		btn_style.bg_color = Color(0.18, 0.65, 0.45, 0.92)
+		btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	else:
+		btn_style.bg_color = Color(0.20, 0.40, 0.75, 0.9)
+		btn.add_theme_color_override("font_color", Color(0.95, 0.96, 1, 1))
+	btn.add_theme_stylebox_override("normal", btn_style)
+	btn.add_theme_stylebox_override("hover", btn_style)
+	btn.add_theme_stylebox_override("pressed", btn_style)
+	return btn
+
+func _open_skins_drawer() -> void:
+	_open_drawer("STACK SKINS")
+	
+	# --- SECTION 1: CLASSIC SATIN SKIN & COLOR OPTIONS ---
+	var classic_section_lbl = Label.new()
+	classic_section_lbl.text = "🧊 CLASSIC SATIN SKIN & COLOR OPTIONS"
+	classic_section_lbl.add_theme_font_size_override("font_size", 14)
+	classic_section_lbl.add_theme_color_override("font_color", Color(0.78, 0.85, 1.0, 0.9))
+	drawer_content.add_child(classic_section_lbl)
+	
+	var is_classic_active = (active_skin_id == "classic")
+	var classic_card = _create_card_container()
+	var c_vbox = VBoxContainer.new()
+	c_vbox.add_theme_constant_override("separation", 10)
+	classic_card.add_child(c_vbox)
+	
+	# Classic Header Row
+	var c_header = HBoxContainer.new()
+	var c_title = Label.new()
+	c_title.text = "🧊 Classic Satin Finish"
+	c_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c_title.add_theme_font_size_override("font_size", 16)
+	c_title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	c_header.add_child(c_title)
+	
+	if is_classic_active:
+		var c_badge = Label.new()
+		c_badge.text = "✓ ACTIVE"
+		c_badge.add_theme_font_size_override("font_size", 13)
+		c_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+		c_header.add_child(c_badge)
+	c_vbox.add_child(c_header)
+	
+	var c_desc = Label.new()
+	c_desc.text = "Original minimalist beveled pastel blocks with soft edge ambient occlusion."
+	c_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	c_desc.add_theme_font_size_override("font_size", 13)
+	c_desc.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
+	c_vbox.add_child(c_desc)
+	
+	if not is_classic_active:
+		var equip_classic_btn = _create_card_button("EQUIP CLASSIC SATIN SKIN", false)
+		equip_classic_btn.pressed.connect(func():
+			active_skin_id = "classic"
+			sound_mgr.play_click()
+			_update_active_skins_in_scene()
+			_open_skins_drawer()
+		)
+		c_vbox.add_child(equip_classic_btn)
+	
+	# Color Palettes header inside classic card
+	var pal_subhead = Label.new()
+	pal_subhead.text = "🎨 COLOR PALETTES FOR CLASSIC SKIN:"
+	pal_subhead.add_theme_font_size_override("font_size", 12)
+	pal_subhead.add_theme_color_override("font_color", Color(0.65, 0.75, 0.90, 0.75))
+	c_vbox.add_child(pal_subhead)
+	
+	for i in range(PALETTES.size()):
+		var pal = PALETTES[i]
+		var is_pal_active = (is_classic_active and i == palette_index)
+		
+		var pal_row = PanelContainer.new()
+		var p_style = StyleBoxFlat.new()
+		p_style.bg_color = Color(0.09, 0.11, 0.18, 0.8)
+		p_style.set_corner_radius_all(10)
+		p_style.content_margin_left = 12
+		p_style.content_margin_right = 12
+		p_style.content_margin_top = 8
+		p_style.content_margin_bottom = 8
+		if is_pal_active:
+			p_style.border_color = Color(0.35, 0.75, 1.0, 0.8)
+			p_style.set_border_width_all(1)
+		pal_row.add_theme_stylebox_override("panel", p_style)
+		
+		var row_vbox = VBoxContainer.new()
+		row_vbox.add_theme_constant_override("separation", 6)
+		pal_row.add_child(row_vbox)
+		
+		var top_line = HBoxContainer.new()
+		var name_lbl = Label.new()
+		name_lbl.text = pal.get("name", "Palette " + str(i + 1))
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_lbl.add_theme_font_size_override("font_size", 14)
+		name_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
+		top_line.add_child(name_lbl)
+		
+		if is_pal_active:
+			var equipped_lbl = Label.new()
+			equipped_lbl.text = "✓ EQUIPPED"
+			equipped_lbl.add_theme_font_size_override("font_size", 12)
+			equipped_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+			top_line.add_child(equipped_lbl)
+		row_vbox.add_child(top_line)
+		
+		# Swatches
+		var swatches_row = HBoxContainer.new()
+		swatches_row.add_theme_constant_override("separation", 6)
+		if pal.get("mode", "") == "rainbow":
+			var sample_hues = [0.0, 0.16, 0.33, 0.5, 0.66, 0.83]
+			for h in sample_hues:
+				var swatch = ColorRect.new()
+				swatch.custom_minimum_size = Vector2(28, 18)
+				swatch.color = Color.from_hsv(h, float(pal.get("sat", 0.54)), float(pal.get("val", 0.92)))
+				swatches_row.add_child(swatch)
+		else:
+			var colors = pal.get("colors", []) as Array
+			for c in colors:
+				var swatch = ColorRect.new()
+				swatch.custom_minimum_size = Vector2(28, 18)
+				swatch.color = c as Color
+				swatches_row.add_child(swatch)
+		row_vbox.add_child(swatches_row)
+		
+		if not is_pal_active:
+			var apply_btn = _create_card_button("APPLY PALETTE", false)
+			var chosen_idx = i
+			apply_btn.pressed.connect(func():
+				active_skin_id = "classic"
+				palette_index = chosen_idx
+				sound_mgr.play_click()
+				var p_data = PALETTES[palette_index]
+				var top_c = p_data.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
+				var bot_c = p_data.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+				_transition_gradient_background(top_c, bot_c)
+				
+				var first_color = _get_box_shade(0)
+				if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
+					var rm = pedestal_rim.material_override as StandardMaterial3D
+					rm.albedo_color = first_color
+					rm.emission = first_color
+				_update_active_skins_in_scene()
+				_open_skins_drawer()
+			)
+			row_vbox.add_child(apply_btn)
+		
+		c_vbox.add_child(pal_row)
+	
+	drawer_content.add_child(classic_card)
+	
+	# --- SECTION 2: NEW TEXTURED SKINS ---
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	drawer_content.add_child(spacer)
+	
+	var texture_section_lbl = Label.new()
+	texture_section_lbl.text = "✨ NEW TEXTURED SKINS"
+	texture_section_lbl.add_theme_font_size_override("font_size", 14)
+	texture_section_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.40, 0.95))
+	drawer_content.add_child(texture_section_lbl)
+	
+	for s in SKINS:
+		if s["type"] != "textured":
+			continue
+		
+		var is_equipped = (active_skin_id == s["id"])
+		var card = _create_card_container()
+		var vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 8)
+		card.add_child(vbox)
+		
+		# Header
+		var header_row = HBoxContainer.new()
+		var title_lbl = Label.new()
+		title_lbl.text = s["icon"] + " " + s["name"]
+		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_lbl.add_theme_font_size_override("font_size", 16)
+		title_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
+		header_row.add_child(title_lbl)
+		
+		if is_equipped:
+			var badge = Label.new()
+			badge.text = "✓ EQUIPPED"
+			badge.add_theme_font_size_override("font_size", 13)
+			badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+			header_row.add_child(badge)
+		vbox.add_child(header_row)
+		
+		# Description
+		var desc_lbl = Label.new()
+		desc_lbl.text = s["desc"]
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_lbl.add_theme_font_size_override("font_size", 13)
+		desc_lbl.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
+		vbox.add_child(desc_lbl)
+		
+		# Material Highlights Tag
+		var tag_lbl = Label.new()
+		var tag_text = ""
+		if s["id"] == "marble":
+			tag_text = "💎 Polished Specular | Italian Quartz Veining"
+		elif s["id"] == "wood":
+			tag_text = "🌲 Satin Cedar | Elongated Organic Grain Rings"
+		elif s["id"] == "cyber":
+			tag_text = "⚡ Glowing Neon Traces | Dual Isometric Grid"
+		elif s["id"] == "terrazzo":
+			tag_text = "🪨 Multi-tone Chips | Modern Architectural Composite"
+		tag_lbl.text = tag_text
+		tag_lbl.add_theme_font_size_override("font_size", 12)
+		tag_lbl.add_theme_color_override("font_color", Color(0.65, 0.78, 0.95, 0.75))
+		vbox.add_child(tag_lbl)
+		
+		# Action button
+		var btn = _create_card_button("✓ EQUIPPED" if is_equipped else "EQUIP " + s["name"].to_upper(), is_equipped)
+		if not is_equipped:
+			var skin_id = s["id"]
+			btn.pressed.connect(func():
+				active_skin_id = skin_id
+				sound_mgr.play_click()
+				_update_active_skins_in_scene()
+				_open_skins_drawer()
+			)
+		vbox.add_child(btn)
+		drawer_content.add_child(card)
+
+func _open_challenge_drawer() -> void:
+	_open_drawer("CHALLENGE MODES")
+	
+	for c in CHALLENGES:
+		var is_active = (c["id"] == active_challenge_id)
+		var card = _create_card_container()
+		var vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 6)
+		card.add_child(vbox)
+		
+		# Header
+		var header_row = HBoxContainer.new()
+		var title_lbl = Label.new()
+		title_lbl.text = c["title"]
+		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_lbl.add_theme_font_size_override("font_size", 16)
+		title_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
+		header_row.add_child(title_lbl)
+		
+		if is_active:
+			var badge = Label.new()
+			badge.text = "✓ ACTIVE"
+			badge.add_theme_font_size_override("font_size", 13)
+			badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+			header_row.add_child(badge)
+		vbox.add_child(header_row)
+		
+		# Description
+		var desc_lbl = Label.new()
+		desc_lbl.text = c["desc"]
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_lbl.add_theme_font_size_override("font_size", 13)
+		desc_lbl.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
+		vbox.add_child(desc_lbl)
+		
+		# Action button
+		var btn = _create_card_button("✓ ACTIVE" if is_active else "PLAY CHALLENGE", is_active)
+		if not is_active:
+			var cid = c["id"]
+			var c_speed = c["speed"]
+			var c_perf = c["perf"]
+			btn.pressed.connect(func():
+				active_challenge_id = cid
+				challenge_speed_multiplier = c_speed
+				challenge_perfect_multiplier = c_perf
+				sound_mgr.play_click()
+				if state == GameState.MENU:
+					slider.speed_multiplier = 0.85 * challenge_speed_multiplier
+				_open_challenge_drawer()
+			)
+		vbox.add_child(btn)
+		drawer_content.add_child(card)
+
+func _open_levels_drawer() -> void:
+	_open_drawer("LEVEL MILESTONES")
+	
+	# Current Title / Rank Header Card
+	var rank_title = "APPRENTICE"
+	if high_score >= 100: rank_title = "COSMIC ZENITH 🌌"
+	elif high_score >= 75: rank_title = "CLOUD PIERCER 👑"
+	elif high_score >= 50: rank_title = "SKY ARCHITECT 💎"
+	elif high_score >= 30: rank_title = "TOWER SPECIALIST 🥇"
+	elif high_score >= 15: rank_title = "STEADY BUILDER 🥈"
+	elif high_score >= 5: rank_title = "NOVICE STACKER 🥉"
+	
+	var summary_card = _create_card_container()
+	var s_vbox = VBoxContainer.new()
+	s_vbox.add_theme_constant_override("separation", 4)
+	summary_card.add_child(s_vbox)
+	
+	var rank_lbl = Label.new()
+	rank_lbl.text = "CURRENT TITLE: " + rank_title
+	rank_lbl.add_theme_font_size_override("font_size", 16)
+	rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+	rank_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	s_vbox.add_child(rank_lbl)
+	
+	var best_lbl = Label.new()
+	best_lbl.text = "All-Time Best Record: " + str(high_score) + " Blocks"
+	best_lbl.add_theme_font_size_override("font_size", 13)
+	best_lbl.add_theme_color_override("font_color", Color(0.8, 0.85, 0.95, 0.85))
+	best_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	s_vbox.add_child(best_lbl)
+	drawer_content.add_child(summary_card)
+	
+	# Milestones list
+	for m in MILESTONES:
+		var unlocked = high_score >= m["req"]
+		var card = _create_card_container()
+		var vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 6)
+		card.add_child(vbox)
+		
+		# Header
+		var header_row = HBoxContainer.new()
+		var title_lbl = Label.new()
+		title_lbl.text = m["icon"] + " " + m["name"]
+		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_lbl.add_theme_font_size_override("font_size", 15)
+		title_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.70, 0.75, 0.85, 0.75))
+		header_row.add_child(title_lbl)
+		
+		var status_lbl = Label.new()
+		if unlocked:
+			status_lbl.text = "✓ UNLOCKED"
+			status_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+		else:
+			status_lbl.text = "🔒 " + str(high_score) + "/" + str(m["req"])
+			status_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.80, 0.75))
+		status_lbl.add_theme_font_size_override("font_size", 13)
+		header_row.add_child(status_lbl)
+		vbox.add_child(header_row)
+		
+		# Description
+		var desc_lbl = Label.new()
+		desc_lbl.text = m["desc"]
+		desc_lbl.add_theme_font_size_override("font_size", 12)
+		desc_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.82, 0.75))
+		vbox.add_child(desc_lbl)
+		
+		# Progress bar
+		var p_bar = ProgressBar.new()
+		p_bar.custom_minimum_size = Vector2(0, 10)
+		p_bar.show_percentage = false
+		p_bar.max_value = float(m["req"])
+		p_bar.value = clamp(float(high_score), 0.0, float(m["req"]))
+		var bg_style = StyleBoxFlat.new()
+		bg_style.bg_color = Color(0.18, 0.22, 0.32, 0.6)
+		bg_style.set_corner_radius_all(5)
+		var fill_style = StyleBoxFlat.new()
+		fill_style.bg_color = Color(0.35, 0.85, 0.55, 0.9) if unlocked else Color(0.25, 0.55, 0.85, 0.85)
+		fill_style.set_corner_radius_all(5)
+		p_bar.add_theme_stylebox_override("background", bg_style)
+		p_bar.add_theme_stylebox_override("fill", fill_style)
+		vbox.add_child(p_bar)
+		
+		drawer_content.add_child(card)
+
 func reset_game() -> void:
 	# Clear existing stack boxes
 	for b in stack:
@@ -493,6 +1215,10 @@ func reset_game() -> void:
 		active_box.queue_free()
 		active_box = null
 	
+	if game_over_zoom_tween:
+		game_over_zoom_tween.kill()
+		game_over_zoom_tween = null
+	
 	score = 0
 	combo = 0
 	state = GameState.READY
@@ -501,10 +1227,12 @@ func reset_game() -> void:
 	target_camera_y = base_camera_pivot_y
 	target_camera_x = 0.0
 	target_camera_z = 0.0
-	camera_pivot.position.x = 0.0
-	camera_pivot.position.z = 0.0
+	camera_pivot.position = Vector3(0.0, base_camera_pivot_y, 0.0)
+	_on_window_resized()
 	
+	main_menu.visible = false
 	score_label.text = "0"
+	score_label.visible = true
 	combo_label.visible = false
 	prompt_label.visible = true
 	if not OS.has_feature("android") and not OS.has_feature("mobile"):
@@ -514,27 +1242,9 @@ func reset_game() -> void:
 	game_over_panel.visible = false
 	new_best_badge.visible = false
 	
-	# Cycle to next designer palette and randomize starting spectrum hue
-	palette_index = (palette_index + 1) % PALETTES.size()
-	current_palette_start_hue = randf()
-	
-	# Harmonize pedestal accent rim with the starting hue
-	var first_box_color = _get_box_shade(0)
-	if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
-		var rm = pedestal_rim.material_override as StandardMaterial3D
-		rm.albedo_color = first_box_color
-		rm.emission = first_box_color
-		rm.emission_energy_multiplier = 0.85
-	
-	# Update gradient background colors smoothly to match new palette
-	var pal = PALETTES[palette_index % PALETTES.size()]
-	var target_top = pal.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
-	var target_bottom = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
-	_transition_gradient_background(target_top, target_bottom)
-	
 	# Initial slider level
 	slider.set_target_level(current_top_y, current_target_pos, 0)
-	slider.speed_multiplier = 1.0
+	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
 	
 	_spawn_next_box()
 
@@ -548,11 +1258,12 @@ func _spawn_next_box() -> void:
 	# Dynamically generate a distinct shade from the SAME base color
 	var box_color = _get_box_shade(stack.size())
 	new_box.set_color(box_color)
+	new_box.apply_skin(get_current_skin_config())
 	new_box.landed.connect(_on_box_landed)
 	
 	# Update slider level and slide axis (alternates X and Z)
 	slider.set_target_level(current_top_y, current_target_pos, stack.size())
-	slider.speed_multiplier = clamp(1.0 + (stack.size() * 0.03), 1.0, 2.4)
+	slider.speed_multiplier = clamp((1.0 + (stack.size() * 0.03)) * challenge_speed_multiplier, 0.65, 3.2)
 	slider.attach_box(new_box)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -570,6 +1281,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_R and state == GameState.GAME_OVER:
 			restart_game()
 			return
+		elif event.keycode == KEY_ESCAPE:
+			if state == GameState.MENU and drawer_modal.visible:
+				_close_drawer()
+				_set_active_tab("home")
+				return
+			elif state == GameState.PLAYING or state == GameState.READY:
+				show_main_menu()
+				return
 
 	var is_action = false
 	if event is InputEventScreenTouch and event.pressed:
@@ -583,6 +1302,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	
 	match state:
+		GameState.MENU:
+			if drawer_modal.visible:
+				_close_drawer()
+				_set_active_tab("home")
+			else:
+				start_game_from_menu()
 		GameState.READY:
 			prompt_label.visible = false
 			state = GameState.DROPPING
@@ -618,12 +1343,12 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 	var dz = drop_z - target_z
 	var dist = Vector2(dx, dz).length()
 	
-	if dist <= PERFECT_THRESHOLD:
+	if dist <= (PERFECT_THRESHOLD * challenge_perfect_multiplier):
 		# PERFECT DROP!
 		combo += 1
 		if combo > best_combo:
 			best_combo = combo
-		score += 2
+		score += (4 if active_challenge_id == "precision" else 2)
 		
 		# Snap to center
 		box.global_position = Vector3(target_x, current_top_y + (BOX_SIZE.y * 0.5), target_z)
@@ -771,7 +1496,7 @@ func _process(delta: float) -> void:
 	camera_pivot.position.y = lerp(camera_pivot.position.y, target_camera_y, delta * 3.5)
 	
 	# Horizontal camera tracking: only adjust if the stack drifts towards screen boundaries
-	if is_instance_valid(camera):
+	if state != GameState.GAME_OVER and is_instance_valid(camera):
 		var stack_top = Vector3(current_target_pos.x, current_top_y + (BOX_SIZE.y * 0.5), current_target_pos.z)
 		var screen_pos = camera.unproject_position(stack_top)
 		var vp_size = get_viewport().get_visible_rect().size
@@ -811,11 +1536,45 @@ func _trigger_game_over() -> void:
 	best_score_label.text = "BEST: " + str(high_score)
 	new_best_badge.visible = is_new_record
 	
-	# Animate game over panel slide in
+	# Cinematic camera zoom-out to reveal the full tower
+	_animate_game_over_tower_reveal()
+	
+	# Animate game over panel slide in after a short reveal beat
 	game_over_panel.visible = true
 	game_over_panel.modulate.a = 0.0
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(game_over_panel, "modulate:a", 1.0, 0.3)
+	tween.tween_interval(0.65)
+	tween.tween_property(game_over_panel, "modulate:a", 1.0, 0.45)
+
+func _animate_game_over_tower_reveal() -> void:
+	if not is_instance_valid(camera) or not is_instance_valid(camera_pivot):
+		return
+	
+	if game_over_zoom_tween:
+		game_over_zoom_tween.kill()
+	
+	var aspect_mult = 1.0
+	var win_size = get_viewport().get_visible_rect().size
+	if win_size.y > 0.0:
+		var aspect = win_size.x / win_size.y
+		if aspect < 0.5625:
+			aspect_mult = 0.5625 / aspect
+	
+	var H = current_top_y
+	var raw_needed_size = max(14.5, (H + 5.0) * 1.45)
+	var target_zoom_size = raw_needed_size * aspect_mult
+	
+	# Center camera vertically on the full tower
+	var tower_center_y = (H * 0.5) + 1.2
+	# Center camera horizontally (handles leaning towers)
+	var tower_center_x = current_target_pos.x * 0.5
+	var tower_center_z = current_target_pos.z * 0.5
+	
+	game_over_zoom_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	game_over_zoom_tween.tween_property(camera, "size", target_zoom_size, 1.7)
+	game_over_zoom_tween.tween_property(self, "target_camera_y", tower_center_y, 1.7)
+	game_over_zoom_tween.tween_property(self, "target_camera_x", tower_center_x, 1.7)
+	game_over_zoom_tween.tween_property(self, "target_camera_z", tower_center_z, 1.7)
 
 func restart_game() -> void:
 	sound_mgr.play_click()
@@ -858,12 +1617,13 @@ func _on_window_resized() -> void:
 	var win_size = get_viewport().get_visible_rect().size
 	if win_size.y > 0 and is_instance_valid(camera):
 		var aspect = win_size.x / win_size.y
-		var base_size = 12.8
-		if aspect < 0.5625:
-			# If narrower than standard portrait (9:16), zoom out camera slightly so nothing cuts off
-			camera.size = base_size * (0.5625 / aspect)
+		var aspect_mult = (0.5625 / aspect) if aspect < 0.5625 else 1.0
+		if state == GameState.GAME_OVER:
+			var H = current_top_y
+			var raw_needed_size = max(14.5, (H + 5.0) * 1.45)
+			camera.size = raw_needed_size * aspect_mult
 		else:
-			camera.size = base_size
+			camera.size = BASE_CAMERA_SIZE * aspect_mult
 
 # Generates smooth, vibrant gradient colors through curated designer palettes or prismatic rainbow
 func _get_box_shade(index: int) -> Color:
