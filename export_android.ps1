@@ -14,10 +14,10 @@ if (-not (Test-Path $godotPath)) {
 }
 
 Write-Host "Building Android APK..." -ForegroundColor Yellow
-& $godotPath --headless --export-debug "Android" "build/IsoPendulumStacker.apk"
+& $godotPath --headless --export-debug "Android" "build/StackAdventure.apk"
 
-if ($LASTEXITCODE -eq 0 -and (Test-Path "build/IsoPendulumStacker.apk")) {
-    Copy-Item -Path "build/IsoPendulumStacker.apk" -Destination "IsoPendulumStacker.apk" -Force
+if ($LASTEXITCODE -eq 0 -and (Test-Path "build/StackAdventure.apk")) {
+    Copy-Item -Path "build/StackAdventure.apk" -Destination "StackAdventure.apk" -Force
     
     # Auto-sign APK with apksigner to ensure 100% device install compatibility
     $javaPath = "C:\Program Files\Android\Android Studio1\jbr"
@@ -30,12 +30,12 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path "build/IsoPendulumStacker.apk")) {
             $env:Path = "$javaPath\bin;$env:Path"
         }
         Write-Host "Signing APK with debug keystore..." -ForegroundColor Yellow
-        & $apkSignerPath sign --ks $debugKeystore --ks-pass pass:android --ks-key-alias androiddebugkey "IsoPendulumStacker.apk" | Out-Null
+        & $apkSignerPath sign --ks $debugKeystore --ks-pass pass:android --ks-key-alias androiddebugkey "StackAdventure.apk" | Out-Null
     }
 
-    $sizeMb = [math]::Round((Get-Item "IsoPendulumStacker.apk").Length / 1MB, 2)
+    $sizeMb = [math]::Round((Get-Item "StackAdventure.apk").Length / 1MB, 2)
     Write-Host "`n===================================================" -ForegroundColor Green
-    Write-Host "SUCCESS! APK generated and signed: IsoPendulumStacker.apk ($sizeMb MB)" -ForegroundColor Green
+    Write-Host "SUCCESS! APK generated and signed: StackAdventure.apk ($sizeMb MB)" -ForegroundColor Green
     Write-Host "===================================================" -ForegroundColor Green
 } else {
     Write-Host "`n[ERROR] Godot Android export failed with code $LASTEXITCODE" -ForegroundColor Red

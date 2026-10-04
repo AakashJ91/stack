@@ -50,19 +50,19 @@ or in PowerShell:
 
 The output APK will be generated at:
 ```
-IsoPendulumStacker.apk
+StackAdventure.apk
 ```
 
 To install directly to a connected Android phone or emulator:
 ```cmd
-adb install -r IsoPendulumStacker.apk
+adb install -r StackAdventure.apk
 ```
 
 ---
 
 ## 💻 Windows Desktop Support
 
-- Native standalone 64-bit Windows executable (`IsoPendulumStacker.exe`) with embedded resources.
+- Native standalone 64-bit Windows executable (`StackAdventure.exe`) with embedded resources.
 - Optimized window size (`540x960` windowed by default, fully resizable and scalable).
 - Keyboard shortcuts:
   - `Space` / `Enter`: Drop box / Restart when Game Over
@@ -87,7 +87,7 @@ or in PowerShell:
 
 The output executable will be generated at:
 ```
-IsoPendulumStacker.exe
+StackAdventure.exe
 ```
 
 ---
