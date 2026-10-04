@@ -15,6 +15,8 @@ var current_top_y: float = 0.0
 var current_box: Node3D = null
 var is_active: bool = true
 
+var was_aligned: bool = false
+
 # 0 = X-axis (left-right in 3D), 1 = Z-axis (front-back in 3D)
 var current_axis: int = 0
 var current_slide_dir: Vector3 = Vector3.RIGHT
@@ -44,6 +46,7 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 	current_top_y = top_y
 	current_target_center = target_center
 	current_axis = axis_index % 2
+	was_aligned = false
 	
 	if current_axis == 0:
 		current_slide_dir = Vector3(1, 0, 0)
@@ -57,6 +60,7 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 func attach_box(box: Node3D) -> void:
 	current_box = box
 	box.state = box.BoxState.ATTACHED
+	was_aligned = false
 	guide_mesh_instance.visible = true
 
 func _process(delta: float) -> void:
@@ -77,7 +81,14 @@ func _process(delta: float) -> void:
 	slide_pos.y = box_y
 	
 	var dist_to_target = Vector2(slide_pos.x - current_target_center.x, slide_pos.z - current_target_center.z).length()
-	var is_aligned = dist_to_target <= 0.32
+	var is_aligned = dist_to_target <= 0.22
+	
+	# Tactile rhythmic tick when crossing perfect center
+	if is_aligned and not was_aligned:
+		var snd = get_node_or_null("../SoundEffects")
+		if is_instance_valid(snd) and snd.has_method("play_align_tick"):
+			snd.play_align_tick()
+	was_aligned = is_aligned
 	
 	if is_instance_valid(current_box) and current_box.state == current_box.BoxState.ATTACHED:
 		current_box.global_position = slide_pos
@@ -96,9 +107,9 @@ func _process(delta: float) -> void:
 			var base_c = current_box.box_color if "box_color" in current_box else Color(1.0, 0.9, 0.4)
 			
 			if is_aligned:
-				# Locked on: pulse subtly with matching cube pastel color
-				var pulse_alpha = 0.25 + (sin(current_time * 12.0) * 0.08)
-				guide_material.albedo_color = Color(base_c.r, base_c.g, base_c.b, pulse_alpha)
+				# Sweet-spot lock-on: luminous pulse
+				var pulse = 0.32 + (sin(current_time * 14.0) * 0.10)
+				guide_material.albedo_color = Color(1.0, 0.96, 0.72, pulse)
 			else:
 				var alpha = 0.08 + (proximity * 0.16)
 				guide_material.albedo_color = Color(base_c.r, base_c.g, base_c.b, alpha)

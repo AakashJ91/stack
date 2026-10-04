@@ -6,7 +6,7 @@ enum BoxState { ATTACHED, FALLING, LANDED, TOPPLING }
 var state: BoxState = BoxState.ATTACHED
 var box_size: Vector3 = Vector3(2.4, 0.8, 2.4)
 var velocity: Vector3 = Vector3.ZERO
-var gravity: float = 38.0
+var gravity: float = 52.0
 
 # Target landing height (y coordinate of top face of the box below)
 var target_landing_y: float = 0.0
@@ -272,7 +272,7 @@ func _physics_process(delta: float) -> void:
 			if global_position.y < -15.0:
 				queue_free()
 
-func settle(is_perfect: bool) -> void:
+func settle(is_perfect: bool, overhang_ratio: float = 0.0, overhang_dir: Vector3 = Vector3.ZERO) -> void:
 	state = BoxState.LANDED
 	velocity = Vector3.ZERO
 	if is_instance_valid(tilt_root):
@@ -286,44 +286,58 @@ func settle(is_perfect: bool) -> void:
 	# Spawn outward radial particle burst on contact plane
 	_spawn_impact_particles(is_perfect)
 	
+	# Near-miss dramatic edge wobble before stabilizing
+	if overhang_ratio > 0.45 and overhang_dir.length_squared() > 0.001 and is_instance_valid(tilt_root):
+		var tilt_axis = overhang_dir.cross(Vector3.UP).normalized()
+		var wobble_angle = deg_to_rad(5.5 * clamp(overhang_ratio, 0.45, 1.0))
+		tilt_root.rotate(tilt_axis, wobble_angle)
+		var wobble_tw = create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		wobble_tw.tween_property(tilt_root, "rotation", Vector3.ZERO, 0.35)
+	
 	# Juicy multi-stage elastic squash & stretch spring
 	if settle_tween:
 		settle_tween.kill()
 	settle_tween = create_tween()
 	
-	var squash_scale = Vector3(1.26, 0.62, 1.26) if not is_perfect else Vector3(1.34, 0.54, 1.34)
-	var stretch_scale = Vector3(0.88, 1.18, 0.88) if not is_perfect else Vector3(0.84, 1.24, 0.84)
+	var squash_scale = Vector3(1.28, 0.58, 1.28) if not is_perfect else Vector3(1.36, 0.50, 1.36)
+	var stretch_scale = Vector3(0.86, 1.20, 0.86) if not is_perfect else Vector3(0.82, 1.28, 0.82)
 	var bounce_scale = Vector3(1.05, 0.96, 1.05)
 	
 	# Stage 1: Fast juicy pancake squash onto surface (anchored at bottom)
 	settle_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	settle_tween.tween_property(squash_root, "scale", squash_scale, 0.07)
+	settle_tween.tween_property(squash_root, "scale", squash_scale, 0.06)
 	
 	# Stage 2: Energetic spring rebound stretch
 	settle_tween.chain().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	settle_tween.tween_property(squash_root, "scale", stretch_scale, 0.11)
+	settle_tween.tween_property(squash_root, "scale", stretch_scale, 0.10)
 	
 	# Stage 3: Second micro-wobble
 	settle_tween.chain().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	settle_tween.tween_property(squash_root, "scale", bounce_scale, 0.08)
+	settle_tween.tween_property(squash_root, "scale", bounce_scale, 0.07)
 	
 	# Stage 4: Settle to rest
-	settle_tween.chain().tween_property(squash_root, "scale", Vector3.ONE, 0.07)
+	settle_tween.chain().tween_property(squash_root, "scale", Vector3.ONE, 0.06)
 	
 	if is_perfect:
 		_play_perfect_flash()
 	else:
 		_play_land_flash()
 
-func absorb_impact() -> void:
-	# Called on previous box when a new box lands on top
+func absorb_impact(depth: int = 1) -> void:
+	# Called on previous box(es) when a new box lands on top
 	if state != BoxState.LANDED or not is_instance_valid(squash_root):
 		return
 	if absorb_tween:
 		absorb_tween.kill()
+	
+	# Cascading accordion spring: intensity diminishes down the stack
+	var intensity = pow(0.62, float(depth - 1))
+	var squash_y = 1.0 - (0.12 * intensity)
+	var expand_xz = 1.0 + (0.07 * intensity)
+	
 	absorb_tween = create_tween()
 	absorb_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	absorb_tween.tween_property(squash_root, "scale", Vector3(1.06, 0.92, 1.06), 0.06)
+	absorb_tween.tween_property(squash_root, "scale", Vector3(expand_xz, squash_y, expand_xz), 0.05 + float(depth) * 0.012)
 	absorb_tween.chain().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	absorb_tween.tween_property(squash_root, "scale", Vector3.ONE, 0.12)
 

@@ -8,8 +8,11 @@ var land_player: AudioStreamPlayer
 var perfect_player: AudioStreamPlayer
 var game_over_player: AudioStreamPlayer
 var click_player: AudioStreamPlayer
+var align_player: AudioStreamPlayer
+var milestone_player: AudioStreamPlayer
 
 var is_muted: bool = false
+var align_tick_stream: AudioStreamWAV = null
 
 # Musical scale for ascending combo chimes (Pentatonic Major scale: C5, D5, E5, G5, A5, C6, D6, E6)
 const COMBO_FREQUENCIES = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98]
@@ -20,6 +23,10 @@ func _ready() -> void:
 	perfect_player = _create_player()
 	game_over_player = _create_player()
 	click_player = _create_player()
+	align_player = _create_player()
+	milestone_player = _create_player()
+	
+	align_tick_stream = _generate_tone_sweep(1800.0, 1200.0, 0.022, 0.16, "sine")
 
 func _create_player() -> AudioStreamPlayer:
 	var p = AudioStreamPlayer.new()
@@ -31,15 +38,22 @@ func toggle_mute() -> bool:
 	is_muted = !is_muted
 	return is_muted
 
+func play_align_tick() -> void:
+	if is_muted: return
+	if align_tick_stream:
+		align_player.stream = align_tick_stream
+		align_player.play()
+
 func play_drop() -> void:
 	if is_muted: return
-	var stream = _generate_tone_sweep(480.0, 220.0, 0.12, 0.35, "sine")
+	var stream = _generate_tone_sweep(520.0, 180.0, 0.10, 0.42, "sine")
 	drop_player.stream = stream
 	drop_player.play()
 
 func play_land() -> void:
 	if is_muted: return
-	var stream = _generate_tone_sweep(240.0, 90.0, 0.14, 0.5, "triangle")
+	# Satisfying physical thump with deep body resonance
+	var stream = _generate_tone_sweep(280.0, 70.0, 0.11, 0.65, "triangle")
 	land_player.stream = stream
 	land_player.play()
 
@@ -47,9 +61,15 @@ func play_perfect(combo: int) -> void:
 	if is_muted: return
 	var idx = clamp(combo - 1, 0, COMBO_FREQUENCIES.size() - 1)
 	var freq = COMBO_FREQUENCIES[idx]
-	var stream = _generate_bell_chime(freq, 0.35, 0.6)
+	var stream = _generate_bell_chime(freq, 0.38, 0.65)
 	perfect_player.stream = stream
 	perfect_player.play()
+
+func play_milestone() -> void:
+	if is_muted: return
+	var stream = _generate_milestone_fanfare()
+	milestone_player.stream = stream
+	milestone_player.play()
 
 func play_game_over() -> void:
 	if is_muted: return
@@ -153,3 +173,31 @@ func _generate_game_over_sound(duration: float) -> AudioStreamWAV:
 	wav.stereo = false
 	wav.data = data
 	return wav
+
+func _generate_milestone_fanfare() -> AudioStreamWAV:
+	var sample_rate: int = 22050
+	var duration: float = 0.52
+	var num_samples: int = int(sample_rate * duration)
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(num_samples * 2)
+	
+	var freqs = [523.25, 659.25, 783.99, 1046.50] # C5, E5, G5, C6
+	var seg: int = int(num_samples / freqs.size())
+	var phase: float = 0.0
+	
+	for i in range(num_samples):
+		var note_idx: int = min(int(i / seg), freqs.size() - 1)
+		var freq: float = freqs[note_idx]
+		var t_note: float = float(i % seg) / float(seg)
+		var env: float = exp(-4.0 * t_note)
+		phase = fmod(phase + freq / float(sample_rate), 1.0)
+		var val: float = sin(phase * TAU) * env * 0.55
+		data.encode_s16(i * 2, int(clamp(val * 32767.0, -32768.0, 32767.0)))
+	
+	var wav = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = sample_rate
+	wav.stereo = false
+	wav.data = data
+	return wav
+
