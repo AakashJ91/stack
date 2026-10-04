@@ -24,6 +24,8 @@ var current_slide_dir: Vector3 = Vector3.RIGHT
 # Alignment guide / shadow projection
 var guide_mesh_instance: MeshInstance3D
 var guide_material: StandardMaterial3D
+var _guide_smooth_pos: Vector3 = Vector3.ZERO
+const GUIDE_LERP_SPEED: float = 14.0
 
 func _ready() -> void:
 	_setup_guide_projection()
@@ -55,6 +57,8 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 	
 	# Start from outside the stack
 	current_time = -PI * 0.5
+	# Seed smooth pos so first frame doesn't lerp from world origin
+	_guide_smooth_pos = Vector3(current_target_center.x, current_top_y + 0.02, current_target_center.z)
 	guide_mesh_instance.visible = true
 
 func attach_box(box: Node3D) -> void:
@@ -83,11 +87,6 @@ func _process(delta: float) -> void:
 	var dist_to_target = Vector2(slide_pos.x - current_target_center.x, slide_pos.z - current_target_center.z).length()
 	var is_aligned = dist_to_target <= 0.22
 	
-	# Tactile rhythmic tick when crossing perfect center
-	if is_aligned and not was_aligned:
-		var snd = get_node_or_null("../SoundEffects")
-		if is_instance_valid(snd) and snd.has_method("play_align_tick"):
-			snd.play_align_tick()
 	was_aligned = is_aligned
 	
 	if is_instance_valid(current_box) and current_box.state == current_box.BoxState.ATTACHED:
@@ -97,22 +96,23 @@ func _process(delta: float) -> void:
 		if current_box.has_method("update_slider_motion"):
 			current_box.update_slider_motion(delta, velocity_factor, current_axis, is_aligned, current_time)
 		
-		# Update guide projection shadow on top of tower
+		# Update guide projection — smoothly lerp position so it glides, not snaps
 		if guide_mesh_instance:
-			var guide_pos = slide_pos
-			guide_pos.y = current_top_y + 0.02
-			guide_mesh_instance.global_position = guide_pos
+			var target_guide = Vector3(slide_pos.x, current_top_y + 0.02, slide_pos.z)
+			_guide_smooth_pos = _guide_smooth_pos.lerp(target_guide, clamp(GUIDE_LERP_SPEED * delta, 0.0, 1.0))
+			guide_mesh_instance.global_position = _guide_smooth_pos
 			
-			var proximity = clamp(1.0 - (dist_to_target / 1.6), 0.0, 1.0)
+			var smooth_dist = Vector2(_guide_smooth_pos.x - current_target_center.x, _guide_smooth_pos.z - current_target_center.z).length()
+			var proximity = clamp(1.0 - (smooth_dist / 1.6), 0.0, 1.0)
 			var base_c = current_box.box_color if "box_color" in current_box else Color(1.0, 0.9, 0.4)
 			
 			if is_aligned:
-				# Sweet-spot lock-on: luminous pulse
-				var pulse = 0.32 + (sin(current_time * 14.0) * 0.10)
-				guide_material.albedo_color = Color(1.0, 0.96, 0.72, pulse)
+				# Sweet-spot lock-on: smooth luminous pulse (no hard snap in alpha)
+				var pulse = 0.30 + (sin(current_time * 10.0) * 0.08)
+				guide_material.albedo_color = guide_material.albedo_color.lerp(Color(1.0, 0.96, 0.72, pulse), 0.18)
 			else:
-				var alpha = 0.08 + (proximity * 0.16)
-				guide_material.albedo_color = Color(base_c.r, base_c.g, base_c.b, alpha)
+				var alpha = 0.07 + (proximity * 0.18)
+				guide_material.albedo_color = guide_material.albedo_color.lerp(Color(base_c.r, base_c.g, base_c.b, alpha), 0.12)
 
 func release_box() -> Node3D:
 	if not is_instance_valid(current_box) or current_box.state != current_box.BoxState.ATTACHED:
