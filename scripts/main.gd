@@ -25,6 +25,8 @@ var current_target_pos: Vector3 = Vector3.ZERO
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 var target_camera_y: float = 0.0
 var base_camera_pivot_y: float = 0.0
+var target_camera_x: float = 0.0
+var target_camera_z: float = 0.0
 var screen_shake_trauma: float = 0.0
 
 # Nodes
@@ -131,6 +133,8 @@ func _ready() -> void:
 	_create_pedestal()
 	base_camera_pivot_y = camera_pivot.position.y
 	target_camera_y = base_camera_pivot_y
+	target_camera_x = camera_pivot.position.x
+	target_camera_z = camera_pivot.position.z
 	
 	slider.box_released.connect(_on_box_released)
 	sound_btn.pressed.connect(_on_sound_btn_pressed)
@@ -256,6 +260,10 @@ func reset_game() -> void:
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
 	target_camera_y = base_camera_pivot_y
+	target_camera_x = 0.0
+	target_camera_z = 0.0
+	camera_pivot.position.x = 0.0
+	camera_pivot.position.z = 0.0
 	
 	score_label.text = "0"
 	combo_label.visible = false
@@ -520,16 +528,24 @@ func trigger_screen_shake(amount: float) -> void:
 	screen_shake_trauma = clamp(screen_shake_trauma + amount, 0.0, 1.0)
 
 func _process(delta: float) -> void:
-	# Dynamic camera tracking: vertical climb + horizontal cube alignment
-	var target_focus_x = current_target_pos.x
-	var target_focus_z = current_target_pos.z
-	if is_instance_valid(active_box) and state in [GameState.READY, GameState.PLAYING, GameState.DROPPING]:
-		var cube_pos = active_box.global_position
-		target_focus_x = lerp(current_target_pos.x, cube_pos.x, 0.42)
-		target_focus_z = lerp(current_target_pos.z, cube_pos.z, 0.42)
-	camera_pivot.position.x = lerp(camera_pivot.position.x, target_focus_x, delta * 5.2)
-	camera_pivot.position.z = lerp(camera_pivot.position.z, target_focus_z, delta * 5.2)
+	# Vertical camera tracking follows the rising stack
 	camera_pivot.position.y = lerp(camera_pivot.position.y, target_camera_y, delta * 3.5)
+	
+	# Horizontal camera tracking: only adjust if the stack drifts towards screen boundaries
+	if is_instance_valid(camera):
+		var stack_top = Vector3(current_target_pos.x, current_top_y + (BOX_SIZE.y * 0.5), current_target_pos.z)
+		var screen_pos = camera.unproject_position(stack_top)
+		var vp_size = get_viewport().get_visible_rect().size
+		if vp_size.x > 0.0 and vp_size.y > 0.0:
+			var norm_x = screen_pos.x / vp_size.x
+			# If stack top drifts past comfortable framing boundaries (outside 35% - 65% of screen width),
+			# adjust target horizontal camera coordinates to re-center the stack
+			if norm_x < 0.35 or norm_x > 0.65:
+				target_camera_x = current_target_pos.x
+				target_camera_z = current_target_pos.z
+	
+	camera_pivot.position.x = lerp(camera_pivot.position.x, target_camera_x, delta * 3.0)
+	camera_pivot.position.z = lerp(camera_pivot.position.z, target_camera_z, delta * 3.0)
 	
 	# Screen shake decay
 	if screen_shake_trauma > 0.0:
