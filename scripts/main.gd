@@ -1292,6 +1292,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	var is_action = false
 	if event is InputEventScreenTouch and event.pressed:
+		# If the skins/challenge/levels drawer is open, only act on taps OUTSIDE the drawer.
+		# Touches inside the drawer must reach the ScrollContainer for scrolling.
+		if drawer_modal.visible:
+			var touch_pos: Vector2 = event.position
+			var drawer_rect: Rect2 = drawer_modal.get_global_rect()
+			if drawer_rect.has_point(touch_pos):
+				return  # Let the ScrollContainer / buttons handle it
 		is_action = true
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		is_action = true
@@ -1303,10 +1310,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	
 	match state:
 		GameState.MENU:
-			if drawer_modal.visible:
-				_close_drawer()
-				_set_active_tab("home")
-			else:
+			if not drawer_modal.visible:
 				start_game_from_menu()
 		GameState.READY:
 			prompt_label.visible = false
@@ -1317,6 +1321,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_drop_current_box()
 		GameState.GAME_OVER:
 			restart_game()
+
 
 func _drop_current_box() -> void:
 	if not is_instance_valid(active_box):

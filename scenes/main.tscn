@@ -456,6 +456,7 @@ custom_minimum_size = Vector2(0, 370)
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
+scroll_deadzone_threshold = 6
 
 [node name="ContentContainer" type="VBoxContainer" parent="UI/MainMenu/DrawerModal/VBox/Scroll"]
 layout_mode = 2
