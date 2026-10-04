@@ -4,7 +4,7 @@ class_name CubeSlider
 signal box_released(box: Node3D, release_pos: Vector3, release_velocity: Vector3)
 
 # Sliding parameters
-@export var slide_amplitude: float = 4.2
+@export var slide_amplitude: float = 3.3
 @export var base_speed: float = 2.8
 @export var speed_multiplier: float = 1.0
 @export var hover_height: float = 1.8

@@ -59,7 +59,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)
 [node name="Camera3D" type="Camera3D" parent="CameraPivot"]
 transform = Transform3D(0.707107, -0.408248, 0.57735, 0, 0.816497, 0.57735, -0.707107, -0.408248, 0.57735, 12, 9.8, 12)
 projection = 1
-size = 11.5
+size = 12.8
 
 [node name="Slider" type="Node3D" parent="."]
 script = ExtResource("2_slider")

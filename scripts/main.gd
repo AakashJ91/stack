@@ -51,6 +51,16 @@ var bg_texture: GradientTexture2D
 var bg_material: StandardMaterial3D
 var bg_tween: Tween = null
 
+# Celestial & Dynamic Background Elements
+var bg_star_particles: CPUParticles3D
+var bg_mote_particles: CPUParticles3D
+var bg_hero_stars: Array[Dictionary] = []
+var bg_star_texture: ImageTexture
+var bg_bokeh_texture: GradientTexture2D
+var shooting_star_timer: float = 2.5
+var next_shooting_star_delay: float = 4.5
+var bg_anim_time: float = 0.0
+
 # Curated high-aesthetic pastel color palettes for stacking runs
 # Each palette has its own dedicated complementary atmospheric gradient background
 const PALETTES: Array[Dictionary] = [
@@ -166,6 +176,369 @@ func _setup_gradient_background() -> void:
 	bg_quad.material_override = bg_material
 	
 	camera.add_child(bg_quad)
+	
+	# Generate celestial textures
+	bg_star_texture = _create_star_texture()
+	bg_bokeh_texture = _create_bokeh_texture()
+	
+	# Setup starfield, floating stardust motes, and hero twinkling stars
+	_setup_starfield_particles()
+	_setup_mote_particles()
+	_setup_hero_stars()
+
+func _create_star_texture() -> ImageTexture:
+	var size = 64
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center = Vector2(size * 0.5, size * 0.5)
+	var radius = size * 0.48
+	
+	for y in range(size):
+		for x in range(size):
+			var pos = Vector2(x + 0.5, y + 0.5)
+			var offset = pos - center
+			var dist = offset.length()
+			var nx = abs(offset.x) / radius
+			var ny = abs(offset.y) / radius
+			
+			var core = exp(-dist * 0.28)
+			var ray_x = max(0.0, 1.0 - nx) * exp(-abs(offset.y) * 0.75)
+			var ray_y = max(0.0, 1.0 - ny) * exp(-abs(offset.x) * 0.75)
+			var diag1 = max(0.0, 1.0 - (nx + ny) * 0.9) * 0.35
+			
+			var intensity = clamp(core * 0.65 + (ray_x + ray_y) * 0.75 + diag1, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, intensity))
+	
+	return ImageTexture.create_from_image(img)
+
+func _create_bokeh_texture() -> GradientTexture2D:
+	var tex = GradientTexture2D.new()
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	var g = Gradient.new()
+	g.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.95),
+		Color(1.0, 1.0, 1.0, 0.35),
+		Color(1.0, 1.0, 1.0, 0.0)
+	])
+	g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	tex.gradient = g
+	tex.width = 64
+	tex.height = 64
+	return tex
+
+func _setup_starfield_particles() -> void:
+	bg_star_particles = CPUParticles3D.new()
+	bg_star_particles.amount = 75
+	bg_star_particles.lifetime = 4.5
+	bg_star_particles.preprocess = 4.5
+	bg_star_particles.speed_scale = 0.85
+	bg_star_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	bg_star_particles.emission_box_extents = Vector3(22.0, 16.0, 0.5)
+	bg_star_particles.position = Vector3(0, 0, -42.0)
+	bg_star_particles.gravity = Vector3.ZERO
+	bg_star_particles.direction = Vector3(0.2, 0.1, 0)
+	bg_star_particles.spread = 180.0
+	bg_star_particles.initial_velocity_min = 0.02
+	bg_star_particles.initial_velocity_max = 0.08
+	
+	var scale_curve = Curve.new()
+	scale_curve.add_point(Vector2(0.0, 0.0))
+	scale_curve.add_point(Vector2(0.25, 1.0))
+	scale_curve.add_point(Vector2(0.5, 0.35))
+	scale_curve.add_point(Vector2(0.75, 0.95))
+	scale_curve.add_point(Vector2(1.0, 0.0))
+	bg_star_particles.scale_amount_curve = scale_curve
+	bg_star_particles.scale_amount_min = 0.12
+	bg_star_particles.scale_amount_max = 0.36
+	
+	var quad = QuadMesh.new()
+	quad.size = Vector2(0.7, 0.7)
+	
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_texture = bg_star_texture
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	quad.material = mat
+	bg_star_particles.mesh = quad
+	bg_star_particles.color = Color(0.95, 0.96, 1.0, 0.85)
+	
+	camera.add_child(bg_star_particles)
+
+func _setup_mote_particles() -> void:
+	bg_mote_particles = CPUParticles3D.new()
+	bg_mote_particles.amount = 30
+	bg_mote_particles.lifetime = 6.5
+	bg_mote_particles.preprocess = 6.0
+	bg_mote_particles.speed_scale = 0.85
+	bg_mote_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	bg_mote_particles.emission_box_extents = Vector3(20.0, 15.0, 0.5)
+	bg_mote_particles.position = Vector3(0, 0, -41.0)
+	bg_mote_particles.gravity = Vector3(0, 0.25, 0)
+	bg_mote_particles.direction = Vector3(0.1, 1.0, 0)
+	bg_mote_particles.spread = 45.0
+	bg_mote_particles.initial_velocity_min = 0.12
+	bg_mote_particles.initial_velocity_max = 0.38
+	
+	var mote_curve = Curve.new()
+	mote_curve.add_point(Vector2(0.0, 0.0))
+	mote_curve.add_point(Vector2(0.2, 0.85))
+	mote_curve.add_point(Vector2(0.8, 0.85))
+	mote_curve.add_point(Vector2(1.0, 0.0))
+	bg_mote_particles.scale_amount_curve = mote_curve
+	bg_mote_particles.scale_amount_min = 0.22
+	bg_mote_particles.scale_amount_max = 0.60
+	
+	var quad = QuadMesh.new()
+	quad.size = Vector2(0.85, 0.85)
+	
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_texture = bg_bokeh_texture
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	quad.material = mat
+	bg_mote_particles.mesh = quad
+	bg_mote_particles.color = Color(0.88, 0.92, 1.0, 0.45)
+	
+	camera.add_child(bg_mote_particles)
+
+func _setup_hero_stars() -> void:
+	for item in bg_hero_stars:
+		if is_instance_valid(item.get("mesh")):
+			(item["mesh"] as Node).queue_free()
+	bg_hero_stars.clear()
+	
+	var star_positions = [
+		Vector3(-7.2, 5.8, -40.5),
+		Vector3(6.5, 6.2, -40.5),
+		Vector3(-8.5, -1.8, -40.5),
+		Vector3(7.8, -3.5, -40.5),
+		Vector3(1.2, 6.8, -40.5),
+		Vector3(-4.5, -6.0, -40.5),
+		Vector3(5.2, 1.5, -40.5),
+		Vector3(-2.8, 3.8, -40.5)
+	]
+	
+	for i in range(star_positions.size()):
+		var pos = star_positions[i]
+		var star_mesh_inst = MeshInstance3D.new()
+		var qm = QuadMesh.new()
+		var base_scale = randf_range(0.45, 0.85)
+		qm.size = Vector2(base_scale, base_scale)
+		star_mesh_inst.mesh = qm
+		star_mesh_inst.position = pos
+		star_mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		
+		var mat = StandardMaterial3D.new()
+		mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_texture = bg_star_texture
+		mat.albedo_color = Color(1.0, 0.98, 0.92, randf_range(0.65, 0.95))
+		star_mesh_inst.material_override = mat
+		
+		camera.add_child(star_mesh_inst)
+		
+		bg_hero_stars.append({
+			"mesh": star_mesh_inst,
+			"mat": mat,
+			"pos": pos,
+			"base_scale": base_scale,
+			"rot_speed": randf_range(-0.35, 0.35),
+			"pulse_speed": randf_range(1.2, 2.5),
+			"phase": randf_range(0.0, TAU)
+		})
+
+func _spawn_shooting_star() -> void:
+	if not is_instance_valid(camera) or not bg_star_texture:
+		return
+	
+	var from_left = randf() > 0.5
+	var start_x = randf_range(-14.0, -9.0) if from_left else randf_range(9.0, 14.0)
+	var end_x = randf_range(6.0, 12.0) if from_left else randf_range(-12.0, -6.0)
+	var start_y = randf_range(5.5, 9.5)
+	var end_y = start_y - randf_range(4.5, 7.0)
+	
+	var start_pos = Vector3(start_x, start_y, -40.2)
+	var end_pos = Vector3(end_x, end_y, -40.2)
+	
+	var star_root = Node3D.new()
+	star_root.position = start_pos
+	camera.add_child(star_root)
+	
+	var head = MeshInstance3D.new()
+	var head_mesh = QuadMesh.new()
+	head_mesh.size = Vector2(0.6, 0.6)
+	var head_mat = StandardMaterial3D.new()
+	head_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	head_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	head_mat.albedo_texture = bg_star_texture
+	head_mat.albedo_color = Color(1.0, 0.98, 0.90, 1.0)
+	head.mesh = head_mesh
+	head.material_override = head_mat
+	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	star_root.add_child(head)
+	
+	var trail = CPUParticles3D.new()
+	trail.emitting = true
+	trail.amount = 24
+	trail.lifetime = 0.38
+	trail.speed_scale = 1.0
+	trail.local_coords = false
+	trail.gravity = Vector3.ZERO
+	trail.initial_velocity_min = 0.1
+	trail.initial_velocity_max = 0.5
+	trail.spread = 180.0
+	trail.scale_amount_min = 0.1
+	trail.scale_amount_max = 0.28
+	trail.color = Color(1.0, 0.96, 0.88, 0.85)
+	
+	var trail_mesh = BoxMesh.new()
+	trail_mesh.size = Vector3(0.06, 0.06, 0.06)
+	var trail_mat = StandardMaterial3D.new()
+	trail_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	trail_mesh.material = trail_mat
+	trail.mesh = trail_mesh
+	star_root.add_child(trail)
+	
+	var duration = randf_range(0.6, 0.8)
+	var tween = star_root.create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(star_root, "position", end_pos, duration)
+	tween.tween_property(head_mat, "albedo_color:a", 0.0, duration * 0.4).set_delay(duration * 0.6)
+	tween.chain().tween_callback(func():
+		if is_instance_valid(trail):
+			trail.emitting = false
+		get_tree().create_timer(0.4).timeout.connect(func():
+			if is_instance_valid(star_root):
+				star_root.queue_free()
+		)
+	)
+
+func _spawn_cosmic_background_ripple() -> void:
+	if not is_instance_valid(camera) or not bg_star_texture:
+		return
+	var ripple = CPUParticles3D.new()
+	ripple.emitting = true
+	ripple.one_shot = true
+	ripple.explosiveness = 0.92
+	ripple.amount = 22
+	ripple.lifetime = 0.9
+	ripple.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	ripple.emission_ring_radius = 0.8
+	ripple.emission_ring_inner_radius = 0.4
+	ripple.emission_ring_axis = Vector3.BACK
+	ripple.position = Vector3(0, 0, -40.3)
+	ripple.direction = Vector3.UP
+	ripple.spread = 180.0
+	ripple.initial_velocity_min = 2.5
+	ripple.initial_velocity_max = 5.0
+	ripple.gravity = Vector3.ZERO
+	ripple.scale_amount_min = 0.16
+	ripple.scale_amount_max = 0.38
+	
+	var box_c = _get_box_shade(stack.size())
+	ripple.color = box_c.lerp(Color.WHITE, 0.55)
+	
+	var quad = QuadMesh.new()
+	quad.size = Vector2(0.65, 0.65)
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_texture = bg_star_texture
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	quad.material = mat
+	ripple.mesh = quad
+	
+	camera.add_child(ripple)
+	get_tree().create_timer(1.1).timeout.connect(func():
+		if is_instance_valid(ripple):
+			ripple.queue_free()
+	)
+
+# Floating 3D/Screen score popups
+func _spawn_floating_score_popup(world_pos: Vector3, text: String, color: Color, is_special: bool) -> void:
+	if not is_instance_valid(camera):
+		return
+	var screen_pos = camera.unproject_position(world_pos + Vector3(0, 0.6, 0))
+	var label = Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	
+	var font_size = 38 if is_special else 26
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	
+	label.size = Vector2(260, 60)
+	label.pivot_offset = Vector2(130, 30)
+	label.position = screen_pos - Vector2(130, 30)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	ui_layer.add_child(label)
+	
+	var tw = label.create_tween().set_parallel(true)
+	label.scale = Vector2(1.4, 1.4) if is_special else Vector2(1.15, 1.15)
+	tw.tween_property(label, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(label, "position:y", label.position.y - (50.0 if is_special else 34.0), 0.50).set_ease(Tween.EASE_OUT)
+	tw.tween_property(label, "modulate:a", 0.0, 0.20).set_delay(0.32)
+	tw.chain().tween_callback(label.queue_free)
+
+# Milestone Announcements & Celebrations
+func _check_milestone(current_score: int) -> void:
+	var milestone_titles = {
+		10: "★ 10 BLOCKS - TOWER RISING! ★",
+		20: "★ 20 BLOCKS - SKY HIGH! ★",
+		30: "★ 30 BLOCKS - STRATOSPHERE! ★",
+		40: "★ 40 BLOCKS - COSMIC REALM! ★",
+		50: "★ 50 BLOCKS - MASTER BUILDER! ★",
+		75: "★ 75 BLOCKS - CELESTIAL PINNACLE! ★",
+		100: "★ 100 BLOCKS - TOWER OF ETERNITY! ★"
+	}
+	if milestone_titles.has(current_score):
+		var title = milestone_titles[current_score]
+		sound_mgr.play_milestone()
+		trigger_screen_shake(0.35)
+		_spawn_milestone_banner(title)
+		_spawn_cosmic_background_ripple()
+		if OS.has_feature("android"):
+			Input.vibrate_handheld(120)
+
+func _spawn_milestone_banner(text: String) -> void:
+	var banner = Label.new()
+	banner.text = text
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	banner.add_theme_font_size_override("font_size", 30)
+	banner.add_theme_color_override("font_color", Color(1.0, 0.95, 0.45))
+	banner.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	banner.add_theme_constant_override("shadow_offset_x", 3)
+	banner.add_theme_constant_override("shadow_offset_y", 3)
+	
+	var vp_size = get_viewport().get_visible_rect().size
+	banner.size = Vector2(vp_size.x, 80)
+	banner.position = Vector2(0, 220)
+	banner.pivot_offset = Vector2(vp_size.x * 0.5, 40)
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.scale = Vector2(0.5, 0.5)
+	banner.modulate.a = 0.0
+	
+	ui_layer.add_child(banner)
+	
+	var tw = banner.create_tween()
+	tw.set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(banner, "scale", Vector2.ONE, 0.35)
+	tw.tween_property(banner, "modulate:a", 1.0, 0.25)
+	tw.chain().tween_interval(1.2)
+	tw.chain().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(banner, "scale", Vector2(1.2, 1.2), 0.3)
+	tw.tween_property(banner, "modulate:a", 0.0, 0.3)
+	tw.chain().tween_callback(banner.queue_free)
 
 func _transition_gradient_background(target_top: Color, target_bottom: Color) -> void:
 	if not bg_gradient or bg_gradient.colors.size() < 2:
@@ -183,6 +556,12 @@ func _transition_gradient_background(target_top: Color, target_bottom: Color) ->
 		if bg_gradient and bg_gradient.colors.size() >= 2:
 			bg_gradient.colors = PackedColorArray([bg_gradient.colors[0], c])
 	, current_bottom, target_bottom, 0.7)
+	
+	# Harmonize floating stardust bokeh tint
+	if is_instance_valid(bg_mote_particles):
+		var mote_c = target_bottom.lerp(Color.WHITE, 0.45)
+		mote_c.a = 0.45
+		bg_mote_particles.color = mote_c
 
 func _update_height_gradient_tint(height_index: int) -> void:
 	if not bg_gradient:
