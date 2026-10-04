@@ -48,10 +48,15 @@ script = ExtResource("1_main")
 environment = SubResource("Environment_main")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.707107, -0.408248, 0.57735, 0, 0.816497, 0.57735, -0.707107, -0.408248, 0.57735, 10, 18, 10)
+transform = Transform3D(0.882948, 0.370335, 0.289139, 0, 0.615661, -0.788011, -0.469472, 0.695772, 0.543597, 8, 14, 8)
+light_color = Color(1, 0.98, 0.95, 1)
+light_energy = 0.88
 shadow_enabled = true
-shadow_bias = 0.04
-directional_shadow_max_distance = 60.0
+shadow_bias = 0.015
+shadow_normal_bias = 1.8
+shadow_blur = 1.2
+directional_shadow_mode = 0
+directional_shadow_max_distance = 36.0
 
 [node name="CameraPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)

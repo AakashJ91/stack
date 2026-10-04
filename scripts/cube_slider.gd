@@ -55,13 +55,15 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 	
 	# Start from outside the stack
 	current_time = -PI * 0.5
-	guide_mesh_instance.visible = true
+	if guide_mesh_instance:
+		guide_mesh_instance.visible = false
 
 func attach_box(box: Node3D) -> void:
 	current_box = box
 	box.state = box.BoxState.ATTACHED
 	was_aligned = false
-	guide_mesh_instance.visible = true
+	if guide_mesh_instance:
+		guide_mesh_instance.visible = false
 
 func _process(delta: float) -> void:
 	if not is_active:
