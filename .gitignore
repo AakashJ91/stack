@@ -1,0 +1,16 @@
+# Godot 4.x cache and editor data
+.godot/
+
+# Exported binaries & builds
+build/
+*.apk
+*.aab
+*.exe
+
+# Android keystores / signing
+*.keystore
+*.jks
+
+# OS generated files
+.DS_Store
+Thumbs.db

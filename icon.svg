@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141824"/>
+      <stop offset="100%" stop-color="#0a0c14"/>
+    </linearGradient>
+    <linearGradient id="rope" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0369a1"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="goldTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#facc15"/>
+    </linearGradient>
+    <linearGradient id="goldLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ca8a04"/>
+      <stop offset="100%" stop-color="#a16207"/>
+    </linearGradient>
+    <linearGradient id="goldRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  
+  <!-- Pendulum string & pivot -->
+  <circle cx="128" cy="20" r="6" fill="#f59e0b"/>
+  <line x1="128" y1="20" x2="148" y2="78" stroke="url(#rope)" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="148" cy="78" r="5" fill="#f59e0b"/>
+
+  <!-- Swinging Box (Isometric) -->
+  <g transform="translate(20, -18)">
+    <!-- Top Face -->
+    <polygon points="128,80 168,98 128,116 88,98" fill="url(#goldTop)"/>
+    <!-- Left Face -->
+    <polygon points="88,98 128,116 128,156 88,138" fill="url(#goldLeft)"/>
+    <!-- Right Face -->
+    <polygon points="128,116 168,98 168,138 128,156" fill="url(#goldRight)"/>
+  </g>
+
+  <!-- Stack Base Box 1 (Isometric) -->
+  <g transform="translate(0, 48)">
+    <!-- Top Face -->
+    <polygon points="128,120 178,142 128,164 78,142" fill="url(#top)"/>
+    <!-- Left Face -->
+    <polygon points="78,142 128,164 128,204 78,182" fill="url(#left)"/>
+    <!-- Right Face -->
+    <polygon points="128,164 178,142 178,182 128,204" fill="url(#right)"/>
+  </g>
+</svg>
