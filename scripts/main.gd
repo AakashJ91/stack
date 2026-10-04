@@ -44,15 +44,24 @@ var active_box: Node3D = null
 
 var pedestal_rim: MeshInstance3D
 
+# Gradient Background Components
+var bg_quad: MeshInstance3D
+var bg_gradient: Gradient
+var bg_texture: GradientTexture2D
+var bg_material: StandardMaterial3D
+var bg_tween: Tween = null
+
 # Curated high-aesthetic pastel color palettes for stacking runs
-# Modes: "rainbow" (continuous silky pastel spectrum) and "gradient" (harmonious designer pastel colorways)
+# Each palette has its own dedicated complementary atmospheric gradient background
 const PALETTES: Array[Dictionary] = [
 	{
 		"name": "Pastel Rainbow Spectrum",
 		"mode": "rainbow",
 		"speed": 0.026,
 		"sat": 0.54,
-		"val": 0.92
+		"val": 0.92,
+		"bg_top": Color(0.08, 0.09, 0.18),    # Deep Twilight Navy
+		"bg_bottom": Color(0.20, 0.14, 0.28) # Soft Twilight Violet
 	},
 	{
 		"name": "Cotton Candy",
@@ -64,7 +73,9 @@ const PALETTES: Array[Dictionary] = [
 			Color(0.48, 0.76, 0.96), # Pastel Sky Blue
 			Color(0.45, 0.88, 0.74), # Pastel Mint Seafoam
 			Color(0.96, 0.84, 0.45)  # Pastel Buttercup
-		]
+		],
+		"bg_top": Color(0.12, 0.09, 0.22),    # Deep Heather Mauve
+		"bg_bottom": Color(0.24, 0.12, 0.22) # Soft Dusty Rose
 	},
 	{
 		"name": "Peach Sorbet",
@@ -75,7 +86,9 @@ const PALETTES: Array[Dictionary] = [
 			Color(0.96, 0.86, 0.45), # Pastel Vanilla Cream
 			Color(0.96, 0.58, 0.68), # Pastel Strawberry
 			Color(0.82, 0.62, 0.88)  # Pastel Wisteria
-		]
+		],
+		"bg_top": Color(0.15, 0.10, 0.17),    # Deep Cocoa Slate
+		"bg_bottom": Color(0.26, 0.15, 0.18) # Warm Sunset Mauve
 	},
 	{
 		"name": "Mint & Sage Serenity",
@@ -86,7 +99,9 @@ const PALETTES: Array[Dictionary] = [
 			Color(0.48, 0.78, 0.94), # Pastel Powder Blue
 			Color(0.75, 0.65, 0.92), # Pastel Soft Lilac
 			Color(0.95, 0.82, 0.50)  # Pastel Primrose
-		]
+		],
+		"bg_top": Color(0.07, 0.12, 0.16),    # Deep Nordic Spruce
+		"bg_bottom": Color(0.11, 0.20, 0.21) # Soft Deep Seafoam
 	},
 	{
 		"name": "Nordic Rose & Ice",
@@ -97,7 +112,9 @@ const PALETTES: Array[Dictionary] = [
 			Color(0.52, 0.75, 0.92), # Pastel Ice Blue
 			Color(0.48, 0.84, 0.78), # Pastel Sage Teal
 			Color(0.92, 0.78, 0.58)  # Pastel Sand Amber
-		]
+		],
+		"bg_top": Color(0.09, 0.12, 0.20),    # Deep Arctic Slate
+		"bg_bottom": Color(0.17, 0.14, 0.25) # Soft Nordic Lilac
 	}
 ]
 var palette_index: int = 0
@@ -110,6 +127,7 @@ func _ready() -> void:
 
 	load_high_score()
 	_setup_lighting_and_env()
+	_setup_gradient_background()
 	_create_pedestal()
 	base_camera_pivot_y = camera_pivot.position.y
 	target_camera_y = base_camera_pivot_y
@@ -119,6 +137,62 @@ func _ready() -> void:
 	$UI/GameOverPanel/VBox/RestartBtn.pressed.connect(restart_game)
 	
 	reset_game()
+
+func _setup_gradient_background() -> void:
+	bg_quad = MeshInstance3D.new()
+	var quad_mesh = QuadMesh.new()
+	quad_mesh.size = Vector2(90.0, 90.0)
+	bg_quad.mesh = quad_mesh
+	bg_quad.position = Vector3(0, 0, -45.0)
+	bg_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	
+	bg_gradient = Gradient.new()
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	var top_c = pal.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
+	var bot_c = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+	bg_gradient.colors = PackedColorArray([top_c, bot_c])
+	bg_gradient.offsets = PackedFloat32Array([0.0, 1.0])
+	
+	bg_texture = GradientTexture2D.new()
+	bg_texture.gradient = bg_gradient
+	bg_texture.fill_from = Vector2(0.3, 0.0) # Elegant diagonal top-left
+	bg_texture.fill_to = Vector2(0.7, 1.0)   # to bottom-right
+	bg_texture.width = 64
+	bg_texture.height = 128
+	
+	bg_material = StandardMaterial3D.new()
+	bg_material.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	bg_material.albedo_texture = bg_texture
+	bg_quad.material_override = bg_material
+	
+	camera.add_child(bg_quad)
+
+func _transition_gradient_background(target_top: Color, target_bottom: Color) -> void:
+	if not bg_gradient or bg_gradient.colors.size() < 2:
+		return
+	if bg_tween:
+		bg_tween.kill()
+	bg_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var current_top = bg_gradient.colors[0]
+	var current_bottom = bg_gradient.colors[1]
+	bg_tween.tween_method(func(c: Color):
+		if bg_gradient and bg_gradient.colors.size() >= 2:
+			bg_gradient.colors = PackedColorArray([c, bg_gradient.colors[1]])
+	, current_top, target_top, 0.7)
+	bg_tween.tween_method(func(c: Color):
+		if bg_gradient and bg_gradient.colors.size() >= 2:
+			bg_gradient.colors = PackedColorArray([bg_gradient.colors[0], c])
+	, current_bottom, target_bottom, 0.7)
+
+func _update_height_gradient_tint(height_index: int) -> void:
+	if not bg_gradient:
+		return
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	var base_top = pal.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
+	var current_box_c = _get_box_shade(height_index)
+	# Soft complementary atmospheric glow at the bottom of the gradient
+	var dynamic_bottom = Color.from_hsv(current_box_c.h, 0.38, 0.24)
+	_transition_gradient_background(base_top, dynamic_bottom)
 
 func _setup_lighting_and_env() -> void:
 	# Balanced lighting to keep colors rich and prevent white washout
@@ -204,6 +278,12 @@ func reset_game() -> void:
 		rm.albedo_color = first_box_color
 		rm.emission = first_box_color
 		rm.emission_energy_multiplier = 0.85
+	
+	# Update gradient background colors smoothly to match new palette
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	var target_top = pal.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
+	var target_bottom = pal.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+	_transition_gradient_background(target_top, target_bottom)
 	
 	# Initial slider level
 	slider.set_target_level(current_top_y, current_target_pos, 0)
@@ -360,6 +440,9 @@ func _on_box_placed_successfully(box: Node3D) -> void:
 	
 	# Pan camera up smoothly
 	target_camera_y = base_camera_pivot_y + current_top_y * 0.95
+	
+	# Gently evolve background gradient as the tower ascends
+	_update_height_gradient_tint(stack.size())
 	
 	# Spawn next box
 	state = GameState.PLAYING
