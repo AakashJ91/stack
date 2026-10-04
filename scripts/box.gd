@@ -17,15 +17,15 @@ var squash_root: Node3D
 # tilt_root has origin at center of mass so banks and rotates around center
 var tilt_root: Node3D
 
+const TEX_ALBEDO = preload("res://textures/cube_albedo.png")
+const TEX_NORMAL = preload("res://textures/cube_normal.png")
+const TEX_ROUGHNESS = preload("res://textures/cube_roughness.png")
+
 # Visual instances
 var mesh_instance: MeshInstance3D
-var top_trim_instance: MeshInstance3D
-var corner_accents_instance: MeshInstance3D
 
 # Materials
 var material: StandardMaterial3D
-var trim_material: StandardMaterial3D
-var corner_material: StandardMaterial3D
 
 # Particle FX
 var trail_particles: CPUParticles3D
@@ -66,7 +66,7 @@ func _build_mesh() -> void:
 	tilt_root.position = Vector3(0, box_size.y * 0.5, 0)
 	squash_root.add_child(tilt_root)
 	
-	# 1. Main Cube Body
+	# 1. Main Cube Body with High-Quality Tactile Textures
 	mesh_instance = MeshInstance3D.new()
 	var box_mesh = BoxMesh.new()
 	box_mesh.size = box_size
@@ -74,42 +74,19 @@ func _build_mesh() -> void:
 	
 	material = StandardMaterial3D.new()
 	material.shading_mode = StandardMaterial3D.SHADING_MODE_PER_PIXEL
-	material.roughness = 0.32
-	material.metallic = 0.02
-	material.clearcoat_enabled = true
-	material.clearcoat = 0.25
-	material.rim_enabled = false
+	material.albedo_texture = TEX_ALBEDO
 	material.albedo_color = box_color
+	material.normal_enabled = true
+	material.normal_texture = TEX_NORMAL
+	material.normal_scale = 1.0
+	material.roughness_texture = TEX_ROUGHNESS
+	material.roughness = 0.35
+	material.metallic = 0.03
+	material.clearcoat_enabled = true
+	material.clearcoat = 0.30
+	material.clearcoat_roughness = 0.20
 	mesh_instance.material_override = material
 	tilt_root.add_child(mesh_instance)
-	
-	# 2. Sleek Top Surface Chamfer Trim Frame
-	top_trim_instance = MeshInstance3D.new()
-	var trim_mesh = BoxMesh.new()
-	trim_mesh.size = Vector3(box_size.x * 0.94, 0.035, box_size.z * 0.94)
-	top_trim_instance.mesh = trim_mesh
-	top_trim_instance.position = Vector3(0, box_size.y * 0.5 + 0.015, 0)
-	
-	trim_material = StandardMaterial3D.new()
-	trim_material.albedo_color = box_color
-	trim_material.roughness = 0.30
-	trim_material.metallic = 0.02
-	trim_material.emission_enabled = false
-	top_trim_instance.material_override = trim_material
-	tilt_root.add_child(top_trim_instance)
-	
-	# 4. Corner Bevel Bracket Accents
-	corner_accents_instance = MeshInstance3D.new()
-	var corner_mesh = BoxMesh.new()
-	corner_mesh.size = Vector3(box_size.x * 0.99, 0.025, box_size.z * 0.99)
-	corner_accents_instance.mesh = corner_mesh
-	corner_accents_instance.position = Vector3(0, box_size.y * 0.5 + 0.005, 0)
-	
-	corner_material = StandardMaterial3D.new()
-	corner_material.albedo_color = box_color
-	corner_material.roughness = 0.4
-	corner_accents_instance.material_override = corner_material
-	tilt_root.add_child(corner_accents_instance)
 	
 	# 5. Glider Particle Trail (Emits while sliding)
 	trail_particles = CPUParticles3D.new()
@@ -163,26 +140,15 @@ func _apply_color() -> void:
 	var s = box_color.s
 	var v = box_color.v
 	
-	# Main body: creamy, satin pastel finish
+	# Main body: creamy, satin pastel finish with tactile surface texture
 	if material:
 		material.albedo_color = box_color
-		material.roughness = 0.32
-		material.metallic = 0.02
+		material.roughness = 0.35
+		material.metallic = 0.03
 		material.clearcoat_enabled = true
-		material.clearcoat = 0.25
-		material.rim_enabled = false
+		material.clearcoat = 0.30
+		material.clearcoat_roughness = 0.20
 		material.emission_enabled = false
-	
-	# Top trim: soft harmonious frame preserving the pastel color with rich contrast
-	if trim_material:
-		var trim_col = Color.from_hsv(h, clamp(s * 1.12, 0.45, 0.75), max(v * 0.88, 0.70))
-		trim_material.albedo_color = trim_col
-		trim_material.emission_enabled = false
-	
-	# Corner bevel accents: gentle muted harmonic contrast
-	if corner_material:
-		var corner_col = Color.from_hsv(h, clamp(s * 1.25, 0.5, 0.85), max(v * 0.75, 0.55))
-		corner_material.albedo_color = corner_col
 	
 	if trail_particles:
 		var trail_c = Color.from_hsv(h, clamp(s * 0.9, 0.4, 0.7), v)
