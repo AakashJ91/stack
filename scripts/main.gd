@@ -45,8 +45,6 @@ var screen_shake_trauma: float = 0.0
 var active_box: Node3D = null
 
 var pedestal_rim: MeshInstance3D
-var stage_dais: MeshInstance3D
-var stage_rim: MeshInstance3D
 
 # Gradient Background Components
 var bg_quad: MeshInstance3D
@@ -206,58 +204,18 @@ func _setup_lighting_and_env() -> void:
 	if env:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(0.08, 0.09, 0.14) # Deep slate midnight
-		env.ambient_light_color = Color(0.60, 0.65, 0.78)
-		env.ambient_light_energy = 0.40
+		env.ambient_light_color = Color(0.68, 0.72, 0.82)
+		env.ambient_light_energy = 0.55
 		env.glow_enabled = true
 		env.glow_intensity = 0.30
 		env.glow_bloom = 0.05
 	
 	var light = $DirectionalLight3D as DirectionalLight3D
 	if light:
-		light.rotation_degrees = Vector3(-52, 28, 0)
-		light.light_color = Color(1.0, 0.98, 0.95)
-		light.light_energy = 0.88
-		light.shadow_enabled = true
-		light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-		light.directional_shadow_max_distance = 36.0
-		light.shadow_bias = 0.015
-		light.shadow_normal_bias = 1.8
-		light.shadow_blur = 1.2
+		light.light_color = Color(1.0, 1.0, 1.0)
+		light.light_energy = 0.80
 
 func _create_pedestal() -> void:
-	# Architectural Stage Dais (Receives pedestal & tower shadows)
-	stage_dais = MeshInstance3D.new()
-	var cyl = CylinderMesh.new()
-	cyl.top_radius = 4.2
-	cyl.bottom_radius = 4.5
-	cyl.height = 0.35
-	cyl.radial_segments = 64
-	stage_dais.mesh = cyl
-	stage_dais.position = Vector3(0, -1.55, 0)
-	var dais_mat = StandardMaterial3D.new()
-	dais_mat.albedo_color = Color(0.12, 0.14, 0.22)
-	dais_mat.metallic = 0.15
-	dais_mat.roughness = 0.45
-	stage_dais.material_override = dais_mat
-	add_child(stage_dais)
-	
-	# Glowing accent rim on stage dais
-	stage_rim = MeshInstance3D.new()
-	var torus = TorusMesh.new()
-	torus.inner_radius = 4.16
-	torus.outer_radius = 4.24
-	torus.rings = 64
-	torus.ring_segments = 16
-	stage_rim.mesh = torus
-	stage_rim.position = Vector3(0, -1.37, 0)
-	var stage_rim_mat = StandardMaterial3D.new()
-	stage_rim_mat.albedo_color = Color(0.4, 0.6, 0.95)
-	stage_rim_mat.emission_enabled = true
-	stage_rim_mat.emission = Color(0.3, 0.6, 1.0)
-	stage_rim_mat.emission_energy_multiplier = 0.8
-	stage_rim.material_override = stage_rim_mat
-	add_child(stage_rim)
-
 	base_pedestal = MeshInstance3D.new()
 	var box_m = BoxMesh.new()
 	box_m.size = Vector3(2.8, 1.4, 2.8)
@@ -321,18 +279,13 @@ func reset_game() -> void:
 	palette_index = (palette_index + 1) % PALETTES.size()
 	current_palette_start_hue = randf()
 	
-	# Harmonize pedestal and stage accent rims with the starting hue
+	# Harmonize pedestal accent rim with the starting hue
 	var first_box_color = _get_box_shade(0)
 	if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
 		var rm = pedestal_rim.material_override as StandardMaterial3D
 		rm.albedo_color = first_box_color
 		rm.emission = first_box_color
 		rm.emission_energy_multiplier = 0.85
-	if is_instance_valid(stage_rim) and stage_rim.material_override:
-		var srm = stage_rim.material_override as StandardMaterial3D
-		srm.albedo_color = first_box_color
-		srm.emission = first_box_color
-		srm.emission_energy_multiplier = 0.80
 	
 	# Update gradient background colors smoothly to match new palette
 	var pal = PALETTES[palette_index % PALETTES.size()]
@@ -593,13 +546,6 @@ func _process(delta: float) -> void:
 	
 	camera_pivot.position.x = lerp(camera_pivot.position.x, target_camera_x, delta * 3.0)
 	camera_pivot.position.z = lerp(camera_pivot.position.z, target_camera_z, delta * 3.0)
-	
-	# Keep light source focused near active stack height for optimal shadow mapping
-	var light = $DirectionalLight3D as DirectionalLight3D
-	if light:
-		light.position.y = camera_pivot.position.y + 12.0
-		light.position.x = camera_pivot.position.x + 8.0
-		light.position.z = camera_pivot.position.z + 8.0
 	
 	# Screen shake decay
 	if screen_shake_trauma > 0.0:
