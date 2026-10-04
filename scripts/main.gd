@@ -519,16 +519,49 @@ void fragment() {
 	rim_mesh.size = Vector3(2.82, 0.06, 2.82)
 	pedestal_rim.mesh = rim_mesh
 	var rim_mat = StandardMaterial3D.new()
-	rim_mat.albedo_color = Color(0.4, 0.6, 0.95)
-	rim_mat.emission_enabled = true
-	rim_mat.emission = Color(0.3, 0.6, 1.0)
-	rim_mat.emission_energy_multiplier = 0.85
+	rim_mat.roughness = 0.50
+	rim_mat.metallic = 0.10
+	rim_mat.emission_enabled = false
 	pedestal_rim.material_override = rim_mat
 	pedestal_rim.position = Vector3(0, 0.0, 0)
 	add_child(pedestal_rim)
 	
+	_update_pedestal_color(false)
+	
 	# Soft ethereal mist ring around the lower column
 	_setup_pedestal_mist()
+
+# Sets the base pedestal and rim to be distinctly darker than the cube
+func _update_pedestal_color(animate: bool = false) -> void:
+	var first_color = _get_box_shade(0)
+	# The base pedestal top is significantly darker than the cube (solid, grounded foundation)
+	var base_dark = first_color.darkened(0.55)
+	base_dark.a = 1.0
+	# Rim accent is also noticeably darker than the cube
+	var rim_dark = first_color.darkened(0.38)
+	rim_dark.a = 1.0
+	
+	if is_instance_valid(pedestal_mat):
+		if animate and bg_tween:
+			var cur_top = pedestal_mat.get_shader_parameter("top_color")
+			if cur_top == null:
+				cur_top = base_dark
+			bg_tween.tween_method(func(c: Color):
+				if is_instance_valid(pedestal_mat):
+					pedestal_mat.set_shader_parameter("top_color", c)
+			, cur_top, base_dark, 0.7)
+		else:
+			pedestal_mat.set_shader_parameter("top_color", base_dark)
+	
+	if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
+		var rm = pedestal_rim.material_override as StandardMaterial3D
+		if animate and bg_tween:
+			bg_tween.tween_property(rm, "albedo_color", rim_dark, 0.7)
+		else:
+			rm.albedo_color = rim_dark
+		rm.emission_enabled = false
+		rm.roughness = 0.50
+		rm.metallic = 0.10
 
 func _setup_pedestal_mist() -> void:
 	pedestal_mist_particles = CPUParticles3D.new()
@@ -765,6 +798,7 @@ func show_main_menu() -> void:
 	current_target_pos = Vector3.ZERO
 	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 0.85 * challenge_speed_multiplier
+	_update_pedestal_color(false)
 	_spawn_menu_preview_box()
 
 func _spawn_menu_preview_box() -> void:
@@ -1224,11 +1258,7 @@ func _open_skins_drawer() -> void:
 			var top_c = p_data.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
 			var bot_c = p_data.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
 			_transition_gradient_background(top_c, bot_c)
-			var first_color = _get_box_shade(0)
-			if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
-				var rm = pedestal_rim.material_override as StandardMaterial3D
-				rm.albedo_color = first_color
-				rm.emission = first_color
+			_update_pedestal_color(true)
 			_update_active_skins_in_scene()
 			_refresh_pal_tiles()
 		)
@@ -1414,6 +1444,7 @@ func reset_game() -> void:
 	# Initial slider level
 	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
+	_update_pedestal_color(false)
 	
 	_spawn_next_box()
 

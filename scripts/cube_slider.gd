@@ -38,8 +38,10 @@ func _setup_guide_projection() -> void:
 	
 	guide_material = StandardMaterial3D.new()
 	guide_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	guide_material.albedo_color = Color(1.0, 1.0, 1.0, 0.18)
+	guide_material.albedo_color = Color(0.2, 0.6, 0.95, 0.0)
 	guide_material.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	guide_material.render_priority = 2
+	guide_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	guide_mesh_instance.material_override = guide_material
 	guide_mesh_instance.visible = false
 	add_child(guide_mesh_instance)
@@ -55,10 +57,13 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 	else:
 		current_slide_dir = Vector3(0, 0, 1)
 	
-	# Start from outside the stack
+	# Start from outside the stack directly under the cube
 	current_time = -PI * 0.5
-	# Seed smooth pos so first frame doesn't lerp from world origin
-	_guide_smooth_pos = Vector3(current_target_center.x, current_top_y + 0.02, current_target_center.z)
+	var start_offset = slide_amplitude * sin(current_time)
+	var start_pos = current_target_center + (current_slide_dir * start_offset)
+	var guide_y = current_top_y + (0.042 if current_top_y == 0.0 else 0.025)
+	_guide_smooth_pos = Vector3(start_pos.x, guide_y, start_pos.z)
+	guide_mesh_instance.global_position = _guide_smooth_pos
 	guide_mesh_instance.visible = true
 
 func attach_box(box: Node3D) -> void:
@@ -98,7 +103,8 @@ func _process(delta: float) -> void:
 		
 		# Update guide projection — smoothly lerp position so it glides, not snaps
 		if guide_mesh_instance:
-			var target_guide = Vector3(slide_pos.x, current_top_y + 0.02, slide_pos.z)
+			var guide_y = current_top_y + (0.042 if current_top_y == 0.0 else 0.025)
+			var target_guide = Vector3(slide_pos.x, guide_y, slide_pos.z)
 			_guide_smooth_pos = _guide_smooth_pos.lerp(target_guide, clamp(GUIDE_LERP_SPEED * delta, 0.0, 1.0))
 			guide_mesh_instance.global_position = _guide_smooth_pos
 			
@@ -107,11 +113,12 @@ func _process(delta: float) -> void:
 			var base_c = current_box.box_color if "box_color" in current_box else Color(1.0, 0.9, 0.4)
 			
 			if is_aligned:
-				# Sweet-spot lock-on: smooth luminous pulse (no hard snap in alpha)
-				var pulse = 0.30 + (sin(current_time * 10.0) * 0.08)
-				guide_material.albedo_color = guide_material.albedo_color.lerp(Color(1.0, 0.96, 0.72, pulse), 0.18)
+				# Sweet-spot lock-on: gentle luminous pulse in matching cube color (no white flash)
+				var pulse = 0.22 + (sin(current_time * 3.0) * 0.03)
+				var aligned_c = Color(base_c.r, base_c.g, base_c.b, pulse)
+				guide_material.albedo_color = guide_material.albedo_color.lerp(aligned_c, 0.18)
 			else:
-				var alpha = 0.07 + (proximity * 0.18)
+				var alpha = 0.07 + (proximity * 0.14)
 				guide_material.albedo_color = guide_material.albedo_color.lerp(Color(base_c.r, base_c.g, base_c.b, alpha), 0.12)
 
 func release_box() -> Node3D:
