@@ -17,15 +17,97 @@ var squash_root: Node3D
 # tilt_root has origin at center of mass so banks and rotates around center
 var tilt_root: Node3D
 
-const TEX_ALBEDO = preload("res://textures/cube_albedo.png")
-const TEX_NORMAL = preload("res://textures/cube_normal.png")
-const TEX_ROUGHNESS = preload("res://textures/cube_roughness.png")
+const TEX_SURFACE_GRAIN = preload("res://textures/surface_grain.png")
+
+static var _cube_shader: Shader = null
+
+static func _get_cube_shader() -> Shader:
+	if _cube_shader == null:
+		_cube_shader = Shader.new()
+		_cube_shader.code = """
+shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+
+uniform vec4 base_color : source_color = vec4(0.48, 0.76, 0.96, 1.0);
+uniform vec3 box_half_size = vec3(1.2, 0.4, 1.2);
+uniform sampler2D surface_grain : repeat_enable, filter_linear;
+uniform float bevel_width = 0.09;
+uniform float chamfer_width = 0.022;
+uniform float roughness : hint_range(0.0, 1.0) = 0.32;
+uniform float metallic : hint_range(0.0, 1.0) = 0.03;
+uniform vec4 emission_color : source_color = vec4(1.0, 0.94, 0.6, 1.0);
+uniform float emission_energy : hint_range(0.0, 5.0) = 0.0;
+
+varying vec3 v_local_pos;
+varying vec3 v_normal;
+
+void vertex() {
+	v_local_pos = VERTEX;
+	v_normal = NORMAL;
+}
+
+void fragment() {
+	vec3 norm_abs = abs(v_normal);
+	vec3 d3 = box_half_size - abs(v_local_pos);
+	
+	// True 3D metric edge distance on any face orientation
+	float edge_dist = 0.0;
+	vec2 uv = vec2(0.0);
+	if (norm_abs.y > 0.5) {
+		edge_dist = min(d3.x, d3.z);
+		uv = v_local_pos.xz;
+	} else if (norm_abs.x > 0.5) {
+		edge_dist = min(d3.y, d3.z);
+		uv = v_local_pos.zy;
+	} else {
+		edge_dist = min(d3.x, d3.y);
+		uv = v_local_pos.xy;
+	}
+	
+	// 1. Soft edge ambient occlusion (crisp, readable block layering)
+	float ao_t = clamp(edge_dist / bevel_width, 0.0, 1.0);
+	float ao = mix(0.80, 1.0, ao_t * ao_t * (3.0 - 2.0 * ao_t));
+	
+	// 2. Beveled chamfer light gleam
+	float chamfer_diff = abs(edge_dist - (bevel_width * 0.45));
+	float chamfer = 1.0 - clamp(chamfer_diff / chamfer_width, 0.0, 1.0);
+	chamfer = chamfer * chamfer * 0.14;
+	
+	// 3. Multi-frequency tactile satin surface grain
+	float grain1 = texture(surface_grain, uv * 1.2).r;
+	float grain2 = texture(surface_grain, uv * 4.5).r;
+	float grain = ((grain1 * 0.65 + grain2 * 0.35) - 0.5) * 0.05;
+	
+	// 4. Subtle top-face designer inset panel
+	float top_inset = 0.0;
+	if (v_normal.y > 0.5) {
+		float d_inset = abs(edge_dist - 0.22);
+		float inset_line = 1.0 - clamp(d_inset / 0.018, 0.0, 1.0);
+		top_inset = inset_line * inset_line * 0.06;
+	}
+	
+	// 5. Vertical soft volumetric shading
+	float vert_shade = (v_local_pos.y / box_half_size.y) * 0.04;
+	
+	vec3 col = base_color.rgb * ao + vec3(chamfer) + vec3(grain) + vec3(top_inset) + vec3(vert_shade);
+	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
+	
+	ROUGHNESS = mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t);
+	METALLIC = metallic;
+	SPECULAR = 0.55;
+	
+	if (emission_energy > 0.001) {
+		EMISSION = emission_color.rgb * emission_energy;
+	}
+}
+"""
+	return _cube_shader
 
 # Visual instances
 var mesh_instance: MeshInstance3D
 
 # Materials
-var material: StandardMaterial3D
+var material: ShaderMaterial
 
 # Particle FX
 var trail_particles: CPUParticles3D
@@ -66,25 +148,17 @@ func _build_mesh() -> void:
 	tilt_root.position = Vector3(0, box_size.y * 0.5, 0)
 	squash_root.add_child(tilt_root)
 	
-	# 1. Main Cube Body with High-Quality Tactile Textures
+	# 1. Main Cube Body with High-Quality Tactile Shading
 	mesh_instance = MeshInstance3D.new()
 	var box_mesh = BoxMesh.new()
 	box_mesh.size = box_size
 	mesh_instance.mesh = box_mesh
 	
-	material = StandardMaterial3D.new()
-	material.shading_mode = StandardMaterial3D.SHADING_MODE_PER_PIXEL
-	material.albedo_texture = TEX_ALBEDO
-	material.albedo_color = box_color
-	material.normal_enabled = true
-	material.normal_texture = TEX_NORMAL
-	material.normal_scale = 1.0
-	material.roughness_texture = TEX_ROUGHNESS
-	material.roughness = 0.35
-	material.metallic = 0.03
-	material.clearcoat_enabled = true
-	material.clearcoat = 0.30
-	material.clearcoat_roughness = 0.20
+	material = ShaderMaterial.new()
+	material.shader = _get_cube_shader()
+	material.set_shader_parameter("surface_grain", TEX_SURFACE_GRAIN)
+	material.set_shader_parameter("box_half_size", box_size * 0.5)
+	material.set_shader_parameter("base_color", box_color)
 	mesh_instance.material_override = material
 	tilt_root.add_child(mesh_instance)
 	
@@ -136,22 +210,11 @@ func set_color(color: Color) -> void:
 	_apply_color()
 
 func _apply_color() -> void:
-	var h = box_color.h
-	var s = box_color.s
-	var v = box_color.v
-	
-	# Main body: creamy, satin pastel finish with tactile surface texture
 	if material:
-		material.albedo_color = box_color
-		material.roughness = 0.35
-		material.metallic = 0.03
-		material.clearcoat_enabled = true
-		material.clearcoat = 0.30
-		material.clearcoat_roughness = 0.20
-		material.emission_enabled = false
+		material.set_shader_parameter("base_color", box_color)
 	
 	if trail_particles:
-		var trail_c = Color.from_hsv(h, clamp(s * 0.9, 0.4, 0.7), v)
+		var trail_c = Color.from_hsv(box_color.h, clamp(box_color.s * 0.9, 0.4, 0.7), box_color.v)
 		trail_particles.color = trail_c
 		if trail_particles.mesh and trail_particles.mesh is BoxMesh:
 			var pm = (trail_particles.mesh as BoxMesh).material as StandardMaterial3D
@@ -159,7 +222,7 @@ func _apply_color() -> void:
 				pm.albedo_color = trail_c
 	
 	if drop_particles:
-		drop_particles.color = Color.from_hsv(h, clamp(s * 0.8, 0.35, 0.6), v)
+		drop_particles.color = Color.from_hsv(box_color.h, clamp(box_color.s * 0.8, 0.35, 0.6), box_color.v)
 
 # Called continuously while attached to slider
 func update_slider_motion(delta: float, velocity_factor: float, axis_index: int, is_aligned: bool, hover_time: float) -> void:
@@ -332,22 +395,17 @@ func _play_land_flash() -> void:
 	pass # Keep pastel colors clean and saturated on normal land
 
 func _play_perfect_flash() -> void:
-	# Brief golden chime pulse & gem spin on perfect drop
+	# Brief golden chime pulse on perfect drop
 	if flash_tween:
 		flash_tween.kill()
 	flash_tween = create_tween().set_parallel(true)
 	
 	if material:
-		material.emission_enabled = true
-		material.emission = Color(1.0, 0.94, 0.6)
-		material.emission_energy_multiplier = 1.3
-		flash_tween.tween_property(material, "emission_energy_multiplier", 0.0, 0.35)
-	
-	flash_tween.chain().tween_callback(func():
-		if material:
-			material.emission_enabled = false
-		_apply_color()
-	)
+		material.set_shader_parameter("emission_energy", 1.4)
+		flash_tween.tween_method(func(val: float):
+			if is_instance_valid(material):
+				material.set_shader_parameter("emission_energy", val)
+		, 1.4, 0.0, 0.35)
 
 func _spawn_impact_particles(is_perfect: bool) -> void:
 	var parent_node = get_parent()
