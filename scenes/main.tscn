@@ -19,71 +19,44 @@ glow_bloom = 0.08
 bg_color = Color(0, 0, 0, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.09, 0.11, 0.16, 0.92)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.25, 0.35, 0.55, 0.8)
-corner_radius_top_left = 24
-corner_radius_top_right = 24
-corner_radius_bottom_right = 24
-corner_radius_bottom_left = 24
-shadow_color = Color(0, 0, 0, 0.45)
-shadow_size = 18
+bg_color = Color(0.08, 0.10, 0.14, 0.96)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
-bg_color = Color(0.18, 0.55, 0.95, 1)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
-shadow_color = Color(0.08, 0.3, 0.65, 0.4)
-shadow_size = 8
+bg_color = Color(0.16, 0.50, 0.88, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ribbon"]
-bg_color = Color(0.08, 0.10, 0.16, 0.92)
-border_width_left = 1
+bg_color = Color(0.06, 0.07, 0.11, 0.97)
 border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.28, 0.38, 0.58, 0.65)
-corner_radius_top_left = 30
-corner_radius_top_right = 30
-corner_radius_bottom_right = 30
-corner_radius_bottom_left = 30
-shadow_color = Color(0, 0, 0, 0.45)
-shadow_size = 14
+border_color = Color(1, 1, 1, 0.08)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_active"]
-bg_color = Color(0.20, 0.38, 0.68, 0.8)
-corner_radius_top_left = 22
-corner_radius_top_right = 22
-corner_radius_bottom_right = 22
-corner_radius_bottom_left = 22
+bg_color = Color(0, 0, 0, 0)
+border_width_top = 2
+border_color = Color(0.45, 0.72, 1.0, 1.0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_drawer"]
-bg_color = Color(0.08, 0.10, 0.16, 0.96)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_color = Color(0.28, 0.40, 0.65, 0.8)
-corner_radius_top_left = 28
-corner_radius_top_right = 28
-shadow_color = Color(0, 0, 0, 0.6)
-shadow_size = 22
+bg_color = Color(0.07, 0.08, 0.13, 0.98)
+border_width_top = 1
+border_color = Color(1, 1, 1, 0.07)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
-bg_color = Color(0.13, 0.16, 0.24, 0.9)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.30, 0.42, 0.65, 0.5)
-corner_radius_top_left = 14
-corner_radius_top_right = 14
-corner_radius_bottom_right = 14
-corner_radius_bottom_left = 14
+bg_color = Color(0.10, 0.12, 0.18, 0.85)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
@@ -218,8 +191,8 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="UI/GameOverPanel/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.35, 0.35, 1)
-theme_override_font_sizes/font_size = 36
+theme_override_colors/font_color = Color(0.95, 0.40, 0.40, 1)
+theme_override_font_sizes/font_size = 30
 text = "GAME OVER"
 horizontal_alignment = 1
 
@@ -286,30 +259,27 @@ layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -260.0
-offset_top = 90.0
-offset_right = 260.0
-offset_bottom = 240.0
+offset_left = -240.0
+offset_top = 100.0
+offset_right = 240.0
+offset_bottom = 235.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 alignment = 1
 
 [node name="GameTitle" type="Label" parent="UI/MainMenu/TopSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.65)
-theme_override_constants/shadow_offset_x = 2
-theme_override_constants/shadow_offset_y = 5
-theme_override_font_sizes/font_size = 72
-text = "S T A C K"
+theme_override_colors/font_color = Color(0.96, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 64
+text = "STACK"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="MenuBestScore" type="Label" parent="UI/MainMenu/TopSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.72, 0.80, 0.95, 0.85)
-theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
+theme_override_font_sizes/font_size = 16
 text = "BEST: 0"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -343,8 +313,8 @@ alignment = 1
 [node name="PlayIcon" type="Label" parent="UI/MainMenu/TapToPlayBtn/VBox"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.95)
-theme_override_font_sizes/font_size = 44
+theme_override_colors/font_color = Color(0.85, 0.92, 1.0, 0.90)
+theme_override_font_sizes/font_size = 36
 text = "▶"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -352,10 +322,8 @@ vertical_alignment = 1
 [node name="TapToPlayLabel" type="Label" parent="UI/MainMenu/TapToPlayBtn/VBox"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.95, 0.96, 1, 0.95)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.6)
-theme_override_constants/shadow_offset_y = 2
-theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.75, 0.82, 0.96, 0.85)
+theme_override_font_sizes/font_size = 18
 text = "TAP TO PLAY"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -366,10 +334,10 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -105.0
-offset_right = -24.0
-offset_bottom = -25.0
+offset_left = 0.0
+offset_top = -80.0
+offset_right = 0.0
+offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_ribbon")
@@ -380,37 +348,41 @@ theme_override_constants/separation = 4
 alignment = 1
 
 [node name="BtnSkin" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
 text = "🎨
 SKINS"
 
 [node name="BtnChallenge" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
 text = "⚡
 CHALLENGE"
 
 [node name="BtnHome" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.92, 0.95, 1.0, 1.0)
 theme_override_styles/normal = SubResource("StyleBoxFlat_tab_active")
 text = "🏠
 HOME"
 
 [node name="BtnLevels" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
 text = "🏆
 LEVELS"
@@ -422,10 +394,10 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = -480.0
-offset_right = -16.0
-offset_bottom = -20.0
+offset_left = 0.0
+offset_top = -460.0
+offset_right = 0.0
+offset_bottom = -80.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_drawer")
