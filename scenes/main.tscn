@@ -150,6 +150,17 @@ text = "TAP SCREEN TO DROP"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="ExpBadgeBtn" type="Button" parent="UI/HUD"]
+layout_mode = 1
+offset_left = 20.0
+offset_top = 68.0
+offset_right = 135.0
+offset_bottom = 112.0
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_font_sizes/font_size = 15
+text = "⭐ 0 EXP"
+flat = true
+
 [node name="SoundBtn" type="Button" parent="UI/HUD"]
 layout_mode = 1
 anchors_preset = 1
@@ -384,8 +395,8 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
-text = "🏆
-LEVELS"
+text = "⭐
+EXPERIENCE"
 
 [node name="DrawerModal" type="PanelContainer" parent="UI/MainMenu"]
 visible = false

@@ -24,8 +24,16 @@ var current_slide_dir: Vector3 = Vector3.RIGHT
 # Alignment guide / shadow projection
 var guide_mesh_instance: MeshInstance3D
 var guide_material: StandardMaterial3D
+var sniper_reticle_instance: MeshInstance3D
+var sniper_material: StandardMaterial3D
+var sniper_reticle_enabled: bool = true
 var _guide_smooth_pos: Vector3 = Vector3.ZERO
 const GUIDE_LERP_SPEED: float = 14.0
+
+func set_sniper_reticle_enabled(enabled: bool) -> void:
+	sniper_reticle_enabled = enabled
+	if sniper_reticle_instance:
+		sniper_reticle_instance.visible = enabled and (guide_mesh_instance.visible if guide_mesh_instance else false)
 
 func _ready() -> void:
 	_setup_guide_projection()
@@ -45,6 +53,29 @@ func _setup_guide_projection() -> void:
 	guide_mesh_instance.material_override = guide_material
 	guide_mesh_instance.visible = false
 	add_child(guide_mesh_instance)
+	
+	# Precision Sniper Pointer overlay on top of guide mesh
+	sniper_reticle_instance = MeshInstance3D.new()
+	var reticle_mesh = PlaneMesh.new()
+	reticle_mesh.size = Vector2(2.36, 2.36)
+	reticle_mesh.orientation = PlaneMesh.FACE_Y
+	sniper_reticle_instance.mesh = reticle_mesh
+	
+	sniper_material = StandardMaterial3D.new()
+	sniper_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sniper_material.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	sniper_material.render_priority = 3
+	sniper_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	sniper_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	
+	var reticle_tex = load("res://textures/sniper_reticle.png")
+	if reticle_tex:
+		sniper_material.albedo_texture = reticle_tex
+	sniper_material.albedo_color = Color(0.18, 0.20, 0.24, 0.0)
+	sniper_reticle_instance.material_override = sniper_material
+	# Position at top surface of guide box (guide box size.y is 0.02, half-extents is 0.01)
+	sniper_reticle_instance.position = Vector3(0, 0.011, 0)
+	guide_mesh_instance.add_child(sniper_reticle_instance)
 
 func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> void:
 	current_top_y = top_y
@@ -65,12 +96,16 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 	_guide_smooth_pos = Vector3(start_pos.x, guide_y, start_pos.z)
 	guide_mesh_instance.global_position = _guide_smooth_pos
 	guide_mesh_instance.visible = true
+	if sniper_reticle_instance:
+		sniper_reticle_instance.visible = sniper_reticle_enabled
 
 func attach_box(box: Node3D) -> void:
 	current_box = box
 	box.state = box.BoxState.ATTACHED
 	was_aligned = false
 	guide_mesh_instance.visible = true
+	if sniper_reticle_instance:
+		sniper_reticle_instance.visible = sniper_reticle_enabled
 
 func _process(delta: float) -> void:
 	if not is_active:
@@ -90,7 +125,7 @@ func _process(delta: float) -> void:
 	slide_pos.y = box_y
 	
 	var dist_to_target = Vector2(slide_pos.x - current_target_center.x, slide_pos.z - current_target_center.z).length()
-	var is_aligned = dist_to_target <= 0.22
+	var is_aligned = dist_to_target <= 0.26
 	
 	was_aligned = is_aligned
 	
@@ -113,13 +148,26 @@ func _process(delta: float) -> void:
 			var base_c = current_box.box_color if "box_color" in current_box else Color(1.0, 0.9, 0.4)
 			
 			if is_aligned:
-				# Sweet-spot lock-on: gentle luminous pulse in matching cube color (no white flash)
-				var pulse = 0.22 + (sin(current_time * 3.0) * 0.03)
-				var aligned_c = Color(base_c.r, base_c.g, base_c.b, pulse)
-				guide_material.albedo_color = guide_material.albedo_color.lerp(aligned_c, 0.18)
+				# Sweet-spot lock-on: subtle highlight in matching cube color when crossing the block
+				var pulse = 0.36 + (sin(current_time * 5.0) * 0.04)
+				var highlight_c = base_c.lerp(Color.WHITE, 0.14)
+				highlight_c.a = pulse
+				guide_material.albedo_color = guide_material.albedo_color.lerp(highlight_c, 0.24)
+				
+				# Sniper pointer tactical lock-on: dark slate-grey lock-on
+				if sniper_reticle_instance and sniper_material and sniper_reticle_enabled:
+					var reticle_pulse = 0.85 + (sin(current_time * 8.0) * 0.08)
+					var lock_dark_grey = Color(0.30, 0.33, 0.38, reticle_pulse)
+					sniper_material.albedo_color = sniper_material.albedo_color.lerp(lock_dark_grey, 0.28)
 			else:
-				var alpha = 0.07 + (proximity * 0.14)
-				guide_material.albedo_color = guide_material.albedo_color.lerp(Color(base_c.r, base_c.g, base_c.b, alpha), 0.12)
+				var alpha = 0.06 + (proximity * 0.12)
+				guide_material.albedo_color = guide_material.albedo_color.lerp(Color(base_c.r, base_c.g, base_c.b, alpha), 0.14)
+				
+				# Sniper pointer cruising state: deep, clean dark grey
+				if sniper_reticle_instance and sniper_material and sniper_reticle_enabled:
+					var r_alpha = 0.55 + (proximity * 0.25)
+					var cruising_dark_grey = Color(0.18, 0.20, 0.24, r_alpha)
+					sniper_material.albedo_color = sniper_material.albedo_color.lerp(cruising_dark_grey, 0.16)
 
 func release_box() -> Node3D:
 	if not is_instance_valid(current_box) or current_box.state != current_box.BoxState.ATTACHED:
@@ -130,6 +178,8 @@ func release_box() -> Node3D:
 	
 	if guide_mesh_instance:
 		guide_mesh_instance.visible = false
+	if sniper_reticle_instance:
+		sniper_reticle_instance.visible = false
 	
 	# Instantaneous velocity: derivative of sin(current_time)
 	var d_offset = slide_amplitude * (base_speed * speed_multiplier) * cos(current_time)

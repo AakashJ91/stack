@@ -42,6 +42,7 @@ var game_over_zoom_tween: Tween = null
 @onready var final_score_label = $UI/GameOverPanel/VBox/FinalScore
 @onready var best_score_label = $UI/GameOverPanel/VBox/BestScore
 @onready var new_best_badge = $UI/GameOverPanel/VBox/NewBestBadge
+@onready var exp_badge_btn: Button = $UI/HUD/ExpBadgeBtn
 @onready var sound_btn = $UI/HUD/SoundBtn
 @onready var home_btn = $UI/GameOverPanel/VBox/HomeBtn
 
@@ -69,6 +70,32 @@ var challenge_speed_multiplier: float = 1.0
 var challenge_perfect_multiplier: float = 1.0
 var active_ribbon_tab: String = "home"
 var tap_pulse_tween: Tween = null
+
+# Experience (EXP) & Daily Missions System
+const EXP_SAVE_PATH: String = "user://exp_data.json"
+var total_exp: int = 0
+var exp_today_date: String = ""
+var login_claimed_date: String = ""
+var perfect_3_claimed_date: String = ""
+var stack_50_claimed_date: String = ""
+var stack_100_claimed_date: String = ""
+var daily_best_combo: int = 0
+var daily_best_stack: int = 0
+
+const EXP_RANKS: Array[Dictionary] = [
+	{"level": 1, "name": "Novice Stacker", "icon": "🥉", "min_exp": 0, "next_exp": 5},
+	{"level": 2, "name": "Steady Builder", "icon": "🥈", "min_exp": 5, "next_exp": 15},
+	{"level": 3, "name": "Tower Specialist", "icon": "🥇", "min_exp": 15, "next_exp": 30},
+	{"level": 4, "name": "Sky Architect", "icon": "💎", "min_exp": 30, "next_exp": 50},
+	{"level": 5, "name": "Cloud Piercer", "icon": "👑", "min_exp": 50, "next_exp": 80},
+	{"level": 6, "name": "Cosmic Zenith", "icon": "🌌", "min_exp": 80, "next_exp": 120},
+	{"level": 7, "name": "Dimension Shifter", "icon": "🔮", "min_exp": 120, "next_exp": 180},
+	{"level": 8, "name": "Infinite Master", "icon": "🌟", "min_exp": 180, "next_exp": 999999}
+]
+
+var _toast_panel: PanelContainer = null
+var _toast_label: Label = null
+var _toast_tween: Tween = null
 
 # Skin / palette tile refs for in-place style updates (no drawer rebuild)
 var _skin_tile_btns: Array = []
@@ -174,6 +201,7 @@ const SKINS: Array[Dictionary] = [
 	},
 ]
 var active_skin_id: String = "classic"
+var sniper_reticle_enabled: bool = true
 
 func get_current_skin_config() -> Dictionary:
 	for s in SKINS:
@@ -327,6 +355,7 @@ func _ready() -> void:
 	_on_window_resized()
 
 	load_high_score()
+	load_exp_data()
 	_setup_lighting_and_env()
 	_setup_gradient_background()
 	_create_pedestal()
@@ -337,10 +366,13 @@ func _ready() -> void:
 	target_camera_z = camera_pivot.position.z
 	
 	slider.box_released.connect(_on_box_released)
+	if slider.has_method("set_sniper_reticle_enabled"):
+		slider.set_sniper_reticle_enabled(sniper_reticle_enabled)
 	sound_btn.pressed.connect(_on_sound_btn_pressed)
 	$UI/GameOverPanel/VBox/RestartBtn.pressed.connect(restart_game)
 	home_btn.pressed.connect(show_main_menu)
 	
+	_setup_exp_badge()
 	_setup_ribbon_listeners()
 	show_main_menu()
 
@@ -743,14 +775,210 @@ const CHALLENGES: Array[Dictionary] = [
 	}
 ]
 
-const MILESTONES: Array[Dictionary] = [
-	{"req": 5, "name": "Novice Stacker", "icon": "🥉", "desc": "Stack 5 blocks in a single run"},
-	{"req": 15, "name": "Steady Builder", "icon": "🥈", "desc": "Reach a height of 15 blocks"},
-	{"req": 30, "name": "Tower Specialist", "icon": "🥇", "desc": "Reach a height of 30 blocks"},
-	{"req": 50, "name": "Sky Architect", "icon": "💎", "desc": "Construct a 50 block skyscraper"},
-	{"req": 75, "name": "Cloud Piercer", "icon": "👑", "desc": "Surpass the clouds at 75 blocks"},
-	{"req": 100, "name": "Cosmic Zenith", "icon": "🌌", "desc": "Reach the cosmos at 100 blocks"}
-]
+func _get_today_date_str() -> String:
+	var d = Time.get_date_dict_from_system()
+	return "%04d-%02d-%02d" % [d.year, d.month, d.day]
+
+func get_current_rank_info() -> Dictionary:
+	var rank = EXP_RANKS[0]
+	for r in EXP_RANKS:
+		if total_exp >= r["min_exp"]:
+			rank = r
+		else:
+			break
+	return rank
+
+func load_exp_data() -> void:
+	var today = _get_today_date_str()
+	if FileAccess.file_exists(EXP_SAVE_PATH):
+		var file = FileAccess.open(EXP_SAVE_PATH, FileAccess.READ)
+		if file:
+			var text = file.get_as_text()
+			var json = JSON.new()
+			if json.parse(text) == OK and typeof(json.data) == TYPE_DICTIONARY:
+				var data: Dictionary = json.data
+				total_exp = int(data.get("total_exp", 0))
+				exp_today_date = str(data.get("today_date", ""))
+				login_claimed_date = str(data.get("login_claimed_date", ""))
+				perfect_3_claimed_date = str(data.get("perfect_3_claimed_date", ""))
+				stack_50_claimed_date = str(data.get("stack_50_claimed_date", ""))
+				stack_100_claimed_date = str(data.get("stack_100_claimed_date", ""))
+				daily_best_combo = int(data.get("daily_best_combo", 0))
+				daily_best_stack = int(data.get("daily_best_stack", 0))
+	
+	if exp_today_date != today:
+		exp_today_date = today
+		daily_best_combo = 0
+		daily_best_stack = 0
+		save_exp_data()
+	
+	_update_exp_badge(false)
+
+func _setup_exp_badge() -> void:
+	if not is_instance_valid(exp_badge_btn):
+		return
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.10, 0.16, 0.85)
+	style.border_color = Color(1.0, 0.85, 0.35, 0.40)
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(16)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	
+	var style_hover = style.duplicate() as StyleBoxFlat
+	style_hover.bg_color = Color(0.14, 0.18, 0.28, 0.95)
+	style_hover.border_color = Color(1.0, 0.85, 0.35, 0.8)
+	
+	exp_badge_btn.add_theme_stylebox_override("normal", style)
+	exp_badge_btn.add_theme_stylebox_override("hover", style_hover)
+	exp_badge_btn.add_theme_stylebox_override("pressed", style_hover)
+	exp_badge_btn.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
+	exp_badge_btn.add_theme_font_size_override("font_size", 14)
+	
+	exp_badge_btn.pressed.connect(func():
+		sound_mgr.play_click()
+		if state == GameState.MENU:
+			_set_active_tab("exp")
+			_open_exp_drawer()
+		else:
+			var r = get_current_rank_info()
+			_show_task_toast("⭐ %d Total EXP • %s (Lvl %d)" % [total_exp, r["name"], r["level"]])
+	)
+	
+	_update_exp_badge(false)
+
+func _update_exp_badge(animate: bool = false) -> void:
+	if not is_instance_valid(exp_badge_btn):
+		return
+	exp_badge_btn.text = "⭐ %d EXP" % total_exp
+	if animate:
+		var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		exp_badge_btn.pivot_offset = exp_badge_btn.size * 0.5
+		exp_badge_btn.scale = Vector2(1.25, 1.25)
+		tween.tween_property(exp_badge_btn, "scale", Vector2.ONE, 0.25)
+
+func save_exp_data() -> void:
+	var file = FileAccess.open(EXP_SAVE_PATH, FileAccess.WRITE)
+	if file:
+		var data = {
+			"total_exp": total_exp,
+			"today_date": exp_today_date,
+			"login_claimed_date": login_claimed_date,
+			"perfect_3_claimed_date": perfect_3_claimed_date,
+			"stack_50_claimed_date": stack_50_claimed_date,
+			"stack_100_claimed_date": stack_100_claimed_date,
+			"daily_best_combo": daily_best_combo,
+			"daily_best_stack": daily_best_stack
+		}
+		file.store_string(JSON.stringify(data, "\t"))
+
+func claim_task_exp(task_id: String) -> void:
+	var today = _get_today_date_str()
+	var earned: int = 0
+	
+	match task_id:
+		"login":
+			if login_claimed_date != today:
+				login_claimed_date = today
+				earned = 1
+		"perfect_3":
+			if perfect_3_claimed_date != today and daily_best_combo >= 3:
+				perfect_3_claimed_date = today
+				earned = 2
+		"stack_50":
+			if stack_50_claimed_date != today and daily_best_stack >= 50:
+				stack_50_claimed_date = today
+				earned = 1
+		"stack_100":
+			if stack_100_claimed_date != today and daily_best_stack >= 100:
+				stack_100_claimed_date = today
+				earned = 2
+	
+	if earned > 0:
+		total_exp += earned
+		save_exp_data()
+		_update_exp_badge(true)
+		sound_mgr.play_perfect(4)
+		_show_task_toast("⭐ +%d EXP Claimed!" % earned)
+		_open_exp_drawer()
+
+func claim_all_available_exp() -> void:
+	var today = _get_today_date_str()
+	var earned: int = 0
+	if login_claimed_date != today:
+		login_claimed_date = today
+		earned += 1
+	if perfect_3_claimed_date != today and daily_best_combo >= 3:
+		perfect_3_claimed_date = today
+		earned += 2
+	if stack_50_claimed_date != today and daily_best_stack >= 50:
+		stack_50_claimed_date = today
+		earned += 1
+	if stack_100_claimed_date != today and daily_best_stack >= 100:
+		stack_100_claimed_date = today
+		earned += 2
+	
+	if earned > 0:
+		total_exp += earned
+		save_exp_data()
+		_update_exp_badge(true)
+		sound_mgr.play_perfect(5)
+		_show_task_toast("🎉 +%d Total EXP Claimed!" % earned)
+		_open_exp_drawer()
+
+func _show_task_toast(message: String) -> void:
+	if not _toast_panel or not is_instance_valid(_toast_panel):
+		_toast_panel = PanelContainer.new()
+		_toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_toast_panel.anchors_preset = Control.PRESET_CENTER_TOP
+		_toast_panel.anchor_left = 0.5
+		_toast_panel.anchor_right = 0.5
+		_toast_panel.anchor_top = 0.0
+		_toast_panel.anchor_bottom = 0.0
+		_toast_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_toast_panel.offset_top = 80.0
+		
+		var style = StyleBoxFlat.new()
+		style.bg_color = Color(0.08, 0.10, 0.16, 0.95)
+		style.border_color = Color(1.0, 0.82, 0.30, 0.8)
+		style.border_width_left = 1
+		style.border_width_right = 1
+		style.border_width_top = 1
+		style.border_width_bottom = 1
+		style.set_corner_radius_all(14)
+		style.content_margin_left = 18
+		style.content_margin_right = 18
+		style.content_margin_top = 8
+		style.content_margin_bottom = 8
+		_toast_panel.add_theme_stylebox_override("panel", style)
+		
+		_toast_label = Label.new()
+		_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_toast_label.add_theme_font_size_override("font_size", 15)
+		_toast_label.add_theme_color_override("font_color", Color(1.0, 0.90, 0.35, 1.0))
+		_toast_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+		_toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_toast_panel.add_child(_toast_label)
+		ui_layer.add_child(_toast_panel)
+	
+	_toast_label.text = message
+	_toast_panel.visible = true
+	_toast_panel.modulate.a = 0.0
+	
+	if _toast_tween:
+		_toast_tween.kill()
+	
+	_toast_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_toast_tween.tween_property(_toast_panel, "modulate:a", 1.0, 0.25)
+	_toast_tween.tween_interval(2.2)
+	_toast_tween.tween_property(_toast_panel, "modulate:a", 0.0, 0.35)
+	_toast_tween.tween_callback(func(): _toast_panel.visible = false)
 
 func show_main_menu() -> void:
 	state = GameState.MENU
@@ -878,8 +1106,8 @@ func _setup_ribbon_listeners() -> void:
 	)
 	btn_levels.pressed.connect(func():
 		sound_mgr.play_click()
-		_set_active_tab("levels")
-		_open_levels_drawer()
+		_set_active_tab("exp")
+		_open_exp_drawer()
 	)
 	close_drawer_btn.pressed.connect(func():
 		sound_mgr.play_click()
@@ -904,6 +1132,7 @@ func _set_active_tab(tab_name: String) -> void:
 		"skin": btn_skin,
 		"challenge": btn_challenge,
 		"home": btn_home,
+		"exp": btn_levels,
 		"levels": btn_levels
 	}
 	
@@ -1130,6 +1359,107 @@ func _open_skins_drawer() -> void:
 		_skin_tile_btns.append(tile_btn)
 		skins_grid.add_child(tile_btn)
 	
+	# --- GUIDE MESH ACCESSORY: SNIPER RETICLE OPTION ---
+	var reticle_section = VBoxContainer.new()
+	reticle_section.add_theme_constant_override("separation", 6)
+	reticle_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	drawer_content.add_child(reticle_section)
+	
+	var r_spacer = Control.new()
+	r_spacer.custom_minimum_size = Vector2(0, 4)
+	reticle_section.add_child(r_spacer)
+	
+	var r_header = Label.new()
+	r_header.text = "GUIDE MESH ACCESSORY"
+	r_header.add_theme_font_size_override("font_size", 12)
+	r_header.add_theme_color_override("font_color", Color(0.55, 0.64, 0.82, 0.80))
+	reticle_section.add_child(r_header)
+	
+	var reticle_btn = Button.new()
+	reticle_btn.flat = true
+	reticle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reticle_btn.custom_minimum_size = Vector2(0, 56)
+	
+	var update_reticle_btn_ui = func():
+		var r_style = StyleBoxFlat.new()
+		if sniper_reticle_enabled:
+			r_style.bg_color = Color(0.12, 0.20, 0.28, 0.90)
+			r_style.border_color = Color(0.40, 0.75, 1.0, 0.80)
+		else:
+			r_style.bg_color = Color(0.12, 0.14, 0.20, 0.85)
+			r_style.border_color = Color(0.25, 0.30, 0.42, 0.40)
+		r_style.corner_radius_top_left = 8
+		r_style.corner_radius_top_right = 8
+		r_style.corner_radius_bottom_left = 8
+		r_style.corner_radius_bottom_right = 8
+		r_style.border_width_left = 1
+		r_style.border_width_top = 1
+		r_style.border_width_right = 1
+		r_style.border_width_bottom = 1
+		r_style.content_margin_left = 12
+		r_style.content_margin_right = 12
+		r_style.content_margin_top = 8
+		r_style.content_margin_bottom = 8
+		reticle_btn.add_theme_stylebox_override("normal", r_style)
+		var r_hover = r_style.duplicate() as StyleBoxFlat
+		r_hover.bg_color = r_style.bg_color.lightened(0.06)
+		reticle_btn.add_theme_stylebox_override("hover", r_hover)
+		reticle_btn.add_theme_stylebox_override("pressed", r_style)
+	
+	update_reticle_btn_ui.call()
+	
+	var r_hbox = HBoxContainer.new()
+	r_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	r_hbox.add_theme_constant_override("separation", 10)
+	r_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	r_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	reticle_btn.add_child(r_hbox)
+	
+	var r_icon = Label.new()
+	r_icon.text = "🎯"
+	r_icon.add_theme_font_size_override("font_size", 24)
+	r_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r_hbox.add_child(r_icon)
+	
+	var r_vbox = VBoxContainer.new()
+	r_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	r_vbox.add_theme_constant_override("separation", 2)
+	r_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r_hbox.add_child(r_vbox)
+	
+	var r_title = Label.new()
+	r_title.text = "Sniper Pointer Reticle"
+	r_title.add_theme_font_size_override("font_size", 13)
+	r_title.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
+	r_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r_vbox.add_child(r_title)
+	
+	var r_desc = Label.new()
+	r_desc.text = "Tactical dark grey crosshair & precision lock-on"
+	r_desc.add_theme_font_size_override("font_size", 10)
+	r_desc.add_theme_color_override("font_color", Color(0.60, 0.68, 0.80, 0.75))
+	r_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r_vbox.add_child(r_desc)
+	
+	var r_badge = Label.new()
+	r_badge.text = "ON ✓" if sniper_reticle_enabled else "OFF"
+	r_badge.add_theme_font_size_override("font_size", 12)
+	r_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0) if sniper_reticle_enabled else Color(0.50, 0.56, 0.68, 0.75))
+	r_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r_hbox.add_child(r_badge)
+	
+	reticle_btn.pressed.connect(func():
+		sniper_reticle_enabled = not sniper_reticle_enabled
+		sound_mgr.play_click()
+		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
+			slider.set_sniper_reticle_enabled(sniper_reticle_enabled)
+		update_reticle_btn_ui.call()
+		r_badge.text = "ON ✓" if sniper_reticle_enabled else "OFF"
+		r_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0) if sniper_reticle_enabled else Color(0.50, 0.56, 0.68, 0.75))
+	)
+	
+	reticle_section.add_child(reticle_btn)
+	
 	# --- PALETTE SECTION (always created; shown only when Classic is active) ---
 	var pal_section = VBoxContainer.new()
 	pal_section.add_theme_constant_override("separation", 8)
@@ -1319,89 +1649,268 @@ func _open_challenge_drawer() -> void:
 		drawer_content.add_child(card)
 
 func _open_levels_drawer() -> void:
-	_open_drawer("LEVEL MILESTONES")
+	_open_exp_drawer()
+
+func _open_exp_drawer() -> void:
+	_open_drawer("EXPERIENCE & MISSIONS")
 	
-	# Current Title / Rank Header Card
-	var rank_title = "APPRENTICE"
-	if high_score >= 100: rank_title = "COSMIC ZENITH 🌌"
-	elif high_score >= 75: rank_title = "CLOUD PIERCER 👑"
-	elif high_score >= 50: rank_title = "SKY ARCHITECT 💎"
-	elif high_score >= 30: rank_title = "TOWER SPECIALIST 🥇"
-	elif high_score >= 15: rank_title = "STEADY BUILDER 🥈"
-	elif high_score >= 5: rank_title = "NOVICE STACKER 🥉"
+	var rank = get_current_rank_info()
+	var current_lvl: int = rank["level"]
+	var current_title: String = rank["name"]
+	var current_icon: String = rank["icon"]
+	var min_exp: int = rank["min_exp"]
+	var next_exp: int = rank["next_exp"]
 	
+	# Current Rank Header Card
 	var summary_card = _create_card_container()
 	var s_vbox = VBoxContainer.new()
-	s_vbox.add_theme_constant_override("separation", 4)
+	s_vbox.add_theme_constant_override("separation", 8)
 	summary_card.add_child(s_vbox)
 	
+	var top_row = HBoxContainer.new()
 	var rank_lbl = Label.new()
-	rank_lbl.text = "CURRENT TITLE: " + rank_title
+	rank_lbl.text = "%s LEVEL %d: %s" % [current_icon, current_lvl, current_title.to_upper()]
+	rank_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rank_lbl.add_theme_font_size_override("font_size", 16)
 	rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
-	rank_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	s_vbox.add_child(rank_lbl)
+	top_row.add_child(rank_lbl)
 	
-	var best_lbl = Label.new()
-	best_lbl.text = "All-Time Best Record: " + str(high_score) + " Blocks"
-	best_lbl.add_theme_font_size_override("font_size", 13)
-	best_lbl.add_theme_color_override("font_color", Color(0.8, 0.85, 0.95, 0.85))
-	best_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	s_vbox.add_child(best_lbl)
+	var exp_badge = Label.new()
+	exp_badge.text = "⭐ %d EXP" % total_exp
+	exp_badge.add_theme_font_size_override("font_size", 15)
+	exp_badge.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0, 1.0))
+	top_row.add_child(exp_badge)
+	s_vbox.add_child(top_row)
+	
+	var p_vbox = VBoxContainer.new()
+	p_vbox.add_theme_constant_override("separation", 3)
+	
+	var next_lbl = Label.new()
+	if next_exp < 999999:
+		var exp_in_lvl = clamp(total_exp - min_exp, 0, next_exp - min_exp)
+		var exp_needed = next_exp - min_exp
+		next_lbl.text = "Progress to Level %d: %d / %d EXP" % [current_lvl + 1, exp_in_lvl, exp_needed]
+	else:
+		next_lbl.text = "Max Stacker Rank Achieved 👑"
+	next_lbl.add_theme_font_size_override("font_size", 12)
+	next_lbl.add_theme_color_override("font_color", Color(0.75, 0.82, 0.95, 0.8))
+	p_vbox.add_child(next_lbl)
+	
+	var p_bar = ProgressBar.new()
+	p_bar.custom_minimum_size = Vector2(0, 10)
+	p_bar.show_percentage = false
+	if next_exp < 999999:
+		p_bar.max_value = float(next_exp - min_exp)
+		p_bar.value = float(clamp(total_exp - min_exp, 0, next_exp - min_exp))
+	else:
+		p_bar.max_value = 1.0
+		p_bar.value = 1.0
+	
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.14, 0.17, 0.25, 0.75)
+	bg_style.set_corner_radius_all(5)
+	var fill_style = StyleBoxFlat.new()
+	fill_style.bg_color = Color(1.0, 0.78, 0.28, 0.95)
+	fill_style.set_corner_radius_all(5)
+	p_bar.add_theme_stylebox_override("background", bg_style)
+	p_bar.add_theme_stylebox_override("fill", fill_style)
+	p_vbox.add_child(p_bar)
+	s_vbox.add_child(p_vbox)
+	
 	drawer_content.add_child(summary_card)
 	
-	# Milestones list
-	for m in MILESTONES:
-		var unlocked = high_score >= m["req"]
+	var today = _get_today_date_str()
+	var login_ready = (login_claimed_date != today)
+	var perfect_ready = (perfect_3_claimed_date != today and daily_best_combo >= 3)
+	var stack_50_ready = (stack_50_claimed_date != today and daily_best_stack >= 50)
+	var stack_100_ready = (stack_100_claimed_date != today and daily_best_stack >= 100)
+	var ready_count = (1 if login_ready else 0) + (1 if perfect_ready else 0) + (1 if stack_50_ready else 0) + (1 if stack_100_ready else 0)
+	
+	if ready_count > 1:
+		var claim_all_btn = Button.new()
+		claim_all_btn.custom_minimum_size = Vector2(0, 42)
+		claim_all_btn.text = "★ CLAIM ALL REWARDS (%d TASKS READY) ★" % ready_count
+		claim_all_btn.add_theme_font_size_override("font_size", 14)
+		var ca_style = StyleBoxFlat.new()
+		ca_style.bg_color = Color(0.20, 0.65, 0.38, 1.0)
+		ca_style.set_corner_radius_all(6)
+		claim_all_btn.add_theme_stylebox_override("normal", ca_style)
+		claim_all_btn.add_theme_stylebox_override("hover", ca_style)
+		claim_all_btn.add_theme_stylebox_override("pressed", ca_style)
+		claim_all_btn.pressed.connect(claim_all_available_exp)
+		drawer_content.add_child(claim_all_btn)
+	
+	var section_lbl = Label.new()
+	section_lbl.text = "DAILY MISSIONS (RESETS DAILY)"
+	section_lbl.add_theme_font_size_override("font_size", 13)
+	section_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
+	drawer_content.add_child(section_lbl)
+	
+	var missions = [
+		{
+			"id": "login",
+			"icon": "📅",
+			"name": "Daily Check-in",
+			"exp": 1,
+			"desc": "Check into Stack Adventure each day to earn bonus EXP.",
+			"ready": login_ready,
+			"claimed": login_claimed_date == today,
+			"cur": 1 if (login_claimed_date == today or login_ready) else 0,
+			"target": 1,
+			"unit": "Day"
+		},
+		{
+			"id": "perfect_3",
+			"icon": "🎯",
+			"name": "Triple Precision (Perfect x3)",
+			"exp": 2,
+			"desc": "Land 3 consecutive perfect drops in a single run today.",
+			"ready": perfect_ready,
+			"claimed": perfect_3_claimed_date == today,
+			"cur": min(daily_best_combo, 3),
+			"target": 3,
+			"unit": "Combo"
+		},
+		{
+			"id": "stack_50",
+			"icon": "🏗️",
+			"name": "Tower of Fifty",
+			"exp": 1,
+			"desc": "Build a tower reaching at least 50 blocks high today.",
+			"ready": stack_50_ready,
+			"claimed": stack_50_claimed_date == today,
+			"cur": min(daily_best_stack, 50),
+			"target": 50,
+			"unit": "Blocks"
+		},
+		{
+			"id": "stack_100",
+			"icon": "🚀",
+			"name": "Sky Century",
+			"exp": 2,
+			"desc": "Ascend past the clouds to reach a 100-block tower today.",
+			"ready": stack_100_ready,
+			"claimed": stack_100_claimed_date == today,
+			"cur": min(daily_best_stack, 100),
+			"target": 100,
+			"unit": "Blocks"
+		}
+	]
+	
+	for m in missions:
 		var card = _create_card_container()
 		var vbox = VBoxContainer.new()
 		vbox.add_theme_constant_override("separation", 6)
 		card.add_child(vbox)
 		
-		# Header
 		var header_row = HBoxContainer.new()
 		var title_lbl = Label.new()
 		title_lbl.text = m["icon"] + " " + m["name"]
 		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title_lbl.add_theme_font_size_override("font_size", 15)
-		title_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.70, 0.75, 0.85, 0.75))
+		title_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 		header_row.add_child(title_lbl)
 		
-		var status_lbl = Label.new()
-		if unlocked:
-			status_lbl.text = "✓ UNLOCKED"
-			status_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-		else:
-			status_lbl.text = "🔒 " + str(high_score) + "/" + str(m["req"])
-			status_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.80, 0.75))
-		status_lbl.add_theme_font_size_override("font_size", 13)
-		header_row.add_child(status_lbl)
+		var exp_reward_lbl = Label.new()
+		exp_reward_lbl.text = "+%d EXP" % m["exp"]
+		exp_reward_lbl.add_theme_font_size_override("font_size", 14)
+		exp_reward_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+		header_row.add_child(exp_reward_lbl)
 		vbox.add_child(header_row)
 		
-		# Description
 		var desc_lbl = Label.new()
 		desc_lbl.text = m["desc"]
 		desc_lbl.add_theme_font_size_override("font_size", 12)
-		desc_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.82, 0.75))
+		desc_lbl.add_theme_color_override("font_color", Color(0.68, 0.73, 0.85, 0.75))
 		vbox.add_child(desc_lbl)
 		
-		# Progress bar
-		var p_bar = ProgressBar.new()
-		p_bar.custom_minimum_size = Vector2(0, 10)
-		p_bar.show_percentage = false
-		p_bar.max_value = float(m["req"])
-		p_bar.value = clamp(float(high_score), 0.0, float(m["req"]))
-		var bg_style = StyleBoxFlat.new()
-		bg_style.bg_color = Color(0.18, 0.22, 0.32, 0.6)
-		bg_style.set_corner_radius_all(5)
-		var fill_style = StyleBoxFlat.new()
-		fill_style.bg_color = Color(0.35, 0.85, 0.55, 0.9) if unlocked else Color(0.25, 0.55, 0.85, 0.85)
-		fill_style.set_corner_radius_all(5)
-		p_bar.add_theme_stylebox_override("background", bg_style)
-		p_bar.add_theme_stylebox_override("fill", fill_style)
-		vbox.add_child(p_bar)
+		if m["claimed"]:
+			var claimed_lbl = Label.new()
+			claimed_lbl.text = "✓ CLAIMED TODAY"
+			claimed_lbl.add_theme_font_size_override("font_size", 13)
+			claimed_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+			vbox.add_child(claimed_lbl)
+		elif m["ready"]:
+			var claim_btn = Button.new()
+			claim_btn.custom_minimum_size = Vector2(0, 36)
+			claim_btn.text = "★ CLAIM +%d EXP ★" % m["exp"]
+			claim_btn.add_theme_font_size_override("font_size", 13)
+			var c_style = StyleBoxFlat.new()
+			c_style.bg_color = Color(0.85, 0.65, 0.15, 1.0)
+			c_style.set_corner_radius_all(5)
+			claim_btn.add_theme_stylebox_override("normal", c_style)
+			claim_btn.add_theme_stylebox_override("hover", c_style)
+			claim_btn.add_theme_stylebox_override("pressed", c_style)
+			var mid = m["id"]
+			claim_btn.pressed.connect(func(): claim_task_exp(mid))
+			vbox.add_child(claim_btn)
+		else:
+			var prog_row = HBoxContainer.new()
+			var prog_lbl = Label.new()
+			prog_lbl.text = "In Progress: %d / %d %s" % [m["cur"], m["target"], m["unit"]]
+			prog_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			prog_lbl.add_theme_font_size_override("font_size", 12)
+			prog_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.82, 0.75))
+			prog_row.add_child(prog_lbl)
+			vbox.add_child(prog_row)
+			
+			var m_bar = ProgressBar.new()
+			m_bar.custom_minimum_size = Vector2(0, 8)
+			m_bar.show_percentage = false
+			m_bar.max_value = float(m["target"])
+			m_bar.value = float(clamp(m["cur"], 0, m["target"]))
+			var m_bg = StyleBoxFlat.new()
+			m_bg.bg_color = Color(0.18, 0.22, 0.32, 0.6)
+			m_bg.set_corner_radius_all(4)
+			var m_fill = StyleBoxFlat.new()
+			m_fill.bg_color = Color(0.28, 0.60, 0.90, 0.85)
+			m_fill.set_corner_radius_all(4)
+			m_bar.add_theme_stylebox_override("background", m_bg)
+			m_bar.add_theme_stylebox_override("fill", m_fill)
+			vbox.add_child(m_bar)
 		
 		drawer_content.add_child(card)
+	
+	# Rank Tiers Section
+	var rank_sec_lbl = Label.new()
+	rank_sec_lbl.text = "STACKER RANK TIERS"
+	rank_sec_lbl.add_theme_font_size_override("font_size", 13)
+	rank_sec_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
+	drawer_content.add_child(rank_sec_lbl)
+	
+	var tiers_card = _create_card_container()
+	var t_vbox = VBoxContainer.new()
+	t_vbox.add_theme_constant_override("separation", 6)
+	tiers_card.add_child(t_vbox)
+	
+	for r in EXP_RANKS:
+		var r_row = HBoxContainer.new()
+		var r_name = Label.new()
+		r_name.text = "%s Lvl %d: %s" % [r["icon"], r["level"], r["name"]]
+		r_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		r_name.add_theme_font_size_override("font_size", 13)
+		
+		var r_req = Label.new()
+		r_req.add_theme_font_size_override("font_size", 12)
+		
+		if r["level"] == current_lvl:
+			r_name.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+			r_req.text = "▶ CURRENT (%d+ EXP)" % r["min_exp"]
+			r_req.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+		elif total_exp >= r["min_exp"]:
+			r_name.add_theme_color_override("font_color", Color(0.85, 0.90, 0.95, 0.9))
+			r_req.text = "✓ UNLOCKED"
+			r_req.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 0.9))
+		else:
+			r_name.add_theme_color_override("font_color", Color(0.50, 0.55, 0.65, 0.7))
+			r_req.text = "🔒 %d EXP" % r["min_exp"]
+			r_req.add_theme_color_override("font_color", Color(0.50, 0.55, 0.65, 0.7))
+		
+		r_row.add_child(r_name)
+		r_row.add_child(r_req)
+		t_vbox.add_child(r_row)
+	
+	drawer_content.add_child(tiers_card)
 
 func reset_game() -> void:
 	# Clear existing stack boxes
@@ -1555,6 +2064,15 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 			best_combo = combo
 		score += (4 if active_challenge_id == "precision" else 2)
 		
+		# EXP Tracking: Perfect stack of 3 (daily task)
+		if combo >= 3:
+			var prev_combo = daily_best_combo
+			daily_best_combo = max(daily_best_combo, combo)
+			var today = _get_today_date_str()
+			if perfect_3_claimed_date != today and prev_combo < 3:
+				_show_task_toast("⭐ Task Ready: Perfect Stack of 3 (+2 EXP)!")
+				save_exp_data()
+		
 		# Snap to center
 		box.global_position = Vector3(target_x, current_top_y + (BOX_SIZE.y * 0.5), target_z)
 		current_target_pos = Vector3(target_x, 0, target_z)
@@ -1610,6 +2128,17 @@ func _trigger_cascade_wave() -> void:
 func _on_box_placed_successfully(box: Node3D) -> void:
 	stack.append(box)
 	current_top_y += BOX_SIZE.y
+	
+	# EXP Tracking: Stack height tasks (50 and 100)
+	var prev_stack = daily_best_stack
+	daily_best_stack = max(daily_best_stack, stack.size())
+	var today = _get_today_date_str()
+	if stack.size() == 50 and stack_50_claimed_date != today and prev_stack < 50:
+		_show_task_toast("⭐ Task Ready: Stack of 50 (+1 EXP)!")
+		save_exp_data()
+	elif stack.size() == 100 and stack_100_claimed_date != today and prev_stack < 100:
+		_show_task_toast("⭐ Task Ready: Stack of 100 (+2 EXP)!")
+		save_exp_data()
 	
 	# Update score UI with bounce animation
 	score_label.text = str(score)
@@ -1736,6 +2265,8 @@ func _trigger_game_over() -> void:
 		high_score = score
 		save_high_score()
 		is_new_record = true
+	
+	save_exp_data()
 	
 	final_score_label.text = "SCORE: " + str(score)
 	best_score_label.text = "BEST: " + str(high_score)
