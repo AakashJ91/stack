@@ -44,58 +44,59 @@ var active_box: Node3D = null
 
 var pedestal_rim: MeshInstance3D
 
-# Curated high-aesthetic color palettes for stacking runs
-# Modes: "rainbow" (continuous silky spectrum) and "gradient" (harmonious designer colorways)
+# Curated high-aesthetic pastel color palettes for stacking runs
+# Modes: "rainbow" (continuous silky pastel spectrum) and "gradient" (harmonious designer pastel colorways)
 const PALETTES: Array[Dictionary] = [
 	{
-		"name": "Prismatic Spectrum",
+		"name": "Pastel Rainbow Spectrum",
 		"mode": "rainbow",
 		"speed": 0.026,
-		"sat": 0.78,
-		"val": 0.95
+		"sat": 0.54,
+		"val": 0.92
 	},
 	{
-		"name": "Cyber Sunset",
+		"name": "Cotton Candy",
 		"mode": "gradient",
 		"colors": [
-			Color(0.58, 0.18, 0.96), # Electric Violet
-			Color(0.92, 0.12, 0.68), # Magenta Fuchsia
-			Color(0.98, 0.28, 0.38), # Neon Coral
-			Color(1.00, 0.52, 0.12), # Sunset Orange
-			Color(1.00, 0.78, 0.18), # Golden Amber
-			Color(0.96, 0.38, 0.65)  # Rose Quartz
+			Color(0.95, 0.52, 0.68), # Pastel Rose Pink
+			Color(0.78, 0.58, 0.92), # Pastel Lilac
+			Color(0.58, 0.65, 0.96), # Pastel Periwinkle
+			Color(0.48, 0.76, 0.96), # Pastel Sky Blue
+			Color(0.45, 0.88, 0.74), # Pastel Mint Seafoam
+			Color(0.96, 0.84, 0.45)  # Pastel Buttercup
 		]
 	},
 	{
-		"name": "Ocean Aurora",
+		"name": "Peach Sorbet",
 		"mode": "gradient",
 		"colors": [
-			Color(0.12, 0.38, 0.98), # Royal Cobalt
-			Color(0.08, 0.65, 0.98), # Electric Blue
-			Color(0.05, 0.88, 0.85), # Neon Turquoise
-			Color(0.12, 0.95, 0.58), # Mint Emerald
-			Color(0.20, 0.82, 0.98)  # Cyan Glow
+			Color(0.98, 0.62, 0.48), # Pastel Peach
+			Color(0.98, 0.75, 0.48), # Pastel Apricot
+			Color(0.96, 0.86, 0.45), # Pastel Vanilla Cream
+			Color(0.96, 0.58, 0.68), # Pastel Strawberry
+			Color(0.82, 0.62, 0.88)  # Pastel Wisteria
 		]
 	},
 	{
-		"name": "Royal Jewels",
+		"name": "Mint & Sage Serenity",
 		"mode": "gradient",
 		"colors": [
-			Color(0.55, 0.12, 0.92), # Imperial Amethyst
-			Color(0.88, 0.10, 0.40), # Crimson Ruby
-			Color(0.98, 0.35, 0.15), # Fire Opal
-			Color(1.00, 0.72, 0.14), # Citrine Gold
-			Color(0.78, 0.15, 0.82)  # Vivid Orchid
+			Color(0.45, 0.88, 0.72), # Pastel Mint
+			Color(0.52, 0.88, 0.84), # Pastel Seafoam
+			Color(0.48, 0.78, 0.94), # Pastel Powder Blue
+			Color(0.75, 0.65, 0.92), # Pastel Soft Lilac
+			Color(0.95, 0.82, 0.50)  # Pastel Primrose
 		]
 	},
 	{
-		"name": "Synthwave Neon",
+		"name": "Nordic Rose & Ice",
 		"mode": "gradient",
 		"colors": [
-			Color(0.35, 0.15, 0.95), # Cyber Indigo
-			Color(0.98, 0.12, 0.62), # Hot Neon Pink
-			Color(0.72, 0.25, 0.95), # Bright Lavender
-			Color(0.05, 0.82, 0.95)  # Electric Aqua
+			Color(0.92, 0.58, 0.68), # Pastel Dusk Rose
+			Color(0.78, 0.62, 0.85), # Pastel Heather
+			Color(0.52, 0.75, 0.92), # Pastel Ice Blue
+			Color(0.48, 0.84, 0.78), # Pastel Sage Teal
+			Color(0.92, 0.78, 0.58)  # Pastel Sand Amber
 		]
 	}
 ]
@@ -120,21 +121,21 @@ func _ready() -> void:
 	reset_game()
 
 func _setup_lighting_and_env() -> void:
-	# Subtle background tint and directional isometric shadows
+	# Balanced lighting to keep colors rich and prevent white washout
 	var env = $WorldEnvironment.environment
 	if env:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(0.08, 0.09, 0.14) # Deep slate midnight
-		env.ambient_light_color = Color(0.72, 0.78, 0.90)
-		env.ambient_light_energy = 0.80
+		env.ambient_light_color = Color(0.68, 0.72, 0.82)
+		env.ambient_light_energy = 0.55
 		env.glow_enabled = true
-		env.glow_intensity = 0.65
-		env.glow_bloom = 0.16
+		env.glow_intensity = 0.30
+		env.glow_bloom = 0.05
 	
 	var light = $DirectionalLight3D as DirectionalLight3D
 	if light:
-		light.light_color = Color(1.0, 0.98, 0.94)
-		light.light_energy = 1.15
+		light.light_color = Color(1.0, 1.0, 1.0)
+		light.light_energy = 0.80
 
 func _create_pedestal() -> void:
 	base_pedestal = MeshInstance3D.new()
@@ -391,13 +392,13 @@ func _spawn_sparkle_fx(pos: Vector3) -> void:
 	particles.gravity = Vector3(0, -6.5, 0)
 	particles.scale_amount_min = 0.1
 	particles.scale_amount_max = 0.22
-	particles.color = Color(1.0, 0.9, 0.35)
+	particles.color = Color(1.0, 0.94, 0.74)
 	
 	var cube_mesh = BoxMesh.new()
 	cube_mesh.size = Vector3(0.12, 0.12, 0.12)
 	var cube_mat = StandardMaterial3D.new()
 	cube_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
-	cube_mat.albedo_color = Color(1.0, 0.92, 0.4)
+	cube_mat.albedo_color = Color(1.0, 0.94, 0.74)
 	cube_mesh.material = cube_mat
 	particles.mesh = cube_mesh
 	
@@ -419,13 +420,13 @@ func _spawn_impact_dust(pos: Vector3) -> void:
 	particles.gravity = Vector3(0, -3.5, 0)
 	particles.scale_amount_min = 0.08
 	particles.scale_amount_max = 0.18
-	particles.color = Color(0.9, 0.92, 1.0, 0.7)
+	particles.color = Color(0.92, 0.94, 0.98, 0.65)
 	
 	var dust_mesh = BoxMesh.new()
 	dust_mesh.size = Vector3(0.08, 0.08, 0.08)
 	var dust_mat = StandardMaterial3D.new()
 	dust_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
-	dust_mat.albedo_color = Color(0.9, 0.92, 1.0, 0.7)
+	dust_mat.albedo_color = Color(0.92, 0.94, 0.98, 0.65)
 	dust_mesh.material = dust_mat
 	particles.mesh = dust_mesh
 	

@@ -20,13 +20,11 @@ var tilt_root: Node3D
 # Visual instances
 var mesh_instance: MeshInstance3D
 var top_trim_instance: MeshInstance3D
-var core_gem_instance: MeshInstance3D
 var corner_accents_instance: MeshInstance3D
 
 # Materials
 var material: StandardMaterial3D
 var trim_material: StandardMaterial3D
-var gem_material: StandardMaterial3D
 var corner_material: StandardMaterial3D
 
 # Particle FX
@@ -76,14 +74,11 @@ func _build_mesh() -> void:
 	
 	material = StandardMaterial3D.new()
 	material.shading_mode = StandardMaterial3D.SHADING_MODE_PER_PIXEL
-	material.roughness = 0.22
-	material.metallic = 0.16
+	material.roughness = 0.32
+	material.metallic = 0.02
 	material.clearcoat_enabled = true
-	material.clearcoat = 0.45
-	material.clearcoat_roughness = 0.2
-	material.rim_enabled = true
-	material.rim = 0.65
-	material.rim_tint = 0.4
+	material.clearcoat = 0.25
+	material.rim_enabled = false
 	material.albedo_color = box_color
 	mesh_instance.material_override = material
 	tilt_root.add_child(mesh_instance)
@@ -96,32 +91,12 @@ func _build_mesh() -> void:
 	top_trim_instance.position = Vector3(0, box_size.y * 0.5 + 0.015, 0)
 	
 	trim_material = StandardMaterial3D.new()
-	trim_material.albedo_color = box_color.lightened(0.42)
-	trim_material.roughness = 0.18
-	trim_material.metallic = 0.25
-	trim_material.emission_enabled = true
-	trim_material.emission = box_color.lightened(0.3)
-	trim_material.emission_energy_multiplier = 0.45
+	trim_material.albedo_color = box_color
+	trim_material.roughness = 0.30
+	trim_material.metallic = 0.02
+	trim_material.emission_enabled = false
 	top_trim_instance.material_override = trim_material
 	tilt_root.add_child(top_trim_instance)
-	
-	# 3. Inner Center Energy Rune / Diamond Core Inset
-	core_gem_instance = MeshInstance3D.new()
-	var gem_mesh = BoxMesh.new()
-	gem_mesh.size = Vector3(0.56, 0.045, 0.56)
-	core_gem_instance.mesh = gem_mesh
-	core_gem_instance.position = Vector3(0, box_size.y * 0.5 + 0.025, 0)
-	core_gem_instance.rotation.y = deg_to_rad(45.0)
-	
-	gem_material = StandardMaterial3D.new()
-	gem_material.albedo_color = box_color.lightened(0.65)
-	gem_material.roughness = 0.15
-	gem_material.metallic = 0.4
-	gem_material.emission_enabled = true
-	gem_material.emission = box_color.lightened(0.55)
-	gem_material.emission_energy_multiplier = 0.9
-	core_gem_instance.material_override = gem_material
-	tilt_root.add_child(core_gem_instance)
 	
 	# 4. Corner Bevel Bracket Accents
 	corner_accents_instance = MeshInstance3D.new()
@@ -131,7 +106,7 @@ func _build_mesh() -> void:
 	corner_accents_instance.position = Vector3(0, box_size.y * 0.5 + 0.005, 0)
 	
 	corner_material = StandardMaterial3D.new()
-	corner_material.albedo_color = box_color.darkened(0.2)
+	corner_material.albedo_color = box_color
 	corner_material.roughness = 0.4
 	corner_accents_instance.material_override = corner_material
 	tilt_root.add_child(corner_accents_instance)
@@ -188,31 +163,29 @@ func _apply_color() -> void:
 	var s = box_color.s
 	var v = box_color.v
 	
-	# Main body: rich, saturated jewel finish
+	# Main body: creamy, satin pastel finish
 	if material:
 		material.albedo_color = box_color
+		material.roughness = 0.32
+		material.metallic = 0.02
+		material.clearcoat_enabled = true
+		material.clearcoat = 0.25
+		material.rim_enabled = false
+		material.emission_enabled = false
 	
-	# Top trim: vivid, radiant neon frame that retains pure saturation without chalky white washout
+	# Top trim: soft harmonious frame preserving the pastel color with rich contrast
 	if trim_material:
-		var trim_col = Color.from_hsv(h, clamp(s * 0.85, 0.45, 0.85), min(v * 1.15, 1.0))
+		var trim_col = Color.from_hsv(h, clamp(s * 1.12, 0.45, 0.75), max(v * 0.88, 0.70))
 		trim_material.albedo_color = trim_col
-		trim_material.emission = Color.from_hsv(h, clamp(s * 0.9, 0.55, 0.95), 1.0)
-		trim_material.emission_energy_multiplier = 0.45
+		trim_material.emission_enabled = false
 	
-	# Center core gem: radiant luminous crystal core
-	if gem_material:
-		var gem_col = Color.from_hsv(h, clamp(s * 0.52, 0.28, 0.70), 1.0)
-		gem_material.albedo_color = gem_col
-		gem_material.emission = Color.from_hsv(h, clamp(s * 0.65, 0.4, 0.85), 1.0)
-		gem_material.emission_energy_multiplier = 0.9
-	
-	# Corner bevel accents: deep rich tone preserving hue
+	# Corner bevel accents: gentle muted harmonic contrast
 	if corner_material:
-		var corner_col = Color.from_hsv(h, clamp(s * 1.05, 0.7, 1.0), max(v * 0.68, 0.35))
+		var corner_col = Color.from_hsv(h, clamp(s * 1.25, 0.5, 0.85), max(v * 0.75, 0.55))
 		corner_material.albedo_color = corner_col
 	
 	if trail_particles:
-		var trail_c = Color.from_hsv(h, clamp(s * 0.75, 0.4, 0.8), 1.0)
+		var trail_c = Color.from_hsv(h, clamp(s * 0.9, 0.4, 0.7), v)
 		trail_particles.color = trail_c
 		if trail_particles.mesh and trail_particles.mesh is BoxMesh:
 			var pm = (trail_particles.mesh as BoxMesh).material as StandardMaterial3D
@@ -220,7 +193,7 @@ func _apply_color() -> void:
 				pm.albedo_color = trail_c
 	
 	if drop_particles:
-		drop_particles.color = Color.from_hsv(h, clamp(s * 0.6, 0.3, 0.7), 1.0)
+		drop_particles.color = Color.from_hsv(h, clamp(s * 0.8, 0.35, 0.6), v)
 
 # Called continuously while attached to slider
 func update_slider_motion(delta: float, velocity_factor: float, axis_index: int, is_aligned: bool, hover_time: float) -> void:
@@ -248,29 +221,6 @@ func update_slider_motion(delta: float, velocity_factor: float, axis_index: int,
 		squash_root.scale = Vector3(stretch_val, 1.0, compress_val)
 	else:
 		squash_root.scale = Vector3(compress_val, 1.0, stretch_val)
-	
-	# 3. Continuous slow core gem rotation
-	if is_instance_valid(core_gem_instance):
-		core_gem_instance.rotation.y += delta * 1.8
-	
-	# 4. Alignment & Hover Breathing Emissive Flare
-	if is_aligned:
-		# Sweet-spot: pulse bright anticipation flare
-		if gem_material:
-			gem_material.emission_energy_multiplier = lerp(gem_material.emission_energy_multiplier, 2.2 + sin(hover_time * 16.0) * 0.4, delta * 16.0)
-		if trim_material:
-			trim_material.emission_energy_multiplier = lerp(trim_material.emission_energy_multiplier, 1.3, delta * 14.0)
-		if is_instance_valid(core_gem_instance):
-			core_gem_instance.scale = Vector3.ONE * (1.14 + sin(hover_time * 14.0) * 0.08)
-	else:
-		# Idle gentle breathing
-		if gem_material:
-			var breath = 0.75 + sin(hover_time * 5.0) * 0.25
-			gem_material.emission_energy_multiplier = lerp(gem_material.emission_energy_multiplier, breath, delta * 8.0)
-		if trim_material:
-			trim_material.emission_energy_multiplier = lerp(trim_material.emission_energy_multiplier, 0.45, delta * 8.0)
-		if is_instance_valid(core_gem_instance):
-			core_gem_instance.scale = Vector3.ONE * (1.0 + sin(hover_time * 4.0) * 0.04)
 
 func drop(initial_velocity: Vector3, landing_y: float) -> void:
 	state = BoxState.FALLING
@@ -333,8 +283,8 @@ func settle(is_perfect: bool) -> void:
 	if is_instance_valid(trail_particles):
 		trail_particles.emitting = false
 	
-	# Spawn expanding impact shockwave ring on contact plane
-	_spawn_impact_ring(is_perfect)
+	# Spawn outward radial particle burst on contact plane
+	_spawn_impact_particles(is_perfect)
 	
 	# Juicy multi-stage elastic squash & stretch spring
 	if settle_tween:
@@ -378,11 +328,11 @@ func absorb_impact() -> void:
 	absorb_tween.tween_property(squash_root, "scale", Vector3.ONE, 0.12)
 
 func flash_sympathetic() -> void:
-	# Emissive ripple when a combo cascade occurs
-	if trim_material:
+	# Subtle physical compression pulse down the stack instead of white emission
+	if is_instance_valid(squash_root):
 		var tw = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		trim_material.emission_energy_multiplier = 1.6
-		tw.tween_property(trim_material, "emission_energy_multiplier", 0.45, 0.3)
+		tw.tween_property(squash_root, "scale", Vector3(1.03, 0.96, 1.03), 0.06)
+		tw.chain().tween_property(squash_root, "scale", Vector3.ONE, 0.1)
 
 func start_topple(direction: Vector3) -> void:
 	state = BoxState.TOPPLING
@@ -399,35 +349,19 @@ func start_topple(direction: Vector3) -> void:
 	topple_speed = 7.5
 
 func _play_land_flash() -> void:
-	if trim_material:
-		trim_material.emission_energy_multiplier = 1.2
-		var tw = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(trim_material, "emission_energy_multiplier", 0.45, 0.25)
+	pass # Keep pastel colors clean and saturated on normal land
 
 func _play_perfect_flash() -> void:
-	# Brilliant golden emission burst & gem spin
+	# Brief golden chime pulse & gem spin on perfect drop
 	if flash_tween:
 		flash_tween.kill()
 	flash_tween = create_tween().set_parallel(true)
 	
 	if material:
 		material.emission_enabled = true
-		material.emission = Color(1.0, 0.92, 0.45)
-		material.emission_energy_multiplier = 2.4
-		flash_tween.tween_property(material, "emission_energy_multiplier", 0.0, 0.45)
-	
-	if trim_material:
-		trim_material.emission = Color(1.0, 0.95, 0.6)
-		trim_material.emission_energy_multiplier = 3.0
-		flash_tween.tween_property(trim_material, "emission_energy_multiplier", 0.45, 0.5)
-	
-	if gem_material:
-		gem_material.emission = Color(1.0, 0.98, 0.7)
-		gem_material.emission_energy_multiplier = 3.5
-		flash_tween.tween_property(gem_material, "emission_energy_multiplier", 0.85, 0.5)
-	
-	if is_instance_valid(core_gem_instance):
-		flash_tween.tween_property(core_gem_instance, "rotation:y", core_gem_instance.rotation.y + TAU, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		material.emission = Color(1.0, 0.94, 0.6)
+		material.emission_energy_multiplier = 1.3
+		flash_tween.tween_property(material, "emission_energy_multiplier", 0.0, 0.35)
 	
 	flash_tween.chain().tween_callback(func():
 		if material:
@@ -435,32 +369,48 @@ func _play_perfect_flash() -> void:
 		_apply_color()
 	)
 
-func _spawn_impact_ring(is_perfect: bool) -> void:
+func _spawn_impact_particles(is_perfect: bool) -> void:
 	var parent_node = get_parent()
 	if not parent_node:
 		return
 	
-	var ring = MeshInstance3D.new()
-	var torus = TorusMesh.new()
-	torus.inner_radius = 1.05
-	torus.outer_radius = 1.2
-	torus.rings = 28
-	torus.ring_segments = 8
-	ring.mesh = torus
+	var particles = CPUParticles3D.new()
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 0.96
+	particles.amount = 44 if is_perfect else 28
+	particles.lifetime = 0.52 if is_perfect else 0.42
 	
-	var ring_mat = StandardMaterial3D.new()
-	ring_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
-	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	var col = Color(1.0, 0.9, 0.35, 0.9) if is_perfect else Color(box_color.r, box_color.g, box_color.b, 0.75)
-	ring_mat.albedo_color = col
-	ring.material_override = ring_mat
+	# Radial ring burst expanding outward from the contact perimeter
+	particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	particles.emission_ring_axis = Vector3.UP
+	particles.emission_ring_height = 0.04
+	particles.emission_ring_radius = box_size.x * 0.56
+	particles.emission_ring_inner_radius = box_size.x * 0.42
 	
-	ring.scale = Vector3(0.4, 0.08, 0.4)
-	parent_node.add_child(ring)
-	ring.global_position = Vector3(global_position.x, target_landing_y + 0.03, global_position.z)
+	particles.direction = Vector3(0, 0.35, 0)
+	particles.spread = 180.0
+	particles.initial_velocity_min = 4.2 if is_perfect else 2.8
+	particles.initial_velocity_max = 7.0 if is_perfect else 4.6
+	particles.gravity = Vector3(0, -6.0, 0)
+	particles.damping_min = 2.0
+	particles.damping_max = 4.0
+	particles.scale_amount_min = 0.08
+	particles.scale_amount_max = 0.18
 	
-	var tw = ring.create_tween().set_parallel(true)
-	var max_scale = Vector3(2.5, 0.08, 2.5) if is_perfect else Vector3(1.9, 0.08, 1.9)
-	tw.tween_property(ring, "scale", max_scale, 0.32).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	tw.tween_property(ring_mat, "albedo_color:a", 0.0, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	tw.chain().tween_callback(ring.queue_free)
+	var p_mesh = BoxMesh.new()
+	p_mesh.size = Vector3(0.1, 0.1, 0.1)
+	var p_mat = StandardMaterial3D.new()
+	p_mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
+	
+	var h = box_color.h
+	var p_col = Color(1.0, 0.94, 0.72) if is_perfect else Color.from_hsv(h, clamp(box_color.s * 0.85, 0.2, 0.45), 1.0)
+	p_mat.albedo_color = p_col
+	p_mesh.material = p_mat
+	particles.mesh = p_mesh
+	particles.color = p_col
+	
+	parent_node.add_child(particles)
+	particles.global_position = Vector3(global_position.x, target_landing_y + 0.02, global_position.z)
+	
+	get_tree().create_timer(1.0).timeout.connect(particles.queue_free)
