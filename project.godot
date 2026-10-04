@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Iso Pendulum Stacker"
+config/name="Stack Adventure"
 config/description="Isometric Box Stacking Game with Pendulum Physics for Android & PC"
 config/version="1.0.0"
 run/main_scene="res://scenes/main.tscn"
@@ -30,7 +30,7 @@ window/handheld/orientation=1
 
 [dotnet]
 
-project/assembly_name="Iso Pendulum Stacker"
+project/assembly_name="Stack Adventure"
 
 [input_devices]
 
