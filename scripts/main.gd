@@ -64,6 +64,7 @@ var game_over_zoom_tween: Tween = null
 @onready var drawer_title = $UI/MainMenu/DrawerModal/VBox/HeaderHBox/DrawerTitle
 @onready var close_drawer_btn = $UI/MainMenu/DrawerModal/VBox/HeaderHBox/CloseDrawerBtn
 @onready var drawer_content = $UI/MainMenu/DrawerModal/VBox/Scroll/ContentContainer
+@onready var drawer_scroll: ScrollContainer = $UI/MainMenu/DrawerModal/VBox/Scroll
 
 # Challenge & UI Modes
 var active_challenge_id: String = "classic"
@@ -72,6 +73,17 @@ var challenge_perfect_multiplier: float = 1.0
 var active_ribbon_tab: String = "home"
 var tap_pulse_tween: Tween = null
 var drawer_tween: Tween = null
+
+# Smooth Touch & Drag Scrolling Controller
+var _scroll_touch_active: bool = false
+var _scroll_touch_index: int = -1
+var _scroll_start_y: float = 0.0
+var _scroll_start_val: int = 0
+var _scroll_is_dragging: bool = false
+var _scroll_velocity_y: float = 0.0
+var _scroll_last_pos_y: float = 0.0
+var _scroll_last_pos_time: int = 0
+var _scroll_last_drag_time: int = 0
 
 # Experience (EXP) & Daily Missions System
 const EXP_SAVE_PATH: String = "user://exp_data.json"
@@ -431,6 +443,7 @@ func _ready() -> void:
 	
 	_setup_exp_badge()
 	_setup_ribbon_listeners()
+	_set_active_tab("home")
 	show_main_menu()
 
 func _setup_gradient_background() -> void:
@@ -1172,6 +1185,12 @@ func start_game_from_menu() -> void:
 
 func _setup_ribbon_listeners() -> void:
 	tap_to_play_btn.pressed.connect(start_game_from_menu)
+	
+	for b in [btn_home, btn_skin, btn_challenge, btn_campaign, btn_levels]:
+		if is_instance_valid(b):
+			b.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+			b.focus_mode = Control.FOCUS_NONE
+	
 	btn_home.pressed.connect(func():
 		sound_mgr.play_click()
 		_close_drawer()
@@ -1216,15 +1235,21 @@ func _set_active_tab(tab_name: String) -> void:
 		tab_name = "exp"
 	active_ribbon_tab = tab_name
 	
-	# Active tab: transparent background, thin blue top-border underline
+	# Simple square white box style for the active ribbon tab (stays permanently on clicked tab)
 	var active_style = StyleBoxFlat.new()
-	active_style.bg_color = Color(0, 0, 0, 0)
+	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.16)
+	active_style.border_width_left = 2
 	active_style.border_width_top = 2
-	active_style.border_color = Color(0.45, 0.72, 1.0, 1.0)
+	active_style.border_width_right = 2
+	active_style.border_width_bottom = 2
+	active_style.border_color = Color(1.0, 1.0, 1.0, 1.0)
+	active_style.corner_radius_top_left = 4
+	active_style.corner_radius_top_right = 4
+	active_style.corner_radius_bottom_right = 4
+	active_style.corner_radius_bottom_left = 4
 	
 	# Inactive tab: completely flat, muted
-	var inactive_style = StyleBoxFlat.new()
-	inactive_style.bg_color = Color(0, 0, 0, 0)
+	var inactive_style = StyleBoxEmpty.new()
 	
 	var tabs = {
 		"skin": btn_skin,
@@ -1236,26 +1261,33 @@ func _set_active_tab(tab_name: String) -> void:
 	
 	for key in tabs.keys():
 		var btn: Button = tabs[key]
+		if not is_instance_valid(btn):
+			continue
 		var icon = btn.get_node_or_null("VBox/Icon") as TextureRect
 		var lbl = btn.get_node_or_null("VBox/Label") as Label
+		
+		# All ribbon icons remain pure white
+		if icon:
+			icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		
 		if key == tab_name:
+			btn.flat = false
 			btn.add_theme_stylebox_override("normal", active_style)
 			btn.add_theme_stylebox_override("hover", active_style)
 			btn.add_theme_stylebox_override("pressed", active_style)
-			btn.add_theme_color_override("font_color", Color(0.90, 0.95, 1.0, 1.0))
-			if icon:
-				icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+			btn.add_theme_stylebox_override("focus", active_style)
+			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 			if lbl:
-				lbl.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
+				lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 		else:
+			btn.flat = true
 			btn.add_theme_stylebox_override("normal", inactive_style)
 			btn.add_theme_stylebox_override("hover", inactive_style)
 			btn.add_theme_stylebox_override("pressed", inactive_style)
-			btn.add_theme_color_override("font_color", Color(0.52, 0.60, 0.76, 0.70))
-			if icon:
-				icon.modulate = Color(0.60, 0.68, 0.82, 0.70)
+			btn.add_theme_stylebox_override("focus", inactive_style)
+			btn.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.75))
 			if lbl:
-				lbl.add_theme_color_override("font_color", Color(0.55, 0.62, 0.78, 0.75))
+				lbl.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.75))
 
 func _open_drawer(title_text: String) -> void:
 	if drawer_tween:
@@ -1267,6 +1299,12 @@ func _open_drawer(title_text: String) -> void:
 	for child in drawer_content.get_children():
 		drawer_content.remove_child(child)
 		child.queue_free()
+	
+	if is_instance_valid(drawer_scroll):
+		drawer_scroll.scroll_vertical = 0
+	_scroll_velocity_y = 0.0
+	_scroll_is_dragging = false
+	_scroll_touch_active = false
 	
 	var was_already_open = drawer_modal.visible and drawer_modal.modulate.a > 0.05
 	drawer_modal.visible = true
@@ -1283,6 +1321,10 @@ func _close_drawer(immediate: bool = false) -> void:
 		drawer_tween.kill()
 		drawer_tween = null
 	
+	_scroll_velocity_y = 0.0
+	_scroll_is_dragging = false
+	_scroll_touch_active = false
+	
 	if not drawer_modal.visible:
 		return
 	
@@ -1296,6 +1338,93 @@ func _close_drawer(immediate: bool = false) -> void:
 	drawer_tween.tween_callback(func():
 		drawer_modal.visible = false
 	)
+
+func _is_scroll_dragging() -> bool:
+	if _scroll_is_dragging:
+		return true
+	if Time.get_ticks_msec() - _scroll_last_drag_time < 220:
+		return true
+	return false
+
+func _input(event: InputEvent) -> void:
+	if not is_instance_valid(drawer_modal) or not drawer_modal.visible or not is_instance_valid(drawer_scroll):
+		_scroll_touch_active = false
+		_scroll_is_dragging = false
+		return
+	
+	var scroll_rect: Rect2 = drawer_scroll.get_global_rect()
+	
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if scroll_rect.has_point(event.position):
+				_scroll_touch_active = true
+				_scroll_touch_index = event.index
+				_scroll_start_y = event.position.y
+				_scroll_start_val = drawer_scroll.scroll_vertical
+				_scroll_is_dragging = false
+				_scroll_velocity_y = 0.0
+				_scroll_last_pos_y = event.position.y
+				_scroll_last_pos_time = Time.get_ticks_msec()
+		else:
+			if _scroll_touch_active and event.index == _scroll_touch_index:
+				_scroll_touch_active = false
+				if _scroll_is_dragging:
+					_scroll_last_drag_time = Time.get_ticks_msec()
+					get_viewport().set_input_as_handled()
+	
+	elif event is InputEventScreenDrag:
+		if _scroll_touch_active and event.index == _scroll_touch_index:
+			var dy = event.position.y - _scroll_start_y
+			if not _scroll_is_dragging and abs(dy) > 8.0:
+				_scroll_is_dragging = true
+			if _scroll_is_dragging:
+				var max_scroll = int(max(0, drawer_content.size.y - drawer_scroll.size.y))
+				drawer_scroll.scroll_vertical = clampi(int(round(_scroll_start_val - dy)), 0, max_scroll)
+				var now = Time.get_ticks_msec()
+				var dt = float(now - _scroll_last_pos_time) / 1000.0
+				if dt > 0.002:
+					var step_vel = (event.position.y - _scroll_last_pos_y) / dt
+					_scroll_velocity_y = lerp(_scroll_velocity_y, step_vel, 0.45)
+				_scroll_last_pos_y = event.position.y
+				_scroll_last_pos_time = now
+				get_viewport().set_input_as_handled()
+	
+	elif event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				if scroll_rect.has_point(event.position):
+					_scroll_touch_active = true
+					_scroll_touch_index = -1
+					_scroll_start_y = event.position.y
+					_scroll_start_val = drawer_scroll.scroll_vertical
+					_scroll_is_dragging = false
+					_scroll_velocity_y = 0.0
+					_scroll_last_pos_y = event.position.y
+					_scroll_last_pos_time = Time.get_ticks_msec()
+			else:
+				if _scroll_touch_active and _scroll_touch_index == -1:
+					_scroll_touch_active = false
+					if _scroll_is_dragging:
+						_scroll_last_drag_time = Time.get_ticks_msec()
+						get_viewport().set_input_as_handled()
+	
+	elif event is InputEventMouseMotion:
+		if _scroll_touch_active and _scroll_touch_index == -1 and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			var dy = event.position.y - _scroll_start_y
+			if not _scroll_is_dragging and abs(dy) > 8.0:
+				_scroll_is_dragging = true
+			if _scroll_is_dragging:
+				var max_scroll = int(max(0, drawer_content.size.y - drawer_scroll.size.y))
+				drawer_scroll.scroll_vertical = clampi(int(round(_scroll_start_val - dy)), 0, max_scroll)
+				var now = Time.get_ticks_msec()
+				var dt = float(now - _scroll_last_pos_time) / 1000.0
+				if dt > 0.002:
+					var step_vel = (event.position.y - _scroll_last_pos_y) / dt
+					_scroll_velocity_y = lerp(_scroll_velocity_y, step_vel, 0.45)
+				_scroll_last_pos_y = event.position.y
+				_scroll_last_pos_time = now
+				get_viewport().set_input_as_handled()
+
 
 func _create_card_container() -> PanelContainer:
 	var panel = PanelContainer.new()
@@ -1484,6 +1613,8 @@ func _open_skins_drawer() -> void:
 		# Connect equip action — update in-place, no drawer rebuild
 		var skin_id = s["id"]
 		tile_btn.pressed.connect(func():
+			if _is_scroll_dragging():
+				return
 			if active_skin_id == skin_id:
 				return
 			active_skin_id = skin_id
@@ -1584,6 +1715,8 @@ func _open_skins_drawer() -> void:
 	r_hbox.add_child(r_badge)
 	
 	reticle_btn.pressed.connect(func():
+		if _is_scroll_dragging():
+			return
 		sniper_reticle_enabled = not sniper_reticle_enabled
 		sound_mgr.play_click()
 		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
@@ -1715,6 +1848,8 @@ func _open_skins_drawer() -> void:
 		# Connect palette select — update in-place, no drawer rebuild
 		var chosen_idx = i
 		pal_btn.pressed.connect(func():
+			if _is_scroll_dragging():
+				return
 			if palette_index == chosen_idx:
 				return
 			palette_index = chosen_idx
@@ -1772,6 +1907,8 @@ func _open_challenge_drawer() -> void:
 			var c_speed = c["speed"]
 			var c_perf = c["perf"]
 			btn.pressed.connect(func():
+				if _is_scroll_dragging():
+					return
 				active_challenge_id = cid
 				challenge_speed_multiplier = c_speed
 				challenge_perfect_multiplier = c_perf
@@ -1904,6 +2041,8 @@ func _open_campaign_drawer() -> void:
 			btn_style.bg_color = Color(0.15, 0.45, 0.32, 0.90)
 			btn.add_theme_color_override("font_color", Color(0.90, 0.98, 0.92, 1.0))
 			btn.pressed.connect(func():
+				if _is_scroll_dragging():
+					return
 				start_campaign_stage(st_id)
 			)
 		else:
@@ -1911,6 +2050,8 @@ func _open_campaign_drawer() -> void:
 			btn_style.bg_color = Color(0.18, 0.42, 0.82, 0.95)
 			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 			btn.pressed.connect(func():
+				if _is_scroll_dragging():
+					return
 				start_campaign_stage(st_id)
 			)
 		btn.add_theme_stylebox_override("normal", btn_style)
@@ -2146,7 +2287,11 @@ func _open_exp_drawer() -> void:
 			claim_btn.add_theme_stylebox_override("hover", c_style)
 			claim_btn.add_theme_stylebox_override("pressed", c_style)
 			var mid = m["id"]
-			claim_btn.pressed.connect(func(): claim_task_exp(mid))
+			claim_btn.pressed.connect(func():
+				if _is_scroll_dragging():
+					return
+				claim_task_exp(mid)
+			)
 			vbox.add_child(claim_btn)
 		else:
 			var prog_row = HBoxContainer.new()
@@ -2539,6 +2684,19 @@ func trigger_screen_shake(amount: float) -> void:
 	screen_shake_trauma = clamp(screen_shake_trauma + amount, 0.0, 1.0)
 
 func _process(delta: float) -> void:
+	# Smooth kinetic inertia for drawer touch scrolling
+	if is_instance_valid(drawer_modal) and drawer_modal.visible and is_instance_valid(drawer_scroll) and not _scroll_touch_active:
+		if abs(_scroll_velocity_y) > 15.0:
+			var max_scroll = int(max(0, drawer_content.size.y - drawer_scroll.size.y))
+			var next_val = clampi(int(round(drawer_scroll.scroll_vertical - _scroll_velocity_y * delta)), 0, max_scroll)
+			if next_val == drawer_scroll.scroll_vertical and (next_val == 0 or next_val == max_scroll):
+				_scroll_velocity_y = 0.0
+			else:
+				drawer_scroll.scroll_vertical = next_val
+				_scroll_velocity_y = lerp(_scroll_velocity_y, 0.0, clamp(delta * 7.0, 0.0, 1.0))
+		else:
+			_scroll_velocity_y = 0.0
+
 	# Vertical camera tracking follows the rising stack
 	camera_pivot.position.y = lerp(camera_pivot.position.y, target_camera_y, delta * 3.5)
 	
