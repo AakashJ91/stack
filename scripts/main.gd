@@ -58,6 +58,7 @@ var game_over_zoom_tween: Tween = null
 @onready var btn_skin = $UI/MainMenu/BottomRibbon/HBox/BtnSkin
 @onready var btn_challenge = $UI/MainMenu/BottomRibbon/HBox/BtnChallenge
 @onready var btn_home = $UI/MainMenu/BottomRibbon/HBox/BtnHome
+@onready var btn_campaign = $UI/MainMenu/BottomRibbon/HBox/BtnCampaign
 @onready var btn_levels = $UI/MainMenu/BottomRibbon/HBox/BtnLevels
 @onready var drawer_modal = $UI/MainMenu/DrawerModal
 @onready var drawer_title = $UI/MainMenu/DrawerModal/VBox/HeaderHBox/DrawerTitle
@@ -70,6 +71,7 @@ var challenge_speed_multiplier: float = 1.0
 var challenge_perfect_multiplier: float = 1.0
 var active_ribbon_tab: String = "home"
 var tap_pulse_tween: Tween = null
+var drawer_tween: Tween = null
 
 # Experience (EXP) & Daily Missions System
 const EXP_SAVE_PATH: String = "user://exp_data.json"
@@ -91,6 +93,60 @@ const EXP_RANKS: Array[Dictionary] = [
 	{"level": 6, "name": "Cosmic Zenith", "icon": "🌌", "min_exp": 80, "next_exp": 120},
 	{"level": 7, "name": "Dimension Shifter", "icon": "🔮", "min_exp": 120, "next_exp": 180},
 	{"level": 8, "name": "Infinite Master", "icon": "🌟", "min_exp": 180, "next_exp": 999999}
+]
+
+# Campaign Mode System
+const CAMPAIGN_SAVE_PATH: String = "user://campaign_data.json"
+var campaign_unlocked_stage: int = 1
+var campaign_completed_stages: Array = []
+var active_campaign_stage_id: int = 0
+
+const CAMPAIGN_STAGES: Array[Dictionary] = [
+	{
+		"id": 1,
+		"title": "Stage 1: Groundwork",
+		"desc": "Build a stable foundation reaching 10 blocks.",
+		"target_blocks": 10,
+		"target_combo": 0,
+		"exp_reward": 2,
+		"badge": "🌱"
+	},
+	{
+		"id": 2,
+		"title": "Stage 2: Rhythm & Flow",
+		"desc": "Reach 20 blocks with at least 2 perfect drops.",
+		"target_blocks": 20,
+		"target_combo": 2,
+		"exp_reward": 3,
+		"badge": "🎵"
+	},
+	{
+		"id": 3,
+		"title": "Stage 3: Tower Specialist",
+		"desc": "Scale up to 35 blocks with steady precision.",
+		"target_blocks": 35,
+		"target_combo": 2,
+		"exp_reward": 4,
+		"badge": "🏗️"
+	},
+	{
+		"id": 4,
+		"title": "Stage 4: Cloudline Crossing",
+		"desc": "Reach 50 blocks and land a 3x perfect streak.",
+		"target_blocks": 50,
+		"target_combo": 3,
+		"exp_reward": 5,
+		"badge": "☁️"
+	},
+	{
+		"id": 5,
+		"title": "Stage 5: Sky Apex (Boss)",
+		"desc": "The ultimate test: reach 75 blocks with 4x streak!",
+		"target_blocks": 75,
+		"target_combo": 4,
+		"exp_reward": 8,
+		"badge": "👑"
+	}
 ]
 
 var _toast_panel: PanelContainer = null
@@ -356,6 +412,7 @@ func _ready() -> void:
 
 	load_high_score()
 	load_exp_data()
+	load_campaign_data()
 	_setup_lighting_and_env()
 	_setup_gradient_background()
 	_create_pedestal()
@@ -980,8 +1037,29 @@ func _show_task_toast(message: String) -> void:
 	_toast_tween.tween_property(_toast_panel, "modulate:a", 0.0, 0.35)
 	_toast_tween.tween_callback(func(): _toast_panel.visible = false)
 
+func load_campaign_data() -> void:
+	if FileAccess.file_exists(CAMPAIGN_SAVE_PATH):
+		var file = FileAccess.open(CAMPAIGN_SAVE_PATH, FileAccess.READ)
+		if file:
+			var text = file.get_as_text()
+			var json = JSON.new()
+			if json.parse(text) == OK and typeof(json.data) == TYPE_DICTIONARY:
+				var data: Dictionary = json.data
+				campaign_unlocked_stage = int(data.get("unlocked_stage", 1))
+				campaign_completed_stages = data.get("completed_stages", [])
+
+func save_campaign_data() -> void:
+	var file = FileAccess.open(CAMPAIGN_SAVE_PATH, FileAccess.WRITE)
+	if file:
+		var data = {
+			"unlocked_stage": campaign_unlocked_stage,
+			"completed_stages": campaign_completed_stages
+		}
+		file.store_string(JSON.stringify(data, "\t"))
+
 func show_main_menu() -> void:
 	state = GameState.MENU
+	active_campaign_stage_id = 0
 	if game_over_zoom_tween:
 		game_over_zoom_tween.kill()
 		game_over_zoom_tween = null
@@ -1015,7 +1093,7 @@ func show_main_menu() -> void:
 	menu_best_score.text = "BEST: " + str(high_score)
 	
 	# Close any open drawer and reset tab to home
-	_close_drawer()
+	_close_drawer(true)
 	_set_active_tab("home")
 	
 	# Start pulsing tap to play button
@@ -1059,7 +1137,7 @@ func start_game_from_menu() -> void:
 		tap_pulse_tween.kill()
 		tap_pulse_tween = null
 	
-	_close_drawer()
+	_close_drawer(true)
 	
 	# Smooth fade-out of menu
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -1078,7 +1156,12 @@ func start_game_from_menu() -> void:
 	score_label.visible = true
 	combo_label.visible = false
 	prompt_label.visible = true
-	if not OS.has_feature("android") and not OS.has_feature("mobile"):
+	if active_campaign_stage_id > 0:
+		for st in CAMPAIGN_STAGES:
+			if st["id"] == active_campaign_stage_id:
+				prompt_label.text = "%s: TARGET %d BLOCKS" % [st["title"].to_upper(), st["target_blocks"]]
+				break
+	elif not OS.has_feature("android") and not OS.has_feature("mobile"):
 		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
 	else:
 		prompt_label.text = "TAP SCREEN TO DROP"
@@ -1095,16 +1178,29 @@ func _setup_ribbon_listeners() -> void:
 		_set_active_tab("home")
 	)
 	btn_skin.pressed.connect(func():
+		if drawer_modal.visible and active_ribbon_tab == "skin":
+			return
 		sound_mgr.play_click()
 		_set_active_tab("skin")
 		_open_skins_drawer()
 	)
 	btn_challenge.pressed.connect(func():
+		if drawer_modal.visible and active_ribbon_tab == "challenge":
+			return
 		sound_mgr.play_click()
 		_set_active_tab("challenge")
 		_open_challenge_drawer()
 	)
+	btn_campaign.pressed.connect(func():
+		if drawer_modal.visible and active_ribbon_tab == "campaign":
+			return
+		sound_mgr.play_click()
+		_set_active_tab("campaign")
+		_open_campaign_drawer()
+	)
 	btn_levels.pressed.connect(func():
+		if drawer_modal.visible and active_ribbon_tab == "exp":
+			return
 		sound_mgr.play_click()
 		_set_active_tab("exp")
 		_open_exp_drawer()
@@ -1116,6 +1212,8 @@ func _setup_ribbon_listeners() -> void:
 	)
 
 func _set_active_tab(tab_name: String) -> void:
+	if tab_name == "levels":
+		tab_name = "exp"
 	active_ribbon_tab = tab_name
 	
 	# Active tab: transparent background, thin blue top-border underline
@@ -1132,35 +1230,72 @@ func _set_active_tab(tab_name: String) -> void:
 		"skin": btn_skin,
 		"challenge": btn_challenge,
 		"home": btn_home,
-		"exp": btn_levels,
-		"levels": btn_levels
+		"campaign": btn_campaign,
+		"exp": btn_levels
 	}
 	
 	for key in tabs.keys():
 		var btn: Button = tabs[key]
+		var icon = btn.get_node_or_null("VBox/Icon") as TextureRect
+		var lbl = btn.get_node_or_null("VBox/Label") as Label
 		if key == tab_name:
 			btn.add_theme_stylebox_override("normal", active_style)
 			btn.add_theme_stylebox_override("hover", active_style)
 			btn.add_theme_stylebox_override("pressed", active_style)
 			btn.add_theme_color_override("font_color", Color(0.90, 0.95, 1.0, 1.0))
+			if icon:
+				icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+			if lbl:
+				lbl.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0, 1.0))
 		else:
 			btn.add_theme_stylebox_override("normal", inactive_style)
 			btn.add_theme_stylebox_override("hover", inactive_style)
 			btn.add_theme_stylebox_override("pressed", inactive_style)
 			btn.add_theme_color_override("font_color", Color(0.52, 0.60, 0.76, 0.70))
+			if icon:
+				icon.modulate = Color(0.60, 0.68, 0.82, 0.70)
+			if lbl:
+				lbl.add_theme_color_override("font_color", Color(0.55, 0.62, 0.78, 0.75))
 
 func _open_drawer(title_text: String) -> void:
+	if drawer_tween:
+		drawer_tween.kill()
+		drawer_tween = null
+	
 	drawer_title.text = title_text
-	drawer_modal.visible = true
-	drawer_modal.modulate.a = 0.0
-	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(drawer_modal, "modulate:a", 1.0, 0.22)
 	
 	for child in drawer_content.get_children():
+		drawer_content.remove_child(child)
 		child.queue_free()
+	
+	var was_already_open = drawer_modal.visible and drawer_modal.modulate.a > 0.05
+	drawer_modal.visible = true
+	
+	if not was_already_open:
+		drawer_modal.modulate.a = 0.0
+		drawer_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		drawer_tween.tween_property(drawer_modal, "modulate:a", 1.0, 0.20)
+	else:
+		drawer_modal.modulate.a = 1.0
 
-func _close_drawer() -> void:
-	drawer_modal.visible = false
+func _close_drawer(immediate: bool = false) -> void:
+	if drawer_tween:
+		drawer_tween.kill()
+		drawer_tween = null
+	
+	if not drawer_modal.visible:
+		return
+	
+	if immediate:
+		drawer_modal.visible = false
+		drawer_modal.modulate.a = 0.0
+		return
+	
+	drawer_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	drawer_tween.tween_property(drawer_modal, "modulate:a", 0.0, 0.14)
+	drawer_tween.tween_callback(func():
+		drawer_modal.visible = false
+	)
 
 func _create_card_container() -> PanelContainer:
 	var panel = PanelContainer.new()
@@ -1648,6 +1783,175 @@ func _open_challenge_drawer() -> void:
 		vbox.add_child(btn)
 		drawer_content.add_child(card)
 
+func _open_campaign_drawer() -> void:
+	_open_drawer("CAMPAIGN STAGES")
+	
+	# Chapter Overview Card
+	var summary_card = _create_card_container()
+	var s_vbox = VBoxContainer.new()
+	s_vbox.add_theme_constant_override("separation", 6)
+	summary_card.add_child(s_vbox)
+	
+	var header_row = HBoxContainer.new()
+	var chap_lbl = Label.new()
+	chap_lbl.text = "👑 CHAPTER 1: ASCENT OF THE TITANS"
+	chap_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chap_lbl.add_theme_font_size_override("font_size", 15)
+	chap_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+	header_row.add_child(chap_lbl)
+	
+	var count_lbl = Label.new()
+	count_lbl.text = "%d / %d Cleared" % [campaign_completed_stages.size(), CAMPAIGN_STAGES.size()]
+	count_lbl.add_theme_font_size_override("font_size", 13)
+	count_lbl.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0, 1.0))
+	header_row.add_child(count_lbl)
+	s_vbox.add_child(header_row)
+	
+	var p_bar = ProgressBar.new()
+	p_bar.custom_minimum_size = Vector2(0, 8)
+	p_bar.show_percentage = false
+	p_bar.max_value = float(CAMPAIGN_STAGES.size())
+	p_bar.value = float(campaign_completed_stages.size())
+	var bg_st = StyleBoxFlat.new()
+	bg_st.bg_color = Color(0.14, 0.17, 0.25, 0.75)
+	bg_st.set_corner_radius_all(4)
+	var fill_st = StyleBoxFlat.new()
+	fill_st.bg_color = Color(0.95, 0.75, 0.25, 0.95)
+	fill_st.set_corner_radius_all(4)
+	p_bar.add_theme_stylebox_override("background", bg_st)
+	p_bar.add_theme_stylebox_override("fill", fill_st)
+	s_vbox.add_child(p_bar)
+	
+	drawer_content.add_child(summary_card)
+	
+	# Stages list
+	for st in CAMPAIGN_STAGES:
+		var st_id: int = st["id"]
+		var is_unlocked: bool = (st_id <= campaign_unlocked_stage)
+		var is_cleared: bool = campaign_completed_stages.has(st_id)
+		
+		var card = _create_card_container()
+		var vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 6)
+		card.add_child(vbox)
+		
+		# Stage Title & Status
+		var top_row = HBoxContainer.new()
+		var title_lbl = Label.new()
+		title_lbl.text = "%s %s" % [st["badge"], st["title"]]
+		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_lbl.add_theme_font_size_override("font_size", 15)
+		if is_unlocked:
+			title_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
+		else:
+			title_lbl.add_theme_color_override("font_color", Color(0.50, 0.55, 0.65, 0.8))
+		top_row.add_child(title_lbl)
+		
+		var status_badge = Label.new()
+		if is_cleared:
+			status_badge.text = "✓ CLEARED"
+			status_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
+		elif is_unlocked:
+			status_badge.text = "READY"
+			status_badge.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35, 1.0))
+		else:
+			status_badge.text = "🔒 LOCKED"
+			status_badge.add_theme_color_override("font_color", Color(0.48, 0.54, 0.65, 0.7))
+		status_badge.add_theme_font_size_override("font_size", 12)
+		top_row.add_child(status_badge)
+		vbox.add_child(top_row)
+		
+		# Description
+		var desc_lbl = Label.new()
+		desc_lbl.text = st["desc"]
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_lbl.add_theme_font_size_override("font_size", 12)
+		desc_lbl.add_theme_color_override("font_color", Color(0.70, 0.76, 0.88, 0.85) if is_unlocked else Color(0.45, 0.50, 0.60, 0.70))
+		vbox.add_child(desc_lbl)
+		
+		# Target and reward info
+		var info_row = HBoxContainer.new()
+		var goal_lbl = Label.new()
+		var goal_text = "Target: %d Blocks" % st["target_blocks"]
+		if st["target_combo"] > 0:
+			goal_text += " + Streak x%d" % st["target_combo"]
+		goal_lbl.text = goal_text
+		goal_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		goal_lbl.add_theme_font_size_override("font_size", 12)
+		goal_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85) if is_unlocked else Color(0.42, 0.48, 0.58, 0.6))
+		info_row.add_child(goal_lbl)
+		
+		var reward_lbl = Label.new()
+		reward_lbl.text = "⭐ +%d EXP" % st["exp_reward"]
+		reward_lbl.add_theme_font_size_override("font_size", 12)
+		reward_lbl.add_theme_color_override("font_color", Color(1.0, 0.80, 0.30, 0.95) if is_unlocked else Color(0.48, 0.52, 0.60, 0.6))
+		info_row.add_child(reward_lbl)
+		vbox.add_child(info_row)
+		
+		# Button
+		var btn = Button.new()
+		btn.custom_minimum_size = Vector2(0, 36)
+		btn.add_theme_font_size_override("font_size", 13)
+		var btn_style = StyleBoxFlat.new()
+		btn_style.set_corner_radius_all(6)
+		if not is_unlocked:
+			btn.text = "🔒 LOCKED (CLEAR STAGE %d)" % (st_id - 1)
+			btn_style.bg_color = Color(0.12, 0.14, 0.20, 0.6)
+			btn.add_theme_color_override("font_color", Color(0.48, 0.54, 0.65, 0.6))
+			btn.disabled = true
+		elif is_cleared:
+			btn.text = "✓ CLEARED • REPLAY STAGE"
+			btn_style.bg_color = Color(0.15, 0.45, 0.32, 0.90)
+			btn.add_theme_color_override("font_color", Color(0.90, 0.98, 0.92, 1.0))
+			btn.pressed.connect(func():
+				start_campaign_stage(st_id)
+			)
+		else:
+			btn.text = "▶ PLAY STAGE %d" % st_id
+			btn_style.bg_color = Color(0.18, 0.42, 0.82, 0.95)
+			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+			btn.pressed.connect(func():
+				start_campaign_stage(st_id)
+			)
+		btn.add_theme_stylebox_override("normal", btn_style)
+		btn.add_theme_stylebox_override("hover", btn_style)
+		btn.add_theme_stylebox_override("pressed", btn_style)
+		vbox.add_child(btn)
+		
+		drawer_content.add_child(card)
+
+func start_campaign_stage(stage_id: int) -> void:
+	active_campaign_stage_id = stage_id
+	start_game_from_menu()
+
+func _check_campaign_stage_progress() -> void:
+	if active_campaign_stage_id <= 0:
+		return
+	for st in CAMPAIGN_STAGES:
+		if st["id"] == active_campaign_stage_id:
+			var target_blocks: int = st["target_blocks"]
+			var target_combo: int = st["target_combo"]
+			var height_met = (stack.size() >= target_blocks)
+			var combo_met = (target_combo <= 0 or best_combo >= target_combo)
+			if height_met and combo_met:
+				if not campaign_completed_stages.has(active_campaign_stage_id):
+					campaign_completed_stages.append(active_campaign_stage_id)
+					if campaign_unlocked_stage == active_campaign_stage_id:
+						campaign_unlocked_stage = min(campaign_unlocked_stage + 1, CAMPAIGN_STAGES.size() + 1)
+					save_campaign_data()
+					var reward = st["exp_reward"]
+					total_exp += reward
+					save_exp_data()
+					_update_exp_badge(true)
+					sound_mgr.play_perfect(6)
+					_show_task_toast("👑 %s CLEARED! (+%d EXP)" % [st["title"], reward])
+					prompt_label.text = "👑 STAGE CLEARED! KEEP STACKING!"
+					prompt_label.visible = true
+				else:
+					prompt_label.text = "👑 STAGE COMPLETED! KEEP STACKING!"
+					prompt_label.visible = true
+				break
+
 func _open_levels_drawer() -> void:
 	_open_exp_drawer()
 
@@ -1943,7 +2247,12 @@ func reset_game() -> void:
 	score_label.visible = true
 	combo_label.visible = false
 	prompt_label.visible = true
-	if not OS.has_feature("android") and not OS.has_feature("mobile"):
+	if active_campaign_stage_id > 0:
+		for st in CAMPAIGN_STAGES:
+			if st["id"] == active_campaign_stage_id:
+				prompt_label.text = "%s: TARGET %d BLOCKS" % [st["title"].to_upper(), st["target_blocks"]]
+				break
+	elif not OS.has_feature("android") and not OS.has_feature("mobile"):
 		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
 	else:
 		prompt_label.text = "TAP SCREEN TO DROP"
@@ -2139,6 +2448,10 @@ func _on_box_placed_successfully(box: Node3D) -> void:
 	elif stack.size() == 100 and stack_100_claimed_date != today and prev_stack < 100:
 		_show_task_toast("⭐ Task Ready: Stack of 100 (+2 EXP)!")
 		save_exp_data()
+	
+	# Campaign Stage Progression
+	if active_campaign_stage_id > 0:
+		_check_campaign_stage_progress()
 	
 	# Update score UI with bounce animation
 	score_label.text = str(score)

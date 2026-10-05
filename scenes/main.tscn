@@ -1,8 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://c83pdxlw7yq2b"]
+[gd_scene load_steps=13 format=3 uid="uid://c83pdxlw7yq2b"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/cube_slider.gd" id="2_slider"]
 [ext_resource type="Script" path="res://scripts/sound_effects.gd" id="3_sound"]
+[ext_resource type="Texture2D" uid="uid://bwj4y2pg7hudr" path="res://UI/Icons/home.svg" id="4_home_icon"]
+[ext_resource type="Texture2D" uid="uid://qrhcqgmb4q2" path="res://UI/Icons/campain.svg" id="5_campaign_icon"]
+[ext_resource type="Texture2D" uid="uid://bmhl8gpt6aqjr" path="res://UI/Icons/skin.svg" id="6_skin_icon"]
+[ext_resource type="Texture2D" uid="uid://dqny7fo2et1po" path="res://UI/Icons/challange.svg" id="7_challenge_icon"]
+[ext_resource type="Texture2D" uid="uid://j7u5ywsk2yiu" path="res://UI/Icons/Experiance.svg" id="8_experience_icon"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -346,7 +351,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 0.0
-offset_top = -80.0
+offset_top = -88.0
 offset_right = 0.0
 offset_bottom = 0.0
 grow_horizontal = 2
@@ -359,44 +364,180 @@ theme_override_constants/separation = 4
 alignment = 1
 
 [node name="BtnSkin" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
-text = "🎨
-SKINS"
+
+[node name="VBox" type="VBoxContainer" parent="UI/MainMenu/BottomRibbon/HBox/BtnSkin"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnSkin/VBox"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("6_skin_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/MainMenu/BottomRibbon/HBox/BtnSkin/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
+theme_override_font_sizes/font_size = 10
+text = "SKINS"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="BtnChallenge" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
-text = "⚡
-CHALLENGE"
+
+[node name="VBox" type="VBoxContainer" parent="UI/MainMenu/BottomRibbon/HBox/BtnChallenge"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnChallenge/VBox"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("7_challenge_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/MainMenu/BottomRibbon/HBox/BtnChallenge/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
+theme_override_font_sizes/font_size = 10
+text = "CHALLENGE"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="BtnHome" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.92, 0.95, 1.0, 1.0)
 theme_override_styles/normal = SubResource("StyleBoxFlat_tab_active")
-text = "🏠
-HOME"
+flat = true
+
+[node name="VBox" type="VBoxContainer" parent="UI/MainMenu/BottomRibbon/HBox/BtnHome"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnHome/VBox"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("4_home_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/MainMenu/BottomRibbon/HBox/BtnHome/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.92, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 10
+text = "HOME"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BtnCampaign" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+flat = true
+
+[node name="VBox" type="VBoxContainer" parent="UI/MainMenu/BottomRibbon/HBox/BtnCampaign"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnCampaign/VBox"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("5_campaign_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/MainMenu/BottomRibbon/HBox/BtnCampaign/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
+theme_override_font_sizes/font_size = 10
+text = "CAMPAIGN"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="BtnLevels" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
 flat = true
-text = "⭐
-EXPERIENCE"
+
+[node name="VBox" type="VBoxContainer" parent="UI/MainMenu/BottomRibbon/HBox/BtnLevels"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnLevels/VBox"]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+texture = ExtResource("8_experience_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="UI/MainMenu/BottomRibbon/HBox/BtnLevels/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
+theme_override_font_sizes/font_size = 10
+text = "EXPERIENCE"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="DrawerModal" type="PanelContainer" parent="UI/MainMenu"]
 visible = false
@@ -406,9 +547,9 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 0.0
-offset_top = -460.0
+offset_top = -488.0
 offset_right = 0.0
-offset_bottom = -80.0
+offset_bottom = -88.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_drawer")
