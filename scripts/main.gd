@@ -1367,10 +1367,26 @@ func _close_drawer(immediate: bool = false) -> void:
 		drawer_modal.visible = false
 	)
 
+var _scroll_is_mouse: bool = false
+
+func _get_max_drawer_scroll() -> int:
+	if not is_instance_valid(drawer_scroll):
+		return 0
+	var v_bar = drawer_scroll.get_v_scroll_bar()
+	var max_s = 0
+	if is_instance_valid(v_bar) and v_bar.max_value > 0.0:
+		max_s = int(max(0.0, v_bar.max_value - v_bar.page))
+	if max_s <= 0 and is_instance_valid(drawer_content):
+		var min_h = drawer_content.get_combined_minimum_size().y
+		max_s = int(max(0.0, min_h - drawer_scroll.size.y))
+	if max_s <= 0 and is_instance_valid(drawer_content):
+		max_s = int(max(0.0, drawer_content.size.y - drawer_scroll.size.y))
+	return max_s
+
 func _is_scroll_dragging() -> bool:
 	if _scroll_is_dragging:
 		return true
-	if Time.get_ticks_msec() - _scroll_last_drag_time < 220:
+	if Time.get_ticks_msec() - _scroll_last_drag_time < 250:
 		return true
 	return false
 
@@ -1380,13 +1396,14 @@ func _input(event: InputEvent) -> void:
 		_scroll_is_dragging = false
 		return
 	
-	var scroll_rect: Rect2 = drawer_scroll.get_global_rect()
+	var drawer_rect: Rect2 = drawer_modal.get_global_rect()
 	
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			if scroll_rect.has_point(event.position):
+			if drawer_rect.has_point(event.position):
 				_scroll_touch_active = true
 				_scroll_touch_index = event.index
+				_scroll_is_mouse = false
 				_scroll_start_y = event.position.y
 				_scroll_start_val = drawer_scroll.scroll_vertical
 				_scroll_is_dragging = false
@@ -1394,25 +1411,25 @@ func _input(event: InputEvent) -> void:
 				_scroll_last_pos_y = event.position.y
 				_scroll_last_pos_time = Time.get_ticks_msec()
 		else:
-			if _scroll_touch_active and event.index == _scroll_touch_index:
+			if _scroll_touch_active and not _scroll_is_mouse and (event.index == _scroll_touch_index or _scroll_touch_index == -1):
 				_scroll_touch_active = false
 				if _scroll_is_dragging:
 					_scroll_last_drag_time = Time.get_ticks_msec()
 					get_viewport().set_input_as_handled()
 	
 	elif event is InputEventScreenDrag:
-		if _scroll_touch_active and event.index == _scroll_touch_index:
+		if _scroll_touch_active and not _scroll_is_mouse:
 			var dy = event.position.y - _scroll_start_y
-			if not _scroll_is_dragging and abs(dy) > 8.0:
+			if not _scroll_is_dragging and abs(dy) > 4.0:
 				_scroll_is_dragging = true
 			if _scroll_is_dragging:
-				var max_scroll = int(max(0, drawer_content.size.y - drawer_scroll.size.y))
+				var max_scroll = _get_max_drawer_scroll()
 				drawer_scroll.scroll_vertical = clampi(int(round(_scroll_start_val - dy)), 0, max_scroll)
 				var now = Time.get_ticks_msec()
 				var dt = float(now - _scroll_last_pos_time) / 1000.0
 				if dt > 0.002:
 					var step_vel = (event.position.y - _scroll_last_pos_y) / dt
-					_scroll_velocity_y = lerp(_scroll_velocity_y, step_vel, 0.45)
+					_scroll_velocity_y = lerp(_scroll_velocity_y, step_vel, 0.50)
 				_scroll_last_pos_y = event.position.y
 				_scroll_last_pos_time = now
 				get_viewport().set_input_as_handled()
@@ -1420,9 +1437,11 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
-				if scroll_rect.has_point(event.position):
+				# Never allow emulated mouse events to clobber real touch tracking on mobile
+				if not _scroll_touch_active and drawer_rect.has_point(event.position):
 					_scroll_touch_active = true
 					_scroll_touch_index = -1
+					_scroll_is_mouse = true
 					_scroll_start_y = event.position.y
 					_scroll_start_val = drawer_scroll.scroll_vertical
 					_scroll_is_dragging = false
@@ -1430,25 +1449,25 @@ func _input(event: InputEvent) -> void:
 					_scroll_last_pos_y = event.position.y
 					_scroll_last_pos_time = Time.get_ticks_msec()
 			else:
-				if _scroll_touch_active and _scroll_touch_index == -1:
+				if _scroll_touch_active and _scroll_is_mouse:
 					_scroll_touch_active = false
 					if _scroll_is_dragging:
 						_scroll_last_drag_time = Time.get_ticks_msec()
 						get_viewport().set_input_as_handled()
 	
 	elif event is InputEventMouseMotion:
-		if _scroll_touch_active and _scroll_touch_index == -1 and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+		if _scroll_touch_active and _scroll_is_mouse and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
 			var dy = event.position.y - _scroll_start_y
-			if not _scroll_is_dragging and abs(dy) > 8.0:
+			if not _scroll_is_dragging and abs(dy) > 4.0:
 				_scroll_is_dragging = true
 			if _scroll_is_dragging:
-				var max_scroll = int(max(0, drawer_content.size.y - drawer_scroll.size.y))
+				var max_scroll = _get_max_drawer_scroll()
 				drawer_scroll.scroll_vertical = clampi(int(round(_scroll_start_val - dy)), 0, max_scroll)
 				var now = Time.get_ticks_msec()
 				var dt = float(now - _scroll_last_pos_time) / 1000.0
 				if dt > 0.002:
 					var step_vel = (event.position.y - _scroll_last_pos_y) / dt
-					_scroll_velocity_y = lerp(_scroll_velocity_y, step_vel, 0.45)
+					_scroll_velocity_y = lerp(_scroll_velocity_y, step_vel, 0.50)
 				_scroll_last_pos_y = event.position.y
 				_scroll_last_pos_time = now
 				get_viewport().set_input_as_handled()
@@ -2210,7 +2229,11 @@ func _open_exp_drawer() -> void:
 		claim_all_btn.add_theme_stylebox_override("normal", ca_style)
 		claim_all_btn.add_theme_stylebox_override("hover", ca_style)
 		claim_all_btn.add_theme_stylebox_override("pressed", ca_style)
-		claim_all_btn.pressed.connect(claim_all_available_exp)
+		claim_all_btn.pressed.connect(func():
+			if _is_scroll_dragging():
+				return
+			claim_all_available_exp()
+		)
 		drawer_content.add_child(claim_all_btn)
 	
 	var section_lbl = Label.new()
@@ -2679,7 +2702,7 @@ func _process(delta: float) -> void:
 	# Smooth kinetic inertia for drawer touch scrolling
 	if is_instance_valid(drawer_modal) and drawer_modal.visible and is_instance_valid(drawer_scroll) and not _scroll_touch_active:
 		if abs(_scroll_velocity_y) > 15.0:
-			var max_scroll = int(max(0, drawer_content.size.y - drawer_scroll.size.y))
+			var max_scroll = _get_max_drawer_scroll()
 			var next_val = clampi(int(round(drawer_scroll.scroll_vertical - _scroll_velocity_y * delta)), 0, max_scroll)
 			if next_val == drawer_scroll.scroll_vertical and (next_val == 0 or next_val == max_scroll):
 				_scroll_velocity_y = 0.0
