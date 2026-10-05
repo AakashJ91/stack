@@ -1436,6 +1436,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		if is_instance_valid(drawer_scroll):
 			drawer_scroll.custom_minimum_size = Vector2(0, 370)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		var sb = StyleBoxFlat.new()
 		sb.bg_color = Color(0.07, 0.08, 0.13, 0.98)
 		sb.content_margin_left = 16
@@ -1640,9 +1641,9 @@ func _make_tile_style(selected: bool, corner: int = 4) -> StyleBoxFlat:
 		st.set_border_width_all(2)
 		st.border_color = Color(1.0, 1.0, 1.0, 1.0)
 	else:
-		st.bg_color = Color(0.10, 0.12, 0.18, 0.90)
+		st.bg_color = Color(0.10, 0.13, 0.20, 0.90)
 		st.set_border_width_all(1)
-		st.border_color = Color(1.0, 1.0, 1.0, 0.08)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.22)
 	return st
 
 func _create_selection_square() -> Control:
@@ -2082,13 +2083,25 @@ func _open_skins_drawer() -> void:
 
 func _open_challenge_drawer() -> void:
 	_open_drawer("CHALLENGE MODES")
+	if is_instance_valid(drawer_scroll):
+		drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	
+	var container = MarginContainer.new()
+	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	container.add_theme_constant_override("margin_left", 2)
+	container.add_theme_constant_override("margin_right", 6)
+	container.add_theme_constant_override("margin_top", 2)
+	container.add_theme_constant_override("margin_bottom", 2)
+	drawer_content.add_child(container)
 	
 	var grid = GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	drawer_content.add_child(grid)
+	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	container.add_child(grid)
 	
 	for c in CHALLENGES:
 		var is_active = (c["id"] == active_challenge_id)
@@ -2097,9 +2110,11 @@ func _open_challenge_drawer() -> void:
 		tile_btn.flat = false
 		tile_btn.focus_mode = Control.FOCUS_NONE
 		tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tile_btn.custom_minimum_size = Vector2(0, 116)
+		tile_btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		tile_btn.size_flags_stretch_ratio = 1.0
+		tile_btn.custom_minimum_size = Vector2(0, 156)
 		
-		var tile_style = _make_tile_style(is_active, 4)
+		var tile_style = _make_tile_style(is_active, 6)
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
 		tile_btn.add_theme_stylebox_override("normal", tile_style)
@@ -2110,15 +2125,15 @@ func _open_challenge_drawer() -> void:
 		var margin = MarginContainer.new()
 		margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		margin.add_theme_constant_override("margin_left", 8)
-		margin.add_theme_constant_override("margin_right", 8)
-		margin.add_theme_constant_override("margin_top", 10)
-		margin.add_theme_constant_override("margin_bottom", 10)
+		margin.add_theme_constant_override("margin_left", 12)
+		margin.add_theme_constant_override("margin_right", 12)
+		margin.add_theme_constant_override("margin_top", 12)
+		margin.add_theme_constant_override("margin_bottom", 12)
 		tile_btn.add_child(margin)
 		
 		var inner = VBoxContainer.new()
 		inner.alignment = BoxContainer.ALIGNMENT_CENTER
-		inner.add_theme_constant_override("separation", 3)
+		inner.add_theme_constant_override("separation", 6)
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		margin.add_child(inner)
 		
@@ -2128,16 +2143,16 @@ func _open_challenge_drawer() -> void:
 		
 		var icon_lbl = Label.new()
 		icon_lbl.text = icon_str
-		icon_lbl.add_theme_font_size_override("font_size", 22)
+		icon_lbl.add_theme_font_size_override("font_size", 34)
 		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inner.add_child(icon_lbl)
 		
 		var title_lbl = Label.new()
 		title_lbl.text = title_str.to_upper()
-		title_lbl.add_theme_font_size_override("font_size", 10)
+		title_lbl.add_theme_font_size_override("font_size", 13)
 		title_lbl.add_theme_color_override("font_color",
-			Color(0.92, 0.95, 1.0, 1.0) if is_active else Color(0.65, 0.72, 0.85, 0.85))
+			Color(0.94, 0.96, 1.0, 1.0) if is_active else Color(0.70, 0.76, 0.88, 0.85))
 		title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		title_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2145,9 +2160,9 @@ func _open_challenge_drawer() -> void:
 		
 		var desc_lbl = Label.new()
 		desc_lbl.text = c["desc"]
-		desc_lbl.add_theme_font_size_override("font_size", 8)
+		desc_lbl.add_theme_font_size_override("font_size", 10)
 		desc_lbl.add_theme_color_override("font_color",
-			Color(0.72, 0.78, 0.90, 0.85) if is_active else Color(0.50, 0.58, 0.72, 0.75))
+			Color(0.75, 0.82, 0.94, 0.90) if is_active else Color(0.52, 0.60, 0.74, 0.80))
 		desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
