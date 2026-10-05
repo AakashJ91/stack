@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://bmhl8gpt6aqjr" path="res://UI/Icons/skin.svg" id="6_skin_icon"]
 [ext_resource type="Texture2D" uid="uid://dqny7fo2et1po" path="res://UI/Icons/challange.svg" id="7_challenge_icon"]
 [ext_resource type="Texture2D" uid="uid://j7u5ywsk2yiu" path="res://UI/Icons/Experiance.svg" id="8_experience_icon"]
+[ext_resource type="Texture2D" uid="uid://ysvbe5bix0hh" path="res://UI/Icons/close.svg" id="9_close_icon"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -69,6 +70,7 @@ corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
+
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
@@ -161,6 +163,25 @@ theme_override_font_sizes/font_size = 24
 text = "TAP SCREEN TO DROP"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="GameOverCloseBtn" type="Button" parent="UI/HUD"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 166.0
+offset_top = 100.0
+offset_right = 210.0
+offset_bottom = 144.0
+pivot_offset = Vector2(22, 22)
+focus_mode = 0
+flat = true
+icon = ExtResource("9_close_icon")
+icon_alignment = 1
+expand_icon = true
 
 [node name="ExpBadgeBtn" type="Button" parent="UI/HUD"]
 layout_mode = 1

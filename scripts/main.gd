@@ -44,6 +44,7 @@ var game_over_zoom_tween: Tween = null
 @onready var new_best_badge = $UI/GameOverPanel/VBox/NewBestBadge
 @onready var exp_badge_btn: Button = $UI/HUD/ExpBadgeBtn
 @onready var sound_btn = $UI/HUD/SoundBtn
+@onready var game_over_close_btn: Button = $UI/HUD/GameOverCloseBtn
 @onready var home_btn = $UI/GameOverPanel/VBox/HomeBtn
 
 # Main Menu & Ribbon UI
@@ -72,7 +73,11 @@ var challenge_speed_multiplier: float = 1.0
 var challenge_perfect_multiplier: float = 1.0
 var active_ribbon_tab: String = "home"
 var tap_pulse_tween: Tween = null
+var play_again_pulse_tween: Tween = null
 var drawer_tween: Tween = null
+var _game_over_time: int = 0
+var _is_restarting: bool = false
+var _restart_tween: Tween = null
 
 # Smooth Touch & Drag Scrolling Controller
 var _scroll_touch_active: bool = false
@@ -440,6 +445,9 @@ func _ready() -> void:
 	sound_btn.pressed.connect(_on_sound_btn_pressed)
 	$UI/GameOverPanel/VBox/RestartBtn.pressed.connect(restart_game)
 	home_btn.pressed.connect(show_main_menu)
+	if is_instance_valid(game_over_close_btn):
+		game_over_close_btn.pressed.connect(_on_game_over_close_pressed)
+		game_over_close_btn.visible = false
 	
 	_setup_exp_badge()
 	_setup_ribbon_listeners()
@@ -1070,6 +1078,13 @@ func save_campaign_data() -> void:
 		}
 		file.store_string(JSON.stringify(data, "\t"))
 
+func _on_game_over_close_pressed() -> void:
+	sound_mgr.play_click()
+	_stop_play_again_pulse()
+	if is_instance_valid(game_over_close_btn):
+		game_over_close_btn.visible = false
+	show_main_menu()
+
 func show_main_menu() -> void:
 	state = GameState.MENU
 	active_campaign_stage_id = 0
@@ -1099,6 +1114,8 @@ func show_main_menu() -> void:
 	combo_label.visible = false
 	prompt_label.visible = false
 	game_over_panel.visible = false
+	if is_instance_valid(game_over_close_btn):
+		game_over_close_btn.visible = false
 	
 	# Show Main Menu
 	main_menu.visible = true
@@ -1106,6 +1123,17 @@ func show_main_menu() -> void:
 	menu_best_score.text = "BEST: " + str(high_score)
 	
 	# Close any open drawer and reset tab to home
+	if _restart_tween:
+		_restart_tween.kill()
+		_restart_tween = null
+	_is_restarting = false
+	if is_instance_valid(base_pedestal):
+		base_pedestal.position.y = -12.0
+	if is_instance_valid(pedestal_rim):
+		pedestal_rim.position.y = 0.0
+	if is_instance_valid(pedestal_mist_particles):
+		pedestal_mist_particles.position.y = -6.0
+	_stop_play_again_pulse()
 	_close_drawer(true)
 	_set_active_tab("home")
 	
@@ -2362,54 +2390,9 @@ func _open_exp_drawer() -> void:
 	drawer_content.add_child(tiers_card)
 
 func reset_game() -> void:
-	# Clear existing stack boxes
-	for b in stack:
-		if is_instance_valid(b):
-			b.queue_free()
-	stack.clear()
-	
-	if is_instance_valid(active_box):
-		active_box.queue_free()
-		active_box = null
-	
-	if game_over_zoom_tween:
-		game_over_zoom_tween.kill()
-		game_over_zoom_tween = null
-	
-	score = 0
-	combo = 0
-	state = GameState.READY
-	current_top_y = 0.0
-	current_target_pos = Vector3.ZERO
-	target_camera_y = base_camera_pivot_y
-	target_camera_x = 0.0
-	target_camera_z = 0.0
-	camera_pivot.position = Vector3(0.0, base_camera_pivot_y, 0.0)
-	_on_window_resized()
-	
-	main_menu.visible = false
-	score_label.text = "0"
-	score_label.visible = true
-	combo_label.visible = false
-	prompt_label.visible = true
-	if active_campaign_stage_id > 0:
-		for st in CAMPAIGN_STAGES:
-			if st["id"] == active_campaign_stage_id:
-				prompt_label.text = "%s: TARGET %d BLOCKS" % [st["title"].to_upper(), st["target_blocks"]]
-				break
-	elif not OS.has_feature("android") and not OS.has_feature("mobile"):
-		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
-	else:
-		prompt_label.text = "TAP SCREEN TO DROP"
-	game_over_panel.visible = false
-	new_best_badge.visible = false
-	
-	# Initial slider level
-	slider.set_target_level(current_top_y, current_target_pos, 0)
-	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
-	_update_pedestal_color(false)
-	
-	_spawn_next_box()
+	if _is_restarting:
+		return
+	restart_game()
 
 func _spawn_next_box() -> void:
 	var new_box = StackBox.new()
@@ -2430,6 +2413,9 @@ func _spawn_next_box() -> void:
 	slider.attach_box(new_box)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _is_restarting:
+		return
+	
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_F11:
 			var current_mode = DisplayServer.window_get_mode()
@@ -2483,6 +2469,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			state = GameState.DROPPING
 			_drop_current_box()
 		GameState.GAME_OVER:
+			if Time.get_ticks_msec() - _game_over_time < 350:
+				return
+			if is_instance_valid(game_over_close_btn) and game_over_close_btn.visible:
+				if event is InputEventScreenTouch or event is InputEventMouseButton:
+					if game_over_close_btn.get_global_rect().has_point(event.position):
+						return
 			restart_game()
 
 
@@ -2743,15 +2735,45 @@ func _trigger_game_over() -> void:
 	best_score_label.text = "BEST: " + str(high_score)
 	new_best_badge.visible = is_new_record
 	
+	# Do not show game over panel — simply show message
+	game_over_panel.visible = false
+	
 	# Cinematic camera zoom-out to reveal the full tower
 	_animate_game_over_tower_reveal()
 	
-	# Animate game over panel slide in after a short reveal beat
-	game_over_panel.visible = true
-	game_over_panel.modulate.a = 0.0
+	# Simply show the message 'Tap To Play Again' and big close button above it at left
+	_stop_play_again_pulse()
+	prompt_label.text = "Tap To Play Again"
+	prompt_label.visible = true
+	prompt_label.modulate.a = 0.0
+	
+	if is_instance_valid(game_over_close_btn):
+		game_over_close_btn.visible = true
+		game_over_close_btn.modulate.a = 0.0
+	
 	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(0.65)
-	tween.tween_property(game_over_panel, "modulate:a", 1.0, 0.45)
+	tween.tween_interval(0.30)
+	tween.tween_property(prompt_label, "modulate:a", 1.0, 0.25)
+	if is_instance_valid(game_over_close_btn):
+		tween.parallel().tween_property(game_over_close_btn, "modulate:a", 1.0, 0.25)
+	tween.tween_callback(func():
+		if state == GameState.GAME_OVER:
+			_start_play_again_pulse()
+	)
+
+func _start_play_again_pulse() -> void:
+	if play_again_pulse_tween:
+		play_again_pulse_tween.kill()
+	play_again_pulse_tween = create_tween().set_loops()
+	play_again_pulse_tween.tween_property(prompt_label, "modulate:a", 0.40, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	play_again_pulse_tween.tween_property(prompt_label, "modulate:a", 1.0, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _stop_play_again_pulse() -> void:
+	if play_again_pulse_tween:
+		play_again_pulse_tween.kill()
+		play_again_pulse_tween = null
+	if is_instance_valid(prompt_label):
+		prompt_label.modulate.a = 1.0
 
 func _animate_game_over_tower_reveal() -> void:
 	if not is_instance_valid(camera) or not is_instance_valid(camera_pivot):
@@ -2784,8 +2806,184 @@ func _animate_game_over_tower_reveal() -> void:
 	game_over_zoom_tween.tween_property(self, "target_camera_z", tower_center_z, 1.7)
 
 func restart_game() -> void:
+	if _is_restarting:
+		return
+	_is_restarting = true
+	
 	sound_mgr.play_click()
-	reset_game()
+	_stop_play_again_pulse()
+	prompt_label.visible = false
+	if is_instance_valid(game_over_close_btn):
+		game_over_close_btn.visible = false
+	
+	if game_over_zoom_tween:
+		game_over_zoom_tween.kill()
+		game_over_zoom_tween = null
+	if _restart_tween:
+		_restart_tween.kill()
+		_restart_tween = null
+	
+	# 1. Destroy the stack with blocks blasting outward in various directions
+	var boxes_to_destroy = stack.duplicate()
+	stack.clear()
+	
+	if is_instance_valid(active_box):
+		boxes_to_destroy.append(active_box)
+		active_box = null
+	
+	var count = boxes_to_destroy.size()
+	
+	trigger_screen_shake(0.35)
+	sound_mgr.play_land()
+	_spawn_impact_dust(Vector3(0, 0.2, 0))
+	if count > 4:
+		_spawn_impact_dust(Vector3(0, current_top_y * 0.5, 0))
+	
+	# Pick a random fall direction for the entire stack (360 degrees)
+	var fall_angle = randf_range(0.0, TAU)
+	var fall_dir = Vector2(cos(fall_angle), sin(fall_angle))
+	# Perpendicular axis for forward toppling tilt
+	var tilt_axis = Vector3(-fall_dir.y, 0.0, fall_dir.x)
+	
+	for i in range(count):
+		var b = boxes_to_destroy[i]
+		if not is_instance_valid(b):
+			continue
+		
+		# Height fraction from bottom (0.0) to top (1.0)
+		var h_frac = float(i + 1) / float(max(1, count))
+		
+		# In a toppling tower, higher blocks swing much farther in the fall direction
+		var horiz_dist = lerp(4.0, 18.0, h_frac) * randf_range(0.9, 1.15)
+		# Slight natural spread around the main fall direction
+		var block_angle = fall_angle + randf_range(-0.16, 0.16)
+		var target_x = b.position.x + cos(block_angle) * horiz_dist
+		var target_z = b.position.z + sin(block_angle) * horiz_dist
+		
+		# Vertical motion: top blocks drop farther as the tower topples over
+		var lift = lerp(0.3, 1.8, h_frac)
+		var fall = lerp(8.0, 22.0, h_frac)
+		
+		# Forward tilt in the fall direction + gentle 3D tumbling
+		var tilt_amount = lerp(1.2, 2.6, h_frac)
+		var spin_rot = b.rotation + (tilt_axis * tilt_amount) + Vector3(
+			randf_range(-0.6, 0.6),
+			randf_range(-0.6, 0.6),
+			randf_range(-0.6, 0.6)
+		)
+		
+		# Progressive top-to-bottom collapse wave
+		var delay = clamp(float(count - 1 - i) * 0.018, 0.0, 0.22)
+		var duration = randf_range(0.90, 1.10)
+		
+		var bt = create_tween().set_parallel(true)
+		# Horizontal displacement accelerating naturally under gravity
+		bt.tween_property(b, "position:x", target_x, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		bt.tween_property(b, "position:z", target_z, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		bt.tween_property(b, "rotation", spin_rot, duration).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		
+		# Maintain size while toppling, then smoothly shrink down as it drops
+		var shrink_delay = delay + duration * 0.45
+		var shrink_dur = duration * 0.55
+		bt.tween_property(b, "scale", Vector3(0.01, 0.01, 0.01), shrink_dur).set_delay(shrink_delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		
+		# Vertical arc: initial lean lift then downward gravity plunge
+		var duration_up = duration * 0.26
+		var duration_down = duration * 0.74
+		var yt = create_tween()
+		if delay > 0.0:
+			yt.tween_interval(delay)
+		yt.tween_property(b, "position:y", b.position.y + lift, duration_up).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		yt.tween_property(b, "position:y", b.position.y - fall, duration_down).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		
+		# Free block once animation completes
+		bt.chain().tween_callback(func():
+			if is_instance_valid(b):
+				b.queue_free()
+		)
+	
+	# 2. Main base appears from the bottom
+	const BASE_DROP_OFFSET: float = 6.0
+	if is_instance_valid(base_pedestal):
+		base_pedestal.position.y = -12.0 - BASE_DROP_OFFSET
+	if is_instance_valid(pedestal_rim):
+		pedestal_rim.position.y = 0.0 - BASE_DROP_OFFSET
+	if is_instance_valid(pedestal_mist_particles):
+		pedestal_mist_particles.position.y = -6.0 - BASE_DROP_OFFSET
+	
+	# Calculate target camera size for normal view
+	var aspect_mult = 1.0
+	var win_size = get_viewport().get_visible_rect().size
+	if win_size.y > 0.0:
+		var aspect = win_size.x / win_size.y
+		if aspect < 0.5625:
+			aspect_mult = 0.5625 / aspect
+	var normal_camera_size = BASE_CAMERA_SIZE * aspect_mult
+	
+	# Animate camera returning to ground and main base rising smoothly from the bottom
+	_restart_tween = create_tween().set_parallel(true)
+	
+	# Camera returns smoothly to base with matching cinematic timing
+	_restart_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_restart_tween.tween_property(camera, "size", normal_camera_size, 0.78).set_delay(0.32)
+	_restart_tween.tween_property(self, "target_camera_y", base_camera_pivot_y, 0.78).set_delay(0.32)
+	_restart_tween.tween_property(self, "target_camera_x", 0.0, 0.78).set_delay(0.32)
+	_restart_tween.tween_property(self, "target_camera_z", 0.0, 0.78).set_delay(0.32)
+	
+	# Main base rises up smoothly from bottom
+	if is_instance_valid(base_pedestal):
+		_restart_tween.tween_property(base_pedestal, "position:y", -12.0, 0.68).set_delay(0.40).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if is_instance_valid(pedestal_rim):
+		_restart_tween.tween_property(pedestal_rim, "position:y", 0.0, 0.68).set_delay(0.40).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if is_instance_valid(pedestal_mist_particles):
+		_restart_tween.tween_property(pedestal_mist_particles, "position:y", -6.0, 0.68).set_delay(0.40).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	
+	# When the main base has risen into place, start game
+	_restart_tween.chain().tween_callback(func():
+		_is_restarting = false
+		_spawn_impact_dust(Vector3(0, 0.05, 0))
+		_finish_restart_game()
+	)
+
+func _finish_restart_game() -> void:
+	score = 0
+	combo = 0
+	state = GameState.READY
+	current_top_y = 0.0
+	current_target_pos = Vector3.ZERO
+	target_camera_y = base_camera_pivot_y
+	target_camera_x = 0.0
+	target_camera_z = 0.0
+	camera_pivot.position = Vector3(0.0, base_camera_pivot_y, 0.0)
+	_on_window_resized()
+	
+	main_menu.visible = false
+	score_label.text = "0"
+	score_label.visible = true
+	combo_label.visible = false
+	prompt_label.visible = true
+	if active_campaign_stage_id > 0:
+		for st in CAMPAIGN_STAGES:
+			if st["id"] == active_campaign_stage_id:
+				prompt_label.text = "%s: TARGET %d BLOCKS" % [st["title"].to_upper(), st["target_blocks"]]
+				break
+	elif not OS.has_feature("android") and not OS.has_feature("mobile"):
+		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
+	else:
+		prompt_label.text = "TAP SCREEN TO DROP"
+	prompt_label.modulate.a = 1.0
+	game_over_panel.visible = false
+	if is_instance_valid(game_over_close_btn):
+		game_over_close_btn.visible = false
+	new_best_badge.visible = false
+	
+	# Initial slider level
+	slider.set_target_level(current_top_y, current_target_pos, 0)
+	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
+	_update_pedestal_color(false)
+	
+	_spawn_next_box()
+
 
 func _on_sound_btn_pressed() -> void:
 	var muted = sound_mgr.toggle_mute()
