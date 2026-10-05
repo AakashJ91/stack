@@ -1955,57 +1955,98 @@ func _open_skins_drawer() -> void:
 func _open_challenge_drawer() -> void:
 	_open_drawer("CHALLENGE MODES")
 	
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	drawer_content.add_child(grid)
+	
 	for c in CHALLENGES:
 		var is_active = (c["id"] == active_challenge_id)
-		var card = _create_card_container()
-		var vbox = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 6)
-		card.add_child(vbox)
 		
-		# Header
-		var header_row = HBoxContainer.new()
+		var tile_btn = Button.new()
+		tile_btn.flat = false
+		tile_btn.focus_mode = Control.FOCUS_NONE
+		tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile_btn.custom_minimum_size = Vector2(0, 116)
+		
+		var tile_style = _make_tile_style(is_active, 4)
+		var tile_hover = tile_style.duplicate() as StyleBoxFlat
+		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
+		tile_btn.add_theme_stylebox_override("normal", tile_style)
+		tile_btn.add_theme_stylebox_override("hover", tile_hover)
+		tile_btn.add_theme_stylebox_override("pressed", tile_style)
+		tile_btn.add_theme_stylebox_override("focus", tile_style)
+		
+		var margin = MarginContainer.new()
+		margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		margin.add_theme_constant_override("margin_left", 8)
+		margin.add_theme_constant_override("margin_right", 8)
+		margin.add_theme_constant_override("margin_top", 10)
+		margin.add_theme_constant_override("margin_bottom", 10)
+		tile_btn.add_child(margin)
+		
+		var inner = VBoxContainer.new()
+		inner.alignment = BoxContainer.ALIGNMENT_CENTER
+		inner.add_theme_constant_override("separation", 3)
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		margin.add_child(inner)
+		
+		var parts = c["title"].split(" ", false, 1)
+		var icon_str = parts[0] if parts.size() > 0 else "⚡"
+		var title_str = parts[1] if parts.size() > 1 else c["title"]
+		
+		var icon_lbl = Label.new()
+		icon_lbl.text = icon_str
+		icon_lbl.add_theme_font_size_override("font_size", 22)
+		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(icon_lbl)
+		
 		var title_lbl = Label.new()
-		title_lbl.text = c["title"]
-		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		title_lbl.add_theme_font_size_override("font_size", 16)
-		title_lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
-		header_row.add_child(title_lbl)
+		title_lbl.text = title_str.to_upper()
+		title_lbl.add_theme_font_size_override("font_size", 10)
+		title_lbl.add_theme_color_override("font_color",
+			Color(0.92, 0.95, 1.0, 1.0) if is_active else Color(0.65, 0.72, 0.85, 0.85))
+		title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		title_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(title_lbl)
 		
-		if is_active:
-			var badge = Label.new()
-			badge.text = "✓ ACTIVE"
-			badge.add_theme_font_size_override("font_size", 13)
-			badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-			header_row.add_child(badge)
-		vbox.add_child(header_row)
-		
-		# Description
 		var desc_lbl = Label.new()
 		desc_lbl.text = c["desc"]
+		desc_lbl.add_theme_font_size_override("font_size", 8)
+		desc_lbl.add_theme_color_override("font_color",
+			Color(0.72, 0.78, 0.90, 0.85) if is_active else Color(0.50, 0.58, 0.72, 0.75))
+		desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc_lbl.add_theme_font_size_override("font_size", 13)
-		desc_lbl.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
-		vbox.add_child(desc_lbl)
+		desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(desc_lbl)
 		
-		# Action button
-		var btn = _create_card_button("✓ ACTIVE" if is_active else "PLAY CHALLENGE", is_active)
-		if not is_active:
-			var cid = c["id"]
-			var c_speed = c["speed"]
-			var c_perf = c["perf"]
-			btn.pressed.connect(func():
-				if _is_scroll_dragging():
-					return
-				active_challenge_id = cid
-				challenge_speed_multiplier = c_speed
-				challenge_perfect_multiplier = c_perf
-				sound_mgr.play_click()
-				if state == GameState.MENU:
-					slider.speed_multiplier = 0.85 * challenge_speed_multiplier
-				_open_challenge_drawer()
-			)
-		vbox.add_child(btn)
-		drawer_content.add_child(card)
+		var badge = _create_selection_square()
+		badge.modulate.a = 1.0 if is_active else 0.0
+		inner.add_child(badge)
+		
+		var cid = c["id"]
+		var c_speed = c["speed"]
+		var c_perf = c["perf"]
+		tile_btn.pressed.connect(func():
+			if _is_scroll_dragging():
+				return
+			if active_challenge_id == cid:
+				return
+			active_challenge_id = cid
+			challenge_speed_multiplier = c_speed
+			challenge_perfect_multiplier = c_perf
+			sound_mgr.play_click()
+			if state == GameState.MENU:
+				slider.speed_multiplier = 0.85 * challenge_speed_multiplier
+			_open_challenge_drawer()
+		)
+		
+		grid.add_child(tile_btn)
 
 func _open_campaign_drawer() -> void:
 	_open_drawer("CAMPAIGN STAGES")
