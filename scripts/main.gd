@@ -275,8 +275,38 @@ const SKINS: Array[Dictionary] = [
 		"uv_scale": Vector2(0.75, 0.75)
 	},
 ]
+const SKIN_SAVE_PATH: String = "user://skin_data.json"
 var active_skin_id: String = "classic"
-var sniper_reticle_enabled: bool = true
+var sniper_reticle_enabled: bool = false
+
+func save_skin_data() -> void:
+	var file = FileAccess.open(SKIN_SAVE_PATH, FileAccess.WRITE)
+	if file:
+		var data = {
+			"active_skin_id": active_skin_id,
+			"sniper_reticle_enabled": sniper_reticle_enabled,
+			"palette_index": palette_index
+		}
+		file.store_string(JSON.stringify(data, "\t"))
+
+func load_skin_data() -> void:
+	if FileAccess.file_exists(SKIN_SAVE_PATH):
+		var file = FileAccess.open(SKIN_SAVE_PATH, FileAccess.READ)
+		if file:
+			var text = file.get_as_text()
+			var json = JSON.new()
+			if json.parse(text) == OK and typeof(json.data) == TYPE_DICTIONARY:
+				var data: Dictionary = json.data
+				if data.has("active_skin_id"):
+					var loaded_skin = str(data["active_skin_id"])
+					for s in SKINS:
+						if s["id"] == loaded_skin:
+							active_skin_id = loaded_skin
+							break
+				if data.has("sniper_reticle_enabled"):
+					sniper_reticle_enabled = bool(data["sniper_reticle_enabled"])
+				if data.has("palette_index"):
+					palette_index = clampi(int(data["palette_index"]), 0, PALETTES.size() - 1)
 
 func get_current_skin_config() -> Dictionary:
 	for s in SKINS:
@@ -432,6 +462,7 @@ func _ready() -> void:
 	load_high_score()
 	load_exp_data()
 	load_campaign_data()
+	load_skin_data()
 	_setup_lighting_and_env()
 	_setup_gradient_background()
 	_create_pedestal()
@@ -1761,6 +1792,7 @@ func _open_skins_drawer() -> void:
 			sound_mgr.play_click()
 			_update_active_skins_in_scene()
 			_refresh_skin_tiles()
+			save_skin_data()
 		)
 		_skin_tile_btns.append(tile_btn)
 		skins_grid.add_child(tile_btn)
@@ -1908,6 +1940,7 @@ func _open_skins_drawer() -> void:
 		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
 			slider.set_sniper_reticle_enabled(false)
 		update_reticle_options_ui.call()
+		save_skin_data()
 	)
 	
 	btn_sniper.pressed.connect(func():
@@ -1920,6 +1953,7 @@ func _open_skins_drawer() -> void:
 		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
 			slider.set_sniper_reticle_enabled(true)
 		update_reticle_options_ui.call()
+		save_skin_data()
 	)
 	
 	# --- PALETTE SECTION (always created; shown only when Classic is active) ---
@@ -2041,6 +2075,7 @@ func _open_skins_drawer() -> void:
 			_update_pedestal_color(true)
 			_update_active_skins_in_scene()
 			_refresh_pal_tiles()
+			save_skin_data()
 		)
 		_pal_tile_btns.append(pal_btn)
 		pal_grid.add_child(pal_btn)

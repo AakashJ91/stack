@@ -26,7 +26,7 @@ var guide_mesh_instance: MeshInstance3D
 var guide_material: StandardMaterial3D
 var sniper_reticle_instance: MeshInstance3D
 var sniper_material: StandardMaterial3D
-var sniper_reticle_enabled: bool = true
+var sniper_reticle_enabled: bool = false
 var _guide_smooth_pos: Vector3 = Vector3.ZERO
 const GUIDE_LERP_SPEED: float = 14.0
 
