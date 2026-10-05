@@ -1503,7 +1503,7 @@ func _create_card_button(btn_text: String, is_active: bool) -> Button:
 	btn.add_theme_stylebox_override("pressed", btn_style)
 	return btn
 
-func _make_tile_style(selected: bool, corner: int) -> StyleBoxFlat:
+func _make_tile_style(selected: bool, corner: int = 4) -> StyleBoxFlat:
 	var st = StyleBoxFlat.new()
 	st.set_corner_radius_all(corner)
 	st.content_margin_left = 6
@@ -1511,12 +1511,30 @@ func _make_tile_style(selected: bool, corner: int) -> StyleBoxFlat:
 	st.content_margin_top = 6
 	st.content_margin_bottom = 6
 	if selected:
-		st.bg_color = Color(0.14, 0.20, 0.34, 1.0)
+		# Exact white square box selection matching ribbon tab
+		st.bg_color = Color(1.0, 1.0, 1.0, 0.16)
 		st.set_border_width_all(2)
-		st.border_color = Color(1.0, 1.0, 1.0, 0.90)
+		st.border_color = Color(1.0, 1.0, 1.0, 1.0)
 	else:
 		st.bg_color = Color(0.10, 0.12, 0.18, 0.90)
+		st.set_border_width_all(1)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.08)
 	return st
+
+func _create_selection_square() -> Control:
+	var container = CenterContainer.new()
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.custom_minimum_size = Vector2(0, 10)
+	
+	var sq = Panel.new()
+	sq.custom_minimum_size = Vector2(8, 8)
+	sq.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st = StyleBoxFlat.new()
+	st.bg_color = Color(1.0, 1.0, 1.0, 1.0)
+	st.set_corner_radius_all(1)
+	sq.add_theme_stylebox_override("panel", st)
+	container.add_child(sq)
+	return container
 
 func _refresh_skin_tiles() -> void:
 	for i in _skin_tile_btns.size():
@@ -1525,12 +1543,15 @@ func _refresh_skin_tiles() -> void:
 			continue
 		var skin_id: String = SKINS[i]["id"]
 		var sel = (active_skin_id == skin_id)
-		var st = _make_tile_style(sel, 6)
+		btn.flat = false
+		btn.focus_mode = Control.FOCUS_NONE
+		var st = _make_tile_style(sel, 4)
 		var st_h = st.duplicate() as StyleBoxFlat
 		st_h.bg_color = st.bg_color.lightened(0.06)
 		btn.add_theme_stylebox_override("normal", st)
 		btn.add_theme_stylebox_override("hover", st_h)
 		btn.add_theme_stylebox_override("pressed", st)
+		btn.add_theme_stylebox_override("focus", st)
 		# Update name label color (child[0]=icon, child[1]=name_lbl)
 		var inner = btn.get_child(0)
 		if inner and inner.get_child_count() >= 2:
@@ -1538,14 +1559,9 @@ func _refresh_skin_tiles() -> void:
 			if nlbl:
 				nlbl.add_theme_color_override("font_color",
 					Color(0.80, 0.86, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
-			# Show/hide ✓ badge (child index 2 when equipped)
+			# Show/hide white square badge (child index 2 when equipped)
 			if sel and inner.get_child_count() < 3:
-				var badge = Label.new()
-				badge.text = "✓"
-				badge.add_theme_font_size_override("font_size", 11)
-				badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-				badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var badge = _create_selection_square()
 				inner.add_child(badge)
 			elif not sel and inner.get_child_count() >= 3:
 				inner.get_child(2).queue_free()
@@ -1559,23 +1575,15 @@ func _refresh_pal_tiles() -> void:
 		if not is_instance_valid(btn):
 			continue
 		var sel = (i == palette_index)
-		var st = StyleBoxFlat.new()
-		st.set_corner_radius_all(5)
-		st.content_margin_left = 6
-		st.content_margin_right = 6
-		st.content_margin_top = 6
-		st.content_margin_bottom = 6
-		if sel:
-			st.bg_color = Color(0.12, 0.18, 0.30, 1.0)
-			st.set_border_width_all(2)
-			st.border_color = Color(1.0, 1.0, 1.0, 0.90)
-		else:
-			st.bg_color = Color(0.09, 0.11, 0.17, 0.90)
+		btn.flat = false
+		btn.focus_mode = Control.FOCUS_NONE
+		var st = _make_tile_style(sel, 4)
 		var st_h = st.duplicate() as StyleBoxFlat
 		st_h.bg_color = st.bg_color.lightened(0.06)
 		btn.add_theme_stylebox_override("normal", st)
 		btn.add_theme_stylebox_override("hover", st_h)
 		btn.add_theme_stylebox_override("pressed", st)
+		btn.add_theme_stylebox_override("focus", st)
 		# Update name label color (p_inner child[0]=swatch_row, [1]=p_name)
 		var p_inner = btn.get_child(0)
 		if p_inner and p_inner.get_child_count() >= 2:
@@ -1583,14 +1591,9 @@ func _refresh_pal_tiles() -> void:
 			if pnlbl:
 				pnlbl.add_theme_color_override("font_color",
 					Color(0.80, 0.86, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
-			# Show/hide ✓ badge (child index 2)
+			# Show/hide white square badge (child index 2)
 			if sel and p_inner.get_child_count() < 3:
-				var p_check = Label.new()
-				p_check.text = "✓"
-				p_check.add_theme_font_size_override("font_size", 11)
-				p_check.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-				p_check.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				p_check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var p_check = _create_selection_square()
 				p_inner.add_child(p_check)
 			elif not sel and p_inner.get_child_count() >= 3:
 				p_inner.get_child(2).queue_free()
@@ -1612,16 +1615,18 @@ func _open_skins_drawer() -> void:
 	for s in SKINS:
 		var is_equipped = (active_skin_id == s["id"])
 		var tile_btn = Button.new()
-		tile_btn.flat = true
+		tile_btn.flat = false
+		tile_btn.focus_mode = Control.FOCUS_NONE
 		tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tile_btn.custom_minimum_size = Vector2(0, 96)
 		
-		var tile_style = _make_tile_style(is_equipped, 6)
+		var tile_style = _make_tile_style(is_equipped, 4)
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
 		tile_btn.add_theme_stylebox_override("normal", tile_style)
 		tile_btn.add_theme_stylebox_override("hover", tile_hover)
 		tile_btn.add_theme_stylebox_override("pressed", tile_style)
+		tile_btn.add_theme_stylebox_override("focus", tile_style)
 		
 		# Inner VBox: icon + name (+ badge if equipped)
 		var inner = VBoxContainer.new()
@@ -1649,12 +1654,7 @@ func _open_skins_drawer() -> void:
 		inner.add_child(name_lbl)
 		
 		if is_equipped:
-			var badge = Label.new()
-			badge.text = "✓"
-			badge.add_theme_font_size_override("font_size", 11)
-			badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-			badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var badge = _create_selection_square()
 			inner.add_child(badge)
 		
 		# Connect equip action — update in-place, no drawer rebuild
@@ -1672,7 +1672,7 @@ func _open_skins_drawer() -> void:
 		_skin_tile_btns.append(tile_btn)
 		skins_grid.add_child(tile_btn)
 	
-	# --- GUIDE MESH ACCESSORY: SNIPER RETICLE OPTION ---
+	# --- GUIDE MESH ACCESSORY: 2 OPTIONS (NONE, SNIPER POINTER) ---
 	var reticle_section = VBoxContainer.new()
 	reticle_section.add_theme_constant_override("separation", 6)
 	reticle_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1688,92 +1688,146 @@ func _open_skins_drawer() -> void:
 	r_header.add_theme_color_override("font_color", Color(0.55, 0.64, 0.82, 0.80))
 	reticle_section.add_child(r_header)
 	
-	var reticle_btn = Button.new()
-	reticle_btn.flat = true
-	reticle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	reticle_btn.custom_minimum_size = Vector2(0, 56)
+	var acc_grid = GridContainer.new()
+	acc_grid.columns = 2
+	acc_grid.add_theme_constant_override("h_separation", 8)
+	acc_grid.add_theme_constant_override("v_separation", 8)
+	acc_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reticle_section.add_child(acc_grid)
 	
-	var update_reticle_btn_ui = func():
-		var r_style = StyleBoxFlat.new()
-		if sniper_reticle_enabled:
-			r_style.bg_color = Color(0.12, 0.20, 0.28, 0.90)
-			r_style.border_color = Color(0.40, 0.75, 1.0, 0.80)
-		else:
-			r_style.bg_color = Color(0.12, 0.14, 0.20, 0.85)
-			r_style.border_color = Color(0.25, 0.30, 0.42, 0.40)
-		r_style.corner_radius_top_left = 8
-		r_style.corner_radius_top_right = 8
-		r_style.corner_radius_bottom_left = 8
-		r_style.corner_radius_bottom_right = 8
-		r_style.border_width_left = 1
-		r_style.border_width_top = 1
-		r_style.border_width_right = 1
-		r_style.border_width_bottom = 1
-		r_style.content_margin_left = 12
-		r_style.content_margin_right = 12
-		r_style.content_margin_top = 8
-		r_style.content_margin_bottom = 8
-		reticle_btn.add_theme_stylebox_override("normal", r_style)
-		var r_hover = r_style.duplicate() as StyleBoxFlat
-		r_hover.bg_color = r_style.bg_color.lightened(0.06)
-		reticle_btn.add_theme_stylebox_override("hover", r_hover)
-		reticle_btn.add_theme_stylebox_override("pressed", r_style)
+	# Option 1: None
+	var btn_none = Button.new()
+	btn_none.flat = false
+	btn_none.focus_mode = Control.FOCUS_NONE
+	btn_none.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_none.custom_minimum_size = Vector2(0, 78)
+	acc_grid.add_child(btn_none)
 	
-	update_reticle_btn_ui.call()
+	var inner_none = VBoxContainer.new()
+	inner_none.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner_none.add_theme_constant_override("separation", 2)
+	inner_none.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_none.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn_none.add_child(inner_none)
 	
-	var r_hbox = HBoxContainer.new()
-	r_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	r_hbox.add_theme_constant_override("separation", 10)
-	r_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	r_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reticle_btn.add_child(r_hbox)
+	var none_icon = Label.new()
+	none_icon.text = "🚫"
+	none_icon.add_theme_font_size_override("font_size", 22)
+	none_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	none_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_none.add_child(none_icon)
 	
-	var r_icon = Label.new()
-	r_icon.text = "🎯"
-	r_icon.add_theme_font_size_override("font_size", 24)
-	r_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r_hbox.add_child(r_icon)
+	var none_title = Label.new()
+	none_title.text = "NONE"
+	none_title.add_theme_font_size_override("font_size", 10)
+	none_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	none_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_none.add_child(none_title)
 	
-	var r_vbox = VBoxContainer.new()
-	r_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	r_vbox.add_theme_constant_override("separation", 2)
-	r_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r_hbox.add_child(r_vbox)
+	var none_desc = Label.new()
+	none_desc.text = "Standard Guide"
+	none_desc.add_theme_font_size_override("font_size", 8)
+	none_desc.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.70))
+	none_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	none_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_none.add_child(none_desc)
 	
-	var r_title = Label.new()
-	r_title.text = "Sniper Pointer Reticle"
-	r_title.add_theme_font_size_override("font_size", 13)
-	r_title.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
-	r_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r_vbox.add_child(r_title)
+	var none_badge = _create_selection_square()
+	inner_none.add_child(none_badge)
 	
-	var r_desc = Label.new()
-	r_desc.text = "Tactical dark grey crosshair & precision lock-on"
-	r_desc.add_theme_font_size_override("font_size", 10)
-	r_desc.add_theme_color_override("font_color", Color(0.60, 0.68, 0.80, 0.75))
-	r_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r_vbox.add_child(r_desc)
+	# Option 2: Sniper Pointer
+	var btn_sniper = Button.new()
+	btn_sniper.flat = false
+	btn_sniper.focus_mode = Control.FOCUS_NONE
+	btn_sniper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_sniper.custom_minimum_size = Vector2(0, 78)
+	acc_grid.add_child(btn_sniper)
 	
-	var r_badge = Label.new()
-	r_badge.text = "ON ✓" if sniper_reticle_enabled else "OFF"
-	r_badge.add_theme_font_size_override("font_size", 12)
-	r_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0) if sniper_reticle_enabled else Color(0.50, 0.56, 0.68, 0.75))
-	r_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r_hbox.add_child(r_badge)
+	var inner_sniper = VBoxContainer.new()
+	inner_sniper.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner_sniper.add_theme_constant_override("separation", 2)
+	inner_sniper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_sniper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn_sniper.add_child(inner_sniper)
 	
-	reticle_btn.pressed.connect(func():
+	var sniper_icon = Label.new()
+	sniper_icon.text = "🎯"
+	sniper_icon.add_theme_font_size_override("font_size", 22)
+	sniper_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sniper_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_sniper.add_child(sniper_icon)
+	
+	var sniper_title = Label.new()
+	sniper_title.text = "SNIPER POINTER"
+	sniper_title.add_theme_font_size_override("font_size", 10)
+	sniper_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sniper_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_sniper.add_child(sniper_title)
+	
+	var sniper_desc = Label.new()
+	sniper_desc.text = "Tactical Reticle"
+	sniper_desc.add_theme_font_size_override("font_size", 8)
+	sniper_desc.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.70))
+	sniper_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sniper_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner_sniper.add_child(sniper_desc)
+	
+	var sniper_badge = _create_selection_square()
+	inner_sniper.add_child(sniper_badge)
+	
+	var update_reticle_options_ui = func():
+		var is_none = not sniper_reticle_enabled
+		var is_sniper = sniper_reticle_enabled
+		
+		# Style None button
+		var st_n = _make_tile_style(is_none, 4)
+		var st_nh = st_n.duplicate() as StyleBoxFlat
+		st_nh.bg_color = st_n.bg_color.lightened(0.06)
+		btn_none.add_theme_stylebox_override("normal", st_n)
+		btn_none.add_theme_stylebox_override("hover", st_nh)
+		btn_none.add_theme_stylebox_override("pressed", st_n)
+		btn_none.add_theme_stylebox_override("focus", st_n)
+		none_title.add_theme_color_override("font_color",
+			Color(0.92, 0.94, 0.98, 1.0) if is_none else Color(0.58, 0.65, 0.80, 0.80))
+		none_badge.visible = is_none
+		
+		# Style Sniper button
+		var st_s = _make_tile_style(is_sniper, 4)
+		var st_sh = st_s.duplicate() as StyleBoxFlat
+		st_sh.bg_color = st_s.bg_color.lightened(0.06)
+		btn_sniper.add_theme_stylebox_override("normal", st_s)
+		btn_sniper.add_theme_stylebox_override("hover", st_sh)
+		btn_sniper.add_theme_stylebox_override("pressed", st_s)
+		btn_sniper.add_theme_stylebox_override("focus", st_s)
+		sniper_title.add_theme_color_override("font_color",
+			Color(0.92, 0.94, 0.98, 1.0) if is_sniper else Color(0.58, 0.65, 0.80, 0.80))
+		sniper_badge.visible = is_sniper
+	
+	update_reticle_options_ui.call()
+	
+	btn_none.pressed.connect(func():
 		if _is_scroll_dragging():
 			return
-		sniper_reticle_enabled = not sniper_reticle_enabled
+		if not sniper_reticle_enabled:
+			return
+		sniper_reticle_enabled = false
 		sound_mgr.play_click()
 		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
-			slider.set_sniper_reticle_enabled(sniper_reticle_enabled)
-		update_reticle_btn_ui.call()
-		r_badge.text = "ON ✓" if sniper_reticle_enabled else "OFF"
-		r_badge.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0) if sniper_reticle_enabled else Color(0.50, 0.56, 0.68, 0.75))
+			slider.set_sniper_reticle_enabled(false)
+		update_reticle_options_ui.call()
 	)
 	
-	reticle_section.add_child(reticle_btn)
+	btn_sniper.pressed.connect(func():
+		if _is_scroll_dragging():
+			return
+		if sniper_reticle_enabled:
+			return
+		sniper_reticle_enabled = true
+		sound_mgr.play_click()
+		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
+			slider.set_sniper_reticle_enabled(true)
+		update_reticle_options_ui.call()
+	)
 	
 	# --- PALETTE SECTION (always created; shown only when Classic is active) ---
 	var pal_section = VBoxContainer.new()
@@ -1805,27 +1859,18 @@ func _open_skins_drawer() -> void:
 		var is_pal_active = (i == palette_index)
 		
 		var pal_btn = Button.new()
-		pal_btn.flat = true
+		pal_btn.flat = false
+		pal_btn.focus_mode = Control.FOCUS_NONE
 		pal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pal_btn.custom_minimum_size = Vector2(0, 88)
 		
-		var ps = StyleBoxFlat.new()
-		ps.set_corner_radius_all(5)
-		ps.content_margin_left = 6
-		ps.content_margin_right = 6
-		ps.content_margin_top = 6
-		ps.content_margin_bottom = 6
-		if is_pal_active:
-			ps.bg_color = Color(0.12, 0.18, 0.30, 1.0)
-			ps.set_border_width_all(2)
-			ps.border_color = Color(1.0, 1.0, 1.0, 0.90)
-		else:
-			ps.bg_color = Color(0.09, 0.11, 0.17, 0.90)
+		var ps = _make_tile_style(is_pal_active, 4)
 		var ps_h = ps.duplicate() as StyleBoxFlat
 		ps_h.bg_color = ps.bg_color.lightened(0.06)
 		pal_btn.add_theme_stylebox_override("normal", ps)
 		pal_btn.add_theme_stylebox_override("hover", ps_h)
 		pal_btn.add_theme_stylebox_override("pressed", ps)
+		pal_btn.add_theme_stylebox_override("focus", ps)
 		
 		var p_inner = VBoxContainer.new()
 		p_inner.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1884,12 +1929,7 @@ func _open_skins_drawer() -> void:
 		p_inner.add_child(p_name)
 		
 		if is_pal_active:
-			var p_check = Label.new()
-			p_check.text = "✓"
-			p_check.add_theme_font_size_override("font_size", 11)
-			p_check.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
-			p_check.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			p_check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var p_check = _create_selection_square()
 			p_inner.add_child(p_check)
 		
 		# Connect palette select — update in-place, no drawer rebuild
