@@ -3,13 +3,26 @@ extends Node3D
 const StackBox = preload("res://scripts/box.gd")
 const CubeSlider = preload("res://scripts/cube_slider.gd")
 
-enum GameState { MENU, READY, PLAYING, DROPPING, GAME_OVER }
+enum GameState { MENU, READY, PLAYING, DROPPING, GAME_OVER, LEVEL_CLEARED }
 
 var state: GameState = GameState.MENU
 var score: int = 0
 var high_score: int = 0
 var combo: int = 0
 var best_combo: int = 0
+
+# Level Cleared & Confetti System
+var level_cleared_overlay: Control = null
+var level_cleared_card: PanelContainer = null
+var level_cleared_title_lbl: Label = null
+var level_cleared_subtitle_lbl: Label = null
+var level_cleared_exp_lbl: Label = null
+var level_cleared_action_btn: Button = null
+var level_cleared_hint_lbl: Label = null
+var level_cleared_pulse_tween: Tween = null
+var _level_cleared_time: int = 0
+var _active_confetti_emitters: Array[CPUParticles2D] = []
+var _last_awarded_bonus_stack: int = 100
 
 const BOX_SIZE: Vector3 = Vector3(2.4, 0.8, 2.4)
 const PERFECT_THRESHOLD: float = 0.22
@@ -487,6 +500,7 @@ func _ready() -> void:
 	
 	_setup_exp_badge()
 	_setup_ribbon_listeners()
+	_setup_level_cleared_ui()
 	_set_active_tab("home")
 	show_main_menu()
 
@@ -1160,9 +1174,10 @@ func _on_game_over_close_pressed() -> void:
 
 func show_main_menu() -> void:
 	state = GameState.MENU
-	if campaign_unlocked_stage > 0:
+	if _campaign_selected_stage_id <= 0:
 		_campaign_selected_stage_id = clampi(campaign_unlocked_stage, 1, CAMPAIGN_STAGES.size())
 	active_campaign_stage_id = 0
+	_last_awarded_bonus_stack = 100
 	if game_over_zoom_tween:
 		game_over_zoom_tween.kill()
 		game_over_zoom_tween = null
@@ -1189,6 +1204,7 @@ func show_main_menu() -> void:
 	combo_label.visible = false
 	prompt_label.visible = false
 	game_over_panel.visible = false
+	_dismiss_level_cleared_ui()
 	if is_instance_valid(game_over_close_btn):
 		game_over_close_btn.visible = false
 	if is_instance_valid(play_close_btn):
@@ -1267,6 +1283,7 @@ func start_game_from_menu() -> void:
 	score = 0
 	combo = 0
 	state = GameState.READY
+	_last_awarded_bonus_stack = 100
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
 	
@@ -2197,10 +2214,6 @@ func _open_campaign_drawer() -> void:
 	if _campaign_selected_stage_id <= 0 or _campaign_selected_stage_id > CAMPAIGN_STAGES.size():
 		_campaign_selected_stage_id = clampi(campaign_unlocked_stage, 1, CAMPAIGN_STAGES.size())
 	
-	# If currently selected stage is already cleared, auto-select the latest unlocked stage
-	if is_stage_cleared(_campaign_selected_stage_id) and _campaign_selected_stage_id < campaign_unlocked_stage:
-		_campaign_selected_stage_id = clampi(campaign_unlocked_stage, 1, CAMPAIGN_STAGES.size())
-	
 	# Chapter Overview & Active Selection Card
 	var summary_card = _create_card_container()
 	var s_vbox = VBoxContainer.new()
@@ -2409,9 +2422,9 @@ func start_campaign_stage(stage_id: int) -> void:
 	active_campaign_stage_id = stage_id
 	start_game_from_menu()
 
-func _check_campaign_stage_progress() -> void:
+func _check_campaign_stage_progress() -> bool:
 	if active_campaign_stage_id <= 0:
-		return
+		return false
 	for st in CAMPAIGN_STAGES:
 		if st["id"] == active_campaign_stage_id:
 			var target_blocks: int = st["target_blocks"]
@@ -2419,24 +2432,375 @@ func _check_campaign_stage_progress() -> void:
 			var height_met = (stack.size() >= target_blocks)
 			var combo_met = (target_combo <= 0 or best_combo >= target_combo)
 			if height_met and combo_met:
-				if not is_stage_cleared(active_campaign_stage_id):
-					campaign_completed_stages.append(active_campaign_stage_id)
-					campaign_unlocked_stage = maxi(campaign_unlocked_stage, active_campaign_stage_id + 1)
-					save_campaign_data()
-					var reward = st["exp_reward"]
-					total_exp += reward
-					save_exp_data()
-					_update_exp_badge(true)
-					sound_mgr.play_perfect(6)
-					var next_id = min(active_campaign_stage_id + 1, CAMPAIGN_STAGES.size())
-					_campaign_selected_stage_id = next_id
-					_show_task_toast("👑 %s CLEARED! (+%d EXP) • STAGE %d UNLOCKED!" % [st["title"], reward, next_id])
-					prompt_label.text = "👑 STAGE CLEARED! STAGE %d UNLOCKED!" % next_id
-					prompt_label.visible = true
-				else:
-					prompt_label.text = "👑 STAGE COMPLETED! KEEP STACKING!"
-					prompt_label.visible = true
-				break
+				_on_campaign_stage_cleared(st)
+				return true
+			break
+	return false
+
+func _on_campaign_stage_cleared(st: Dictionary) -> void:
+	state = GameState.LEVEL_CLEARED
+	_level_cleared_time = Time.get_ticks_msec()
+	
+	# Stop cube sliding, guide projection and any attached box
+	active_box = null
+	if is_instance_valid(slider):
+		slider.current_box = null
+		if is_instance_valid(slider.guide_mesh_instance):
+			slider.guide_mesh_instance.visible = false
+		if is_instance_valid(slider.sniper_reticle_instance):
+			slider.sniper_reticle_instance.visible = false
+	
+	prompt_label.visible = false
+	if is_instance_valid(play_close_btn):
+		play_close_btn.visible = true
+	if is_instance_valid(sound_btn):
+		sound_btn.visible = true
+	
+	var stage_id: int = st["id"]
+	var is_first_clear: bool = not is_stage_cleared(stage_id)
+	var exp_gained: int = 0
+	
+	if is_first_clear:
+		campaign_completed_stages.append(stage_id)
+		campaign_unlocked_stage = maxi(campaign_unlocked_stage, stage_id + 1)
+		save_campaign_data()
+		exp_gained = st["exp_reward"]
+		total_exp += exp_gained
+		save_exp_data()
+		_update_exp_badge(true)
+	else:
+		exp_gained = maxi(1, int(st["exp_reward"] * 0.5))
+		total_exp += exp_gained
+		save_exp_data()
+		_update_exp_badge(true)
+	
+	var next_id: int = stage_id + 1
+	if next_id > CAMPAIGN_STAGES.size():
+		next_id = 1
+	_campaign_selected_stage_id = next_id
+	
+	# Audio and 3D effects
+	sound_mgr.play_milestone()
+	_spawn_sparkle_fx(Vector3(current_target_pos.x, current_top_y, current_target_pos.z))
+	_trigger_cascade_wave()
+	_spray_level_cleared_confetti()
+	
+	# Visual Level Cleared UI Card
+	_show_level_cleared_ui(st, exp_gained, next_id, is_first_clear)
+
+func _setup_level_cleared_ui() -> void:
+	if is_instance_valid(level_cleared_overlay):
+		return
+	
+	level_cleared_overlay = Control.new()
+	level_cleared_overlay.name = "LevelClearedOverlay"
+	level_cleared_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	level_cleared_overlay.mouse_filter = Control.MOUSE_FILTER_PASS
+	level_cleared_overlay.visible = false
+	level_cleared_overlay.gui_input.connect(_on_level_cleared_overlay_gui_input)
+	
+	# Fullscreen soft darkening backdrop
+	var bg_tint = ColorRect.new()
+	bg_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg_tint.color = Color(0.02, 0.04, 0.08, 0.40)
+	bg_tint.mouse_filter = Control.MOUSE_FILTER_PASS
+	bg_tint.gui_input.connect(_on_level_cleared_overlay_gui_input)
+	level_cleared_overlay.add_child(bg_tint)
+	
+	# Celebratory Center Card
+	level_cleared_card = PanelContainer.new()
+	level_cleared_card.name = "CelebrationCard"
+	level_cleared_card.set_anchors_preset(Control.PRESET_CENTER)
+	level_cleared_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	level_cleared_card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	level_cleared_card.custom_minimum_size = Vector2(360, 230)
+	level_cleared_card.pivot_offset = Vector2(180, 115)
+	level_cleared_card.mouse_filter = Control.MOUSE_FILTER_PASS
+	level_cleared_card.gui_input.connect(_on_level_cleared_overlay_gui_input)
+	
+	var card_style = StyleBoxFlat.new()
+	card_style.bg_color = Color(0.07, 0.09, 0.16, 0.94)
+	card_style.border_width_left = 2
+	card_style.border_width_top = 2
+	card_style.border_width_right = 2
+	card_style.border_width_bottom = 2
+	card_style.border_color = Color(0.24, 0.88, 0.58, 0.85)
+	card_style.set_corner_radius_all(18)
+	card_style.shadow_color = Color(0, 0, 0, 0.55)
+	card_style.shadow_size = 28
+	card_style.content_margin_left = 24
+	card_style.content_margin_right = 24
+	card_style.content_margin_top = 20
+	card_style.content_margin_bottom = 20
+	level_cleared_card.add_theme_stylebox_override("panel", card_style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.gui_input.connect(_on_level_cleared_overlay_gui_input)
+	level_cleared_card.add_child(vbox)
+	
+	level_cleared_title_lbl = Label.new()
+	level_cleared_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_cleared_title_lbl.add_theme_font_size_override("font_size", 28)
+	level_cleared_title_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
+	level_cleared_title_lbl.text = "👑 LEVEL CLEARED!"
+	level_cleared_title_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(level_cleared_title_lbl)
+	
+	level_cleared_subtitle_lbl = Label.new()
+	level_cleared_subtitle_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_cleared_subtitle_lbl.add_theme_font_size_override("font_size", 16)
+	level_cleared_subtitle_lbl.add_theme_color_override("font_color", Color(0.85, 0.90, 1.0, 0.90))
+	level_cleared_subtitle_lbl.text = "STAGE 1: FIRST FOUNDATION"
+	level_cleared_subtitle_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(level_cleared_subtitle_lbl)
+	
+	level_cleared_exp_lbl = Label.new()
+	level_cleared_exp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_cleared_exp_lbl.add_theme_font_size_override("font_size", 14)
+	level_cleared_exp_lbl.add_theme_color_override("font_color", Color(0.35, 0.95, 0.72, 1.0))
+	level_cleared_exp_lbl.text = "⭐ +2 EXP EARNED • STAGE 2 UNLOCKED"
+	level_cleared_exp_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(level_cleared_exp_lbl)
+	
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 4)
+	spacer.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(spacer)
+	
+	level_cleared_action_btn = Button.new()
+	level_cleared_action_btn.text = "▶ GOTO NEXT LEVEL"
+	level_cleared_action_btn.custom_minimum_size = Vector2(260, 48)
+	level_cleared_action_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	level_cleared_action_btn.pivot_offset = Vector2(130, 24)
+	level_cleared_action_btn.add_theme_font_size_override("font_size", 18)
+	level_cleared_action_btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	level_cleared_action_btn.focus_mode = Control.FOCUS_NONE
+	
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = Color(0.12, 0.68, 0.44, 0.95)
+	btn_style.set_corner_radius_all(12)
+	btn_style.shadow_color = Color(0.12, 0.68, 0.44, 0.4)
+	btn_style.shadow_size = 12
+	level_cleared_action_btn.add_theme_stylebox_override("normal", btn_style)
+	level_cleared_action_btn.add_theme_stylebox_override("hover", btn_style)
+	level_cleared_action_btn.add_theme_stylebox_override("pressed", btn_style)
+	level_cleared_action_btn.pressed.connect(_go_to_next_campaign_level)
+	vbox.add_child(level_cleared_action_btn)
+	
+	level_cleared_hint_lbl = Label.new()
+	level_cleared_hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_cleared_hint_lbl.add_theme_font_size_override("font_size", 13)
+	level_cleared_hint_lbl.add_theme_color_override("font_color", Color(0.65, 0.72, 0.85, 0.70))
+	level_cleared_hint_lbl.text = "Tap anywhere to continue"
+	level_cleared_hint_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_child(level_cleared_hint_lbl)
+	
+	level_cleared_overlay.add_child(level_cleared_card)
+	ui_layer.add_child(level_cleared_overlay)
+	# Position before HUD so PlayCloseBtn and SoundBtn stay on top
+	ui_layer.move_child(level_cleared_overlay, 0)
+
+func _show_level_cleared_ui(st: Dictionary, exp_gained: int, next_id: int, is_first_clear: bool) -> void:
+	if not is_instance_valid(level_cleared_overlay):
+		_setup_level_cleared_ui()
+	
+	var stage_id: int = st["id"]
+	var stage_badge: String = st.get("badge", "👑")
+	var stage_title: String = st.get("title", "Stage %d" % stage_id)
+	
+	level_cleared_title_lbl.text = "%s LEVEL CLEARED!" % stage_badge
+	level_cleared_subtitle_lbl.text = stage_title.to_upper()
+	
+	if is_first_clear:
+		level_cleared_exp_lbl.text = "⭐ +%d EXP EARNED  •  STAGE %d UNLOCKED" % [exp_gained, next_id]
+	else:
+		level_cleared_exp_lbl.text = "⭐ +%d EXP (REPLAY BONUS)" % exp_gained
+	
+	if stage_id >= CAMPAIGN_STAGES.size():
+		level_cleared_action_btn.text = "▶ GOTO NEXT LEVEL (STAGE 1)"
+	else:
+		level_cleared_action_btn.text = "▶ GOTO NEXT LEVEL"
+	
+	level_cleared_card.reset_size()
+	level_cleared_card.pivot_offset = level_cleared_card.size * 0.5
+	level_cleared_action_btn.pivot_offset = level_cleared_action_btn.size * 0.5
+	level_cleared_card.scale = Vector2(0.8, 0.8)
+	level_cleared_card.modulate.a = 0.0
+	level_cleared_overlay.visible = true
+	
+	var tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(level_cleared_card, "scale", Vector2.ONE, 0.35)
+	tween.tween_property(level_cleared_card, "modulate:a", 1.0, 0.22)
+	
+	if level_cleared_pulse_tween:
+		level_cleared_pulse_tween.kill()
+	level_cleared_pulse_tween = create_tween().set_loops()
+	level_cleared_pulse_tween.tween_property(level_cleared_action_btn, "scale", Vector2(1.04, 1.04), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	level_cleared_pulse_tween.tween_property(level_cleared_action_btn, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _dismiss_level_cleared_ui() -> void:
+	if level_cleared_pulse_tween:
+		level_cleared_pulse_tween.kill()
+		level_cleared_pulse_tween = null
+	if is_instance_valid(level_cleared_overlay):
+		level_cleared_overlay.visible = false
+	_clear_confetti_particles()
+
+func _clear_confetti_particles() -> void:
+	for emitter in _active_confetti_emitters:
+		if is_instance_valid(emitter):
+			emitter.emitting = false
+			emitter.queue_free()
+	_active_confetti_emitters.clear()
+
+func _spray_level_cleared_confetti() -> void:
+	_clear_confetti_particles()
+	if not is_instance_valid(level_cleared_overlay):
+		_setup_level_cleared_ui()
+	
+	var vp_size = get_viewport().get_visible_rect().size
+	if vp_size.x <= 0 or vp_size.y <= 0:
+		vp_size = Vector2(720, 1280)
+	
+	var img = Image.create(12, 7, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	var confetti_tex = ImageTexture.create_from_image(img)
+	
+	var grad = Gradient.new()
+	grad.offsets = [0.0, 0.16, 0.33, 0.50, 0.66, 0.83, 1.0]
+	grad.colors = [
+		Color(1.0, 0.84, 0.0),
+		Color(0.0, 0.94, 1.0),
+		Color(1.0, 0.18, 0.55),
+		Color(0.15, 1.0, 0.45),
+		Color(0.70, 0.35, 1.0),
+		Color(1.0, 0.55, 0.10),
+		Color(1.0, 1.0, 1.0)
+	]
+	
+	var top_rain = CPUParticles2D.new()
+	top_rain.name = "ConfettiTopRain"
+	top_rain.texture = confetti_tex
+	top_rain.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	top_rain.emission_rect_extents = Vector2(vp_size.x * 0.55, 8.0)
+	top_rain.position = Vector2(vp_size.x * 0.5, -15.0)
+	top_rain.direction = Vector2(0.0, 1.0)
+	top_rain.spread = 45.0
+	top_rain.gravity = Vector2(0.0, 240.0)
+	top_rain.initial_velocity_min = 120.0
+	top_rain.initial_velocity_max = 280.0
+	top_rain.angular_velocity_min = -320.0
+	top_rain.angular_velocity_max = 320.0
+	top_rain.linear_accel_min = -20.0
+	top_rain.linear_accel_max = 20.0
+	top_rain.scale_amount_min = 1.0
+	top_rain.scale_amount_max = 2.2
+	top_rain.amount = 75
+	top_rain.lifetime = 3.6
+	top_rain.color_initial_ramp = grad
+	top_rain.emitting = true
+	top_rain.one_shot = false
+	
+	var left_cannon = CPUParticles2D.new()
+	left_cannon.name = "ConfettiLeftCannon"
+	left_cannon.texture = confetti_tex
+	left_cannon.position = Vector2(16.0, vp_size.y * 0.70)
+	left_cannon.direction = Vector2(0.85, -1.0).normalized()
+	left_cannon.spread = 32.0
+	left_cannon.gravity = Vector2(0.0, 360.0)
+	left_cannon.initial_velocity_min = 420.0
+	left_cannon.initial_velocity_max = 680.0
+	left_cannon.angular_velocity_min = -360.0
+	left_cannon.angular_velocity_max = 360.0
+	left_cannon.scale_amount_min = 1.0
+	left_cannon.scale_amount_max = 2.2
+	left_cannon.amount = 45
+	left_cannon.lifetime = 3.2
+	left_cannon.color_initial_ramp = grad
+	left_cannon.emitting = true
+	left_cannon.one_shot = false
+	
+	var right_cannon = CPUParticles2D.new()
+	right_cannon.name = "ConfettiRightCannon"
+	right_cannon.texture = confetti_tex
+	right_cannon.position = Vector2(vp_size.x - 16.0, vp_size.y * 0.70)
+	right_cannon.direction = Vector2(-0.85, -1.0).normalized()
+	right_cannon.spread = 32.0
+	right_cannon.gravity = Vector2(0.0, 360.0)
+	right_cannon.initial_velocity_min = 420.0
+	right_cannon.initial_velocity_max = 680.0
+	right_cannon.angular_velocity_min = -360.0
+	right_cannon.angular_velocity_max = 360.0
+	right_cannon.scale_amount_min = 1.0
+	right_cannon.scale_amount_max = 2.2
+	right_cannon.amount = 45
+	right_cannon.lifetime = 3.2
+	right_cannon.color_initial_ramp = grad
+	right_cannon.emitting = true
+	right_cannon.one_shot = false
+	
+	level_cleared_overlay.add_child(top_rain)
+	level_cleared_overlay.add_child(left_cannon)
+	level_cleared_overlay.add_child(right_cannon)
+	level_cleared_overlay.move_child(top_rain, 1)
+	level_cleared_overlay.move_child(left_cannon, 2)
+	level_cleared_overlay.move_child(right_cannon, 3)
+	
+	_active_confetti_emitters.append(top_rain)
+	_active_confetti_emitters.append(left_cannon)
+	_active_confetti_emitters.append(right_cannon)
+
+func _on_level_cleared_overlay_gui_input(event: InputEvent) -> void:
+	if state != GameState.LEVEL_CLEARED:
+		return
+	var is_click = false
+	var click_pos = Vector2.ZERO
+	if event is InputEventScreenTouch and event.pressed:
+		is_click = true
+		click_pos = event.position
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		is_click = true
+		click_pos = event.position
+	
+	if not is_click:
+		return
+	
+	if Time.get_ticks_msec() - _level_cleared_time < 350:
+		return
+	
+	if is_instance_valid(play_close_btn) and play_close_btn.visible:
+		if play_close_btn.get_global_rect().has_point(click_pos):
+			_on_play_close_pressed()
+			return
+	if is_instance_valid(sound_btn) and sound_btn.visible:
+		if sound_btn.get_global_rect().has_point(click_pos):
+			_on_sound_btn_pressed()
+			return
+	
+	_go_to_next_campaign_level()
+
+func _go_to_next_campaign_level() -> void:
+	if _is_restarting:
+		return
+	if Time.get_ticks_msec() - _level_cleared_time < 350:
+		return
+	
+	sound_mgr.play_click()
+	_dismiss_level_cleared_ui()
+	
+	var next_id: int = active_campaign_stage_id + 1
+	if next_id > CAMPAIGN_STAGES.size():
+		next_id = 1
+	
+	active_campaign_stage_id = next_id
+	_campaign_selected_stage_id = next_id
+	campaign_unlocked_stage = maxi(campaign_unlocked_stage, next_id)
+	save_campaign_data()
+	
+	restart_game()
 
 func _open_levels_drawer() -> void:
 	_open_exp_drawer()
@@ -2669,6 +3033,35 @@ func _open_exp_drawer() -> void:
 		
 		drawer_content.add_child(card)
 	
+	# Infinite Heights Mastery Perk Card
+	var perk_card = _create_card_container()
+	var perk_vbox = VBoxContainer.new()
+	perk_vbox.add_theme_constant_override("separation", 6)
+	perk_card.add_child(perk_vbox)
+	
+	var perk_hdr = HBoxContainer.new()
+	var perk_title = Label.new()
+	perk_title.text = "🌌 Infinite Height Mastery"
+	perk_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	perk_title.add_theme_font_size_override("font_size", 14)
+	perk_title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.0, 1.0))
+	perk_hdr.add_child(perk_title)
+	
+	var perk_badge = Label.new()
+	perk_badge.text = "+1 EXP / 20 STACKS"
+	perk_badge.add_theme_font_size_override("font_size", 12)
+	perk_badge.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+	perk_hdr.add_child(perk_badge)
+	perk_vbox.add_child(perk_hdr)
+	
+	var perk_desc = Label.new()
+	perk_desc.text = "Reach past 100 blocks to continuously earn +1 EXP for every 20 stacks climbed in any run (120, 140, 160, 180...)."
+	perk_desc.add_theme_font_size_override("font_size", 12)
+	perk_desc.add_theme_color_override("font_color", Color(0.70, 0.76, 0.88, 0.80))
+	perk_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	perk_vbox.add_child(perk_desc)
+	drawer_content.add_child(perk_card)
+	
 	# Rank Tiers Section
 	var rank_sec_lbl = Label.new()
 	rank_sec_lbl.text = "STACKER RANK TIERS"
@@ -2756,7 +3149,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_close_drawer()
 				_set_active_tab("home")
 				return
-			elif state == GameState.PLAYING or state == GameState.READY:
+			elif state == GameState.PLAYING or state == GameState.READY or state == GameState.LEVEL_CLEARED:
 				show_main_menu()
 				return
 
@@ -2807,6 +3200,18 @@ func _unhandled_input(event: InputEvent) -> void:
 					if play_close_btn.get_global_rect().has_point(event.position):
 						return
 			restart_game()
+		GameState.LEVEL_CLEARED:
+			if Time.get_ticks_msec() - _level_cleared_time < 350:
+				return
+			if is_instance_valid(play_close_btn) and play_close_btn.visible:
+				if event is InputEventScreenTouch or event is InputEventMouseButton:
+					if play_close_btn.get_global_rect().has_point(event.position):
+						return
+			if is_instance_valid(sound_btn) and sound_btn.visible:
+				if event is InputEventScreenTouch or event is InputEventMouseButton:
+					if sound_btn.get_global_rect().has_point(event.position):
+						return
+			_go_to_next_campaign_level()
 
 
 func _drop_current_box() -> void:
@@ -2917,9 +3322,15 @@ func _on_box_placed_successfully(box: Node3D) -> void:
 		_show_task_toast("⭐ Task Ready: Stack of 100 (+2 EXP)!")
 		save_exp_data()
 	
-	# Campaign Stage Progression
-	if active_campaign_stage_id > 0:
-		_check_campaign_stage_progress()
+	# EXP Milestone: Every 20 stacks after 100 gains 1 EXP
+	if stack.size() >= _last_awarded_bonus_stack + 20:
+		var bonus_ticks: int = int((stack.size() - _last_awarded_bonus_stack) / 20)
+		_last_awarded_bonus_stack += bonus_ticks * 20
+		total_exp += bonus_ticks
+		save_exp_data()
+		_update_exp_badge(true)
+		sound_mgr.play_perfect(5)
+		_show_task_toast("⭐ +%d EXP! Tower Milestone: %d Stacks!" % [bonus_ticks, _last_awarded_bonus_stack])
 	
 	# Update score UI with bounce animation
 	score_label.text = str(score)
@@ -2930,6 +3341,11 @@ func _on_box_placed_successfully(box: Node3D) -> void:
 	
 	# Gently evolve background gradient as the tower ascends
 	_update_height_gradient_tint(stack.size())
+	
+	# Campaign Stage Progression
+	if active_campaign_stage_id > 0:
+		if _check_campaign_stage_progress():
+			return
 	
 	# Spawn next box
 	state = GameState.PLAYING
@@ -2954,7 +3370,6 @@ func _spawn_sparkle_fx(pos: Vector3) -> void:
 	particles.explosiveness = 0.92
 	particles.amount = 26
 	particles.lifetime = 0.65
-	particles.global_position = pos + Vector3(0, BOX_SIZE.y * 0.5, 0)
 	particles.direction = Vector3.UP
 	particles.spread = 180.0
 	particles.initial_velocity_min = 3.5
@@ -2973,6 +3388,7 @@ func _spawn_sparkle_fx(pos: Vector3) -> void:
 	particles.mesh = cube_mesh
 	
 	add_child(particles)
+	particles.global_position = pos + Vector3(0, BOX_SIZE.y * 0.5, 0)
 	get_tree().create_timer(1.0).timeout.connect(particles.queue_free)
 
 func _spawn_impact_dust(pos: Vector3) -> void:
@@ -2982,7 +3398,6 @@ func _spawn_impact_dust(pos: Vector3) -> void:
 	particles.explosiveness = 0.88
 	particles.amount = 16
 	particles.lifetime = 0.45
-	particles.global_position = pos - Vector3(0, BOX_SIZE.y * 0.4, 0)
 	particles.direction = Vector3(0, 0.3, 0)
 	particles.spread = 180.0
 	particles.initial_velocity_min = 1.6
@@ -3001,6 +3416,7 @@ func _spawn_impact_dust(pos: Vector3) -> void:
 	particles.mesh = dust_mesh
 	
 	add_child(particles)
+	particles.global_position = pos - Vector3(0, BOX_SIZE.y * 0.4, 0)
 	get_tree().create_timer(0.8).timeout.connect(particles.queue_free)
 
 func trigger_screen_shake(amount: float) -> void:
@@ -3061,11 +3477,6 @@ func _trigger_game_over() -> void:
 		is_new_record = true
 	
 	save_exp_data()
-	
-	if active_campaign_stage_id > 0 and is_stage_cleared(active_campaign_stage_id):
-		var next_stage = min(active_campaign_stage_id + 1, CAMPAIGN_STAGES.size())
-		active_campaign_stage_id = next_stage
-		_campaign_selected_stage_id = next_stage
 	
 	final_score_label.text = "SCORE: " + str(score)
 	best_score_label.text = "BEST: " + str(high_score)
@@ -3150,6 +3561,7 @@ func restart_game() -> void:
 	
 	sound_mgr.play_click()
 	_stop_play_again_pulse()
+	_dismiss_level_cleared_ui()
 	prompt_label.visible = false
 	if is_instance_valid(game_over_close_btn):
 		game_over_close_btn.visible = false
@@ -3287,6 +3699,7 @@ func _finish_restart_game() -> void:
 	score = 0
 	combo = 0
 	state = GameState.READY
+	_last_awarded_bonus_stack = 100
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
 	target_camera_y = base_camera_pivot_y
@@ -3369,6 +3782,17 @@ func _on_window_resized() -> void:
 			camera.size = raw_needed_size * aspect_mult
 		else:
 			camera.size = BASE_CAMERA_SIZE * aspect_mult
+	
+	if is_instance_valid(level_cleared_overlay) and level_cleared_overlay.visible:
+		for emitter in _active_confetti_emitters:
+			if is_instance_valid(emitter):
+				if emitter.name == "ConfettiTopRain":
+					emitter.position = Vector2(win_size.x * 0.5, -15.0)
+					emitter.emission_rect_extents = Vector2(win_size.x * 0.55, 8.0)
+				elif emitter.name == "ConfettiLeftCannon":
+					emitter.position = Vector2(16.0, win_size.y * 0.70)
+				elif emitter.name == "ConfettiRightCannon":
+					emitter.position = Vector2(win_size.x - 16.0, win_size.y * 0.70)
 
 # Generates smooth, vibrant gradient colors through curated designer palettes or prismatic rainbow
 func _get_box_shade(index: int) -> Color:
