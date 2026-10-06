@@ -1317,10 +1317,17 @@ func start_game_from_menu() -> void:
 func _setup_ribbon_listeners() -> void:
 	tap_to_play_btn.pressed.connect(start_game_from_menu)
 	
+	if is_instance_valid(bottom_ribbon) and is_instance_valid(main_menu):
+		bottom_ribbon.z_index = 20
+		bottom_ribbon.z_as_relative = false
+		main_menu.move_child(bottom_ribbon, -1)
+		bottom_ribbon.mouse_filter = Control.MOUSE_FILTER_STOP
+	
 	for b in [btn_home, btn_skin, btn_challenge, btn_campaign, btn_levels]:
 		if is_instance_valid(b):
 			b.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 			b.focus_mode = Control.FOCUS_NONE
+			b.mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	btn_home.pressed.connect(func():
 		sound_mgr.play_click()
@@ -1426,6 +1433,9 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_tween = null
 	
 	drawer_title.text = title_text
+	drawer_modal.clip_contents = true
+	
+	var ribbon_h = abs(bottom_ribbon.offset_top) if is_instance_valid(bottom_ribbon) else 104.0
 	
 	if is_fullscreen:
 		drawer_modal.anchor_left = 0.0
@@ -1435,17 +1445,21 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_modal.offset_left = 0.0
 		drawer_modal.offset_top = 0.0
 		drawer_modal.offset_right = 0.0
-		drawer_modal.offset_bottom = 0.0
+		drawer_modal.offset_bottom = -104.0
+		drawer_modal.grow_vertical = Control.GROW_DIRECTION_BOTH
 		if is_instance_valid(drawer_scroll):
 			drawer_scroll.custom_minimum_size = Vector2(0, 0)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		var sb = StyleBoxFlat.new()
 		sb.bg_color = Color(0.04, 0.05, 0.08, 0.55)
 		sb.content_margin_left = 16
 		sb.content_margin_right = 16
 		sb.content_margin_top = 28
-		sb.content_margin_bottom = 20
+		sb.content_margin_bottom = 14
 		sb.set_border_width_all(0)
+		sb.border_width_bottom = 1
+		sb.border_color = Color(1.0, 1.0, 1.0, 0.12)
 		sb.set_corner_radius_all(0)
 		drawer_modal.add_theme_stylebox_override("panel", sb)
 	else:
@@ -1454,11 +1468,12 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_modal.anchor_top = 1.0
 		drawer_modal.anchor_bottom = 1.0
 		drawer_modal.offset_left = 0.0
-		drawer_modal.offset_top = -504.0
+		drawer_modal.offset_top = -540.0
 		drawer_modal.offset_right = 0.0
 		drawer_modal.offset_bottom = -104.0
+		drawer_modal.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		if is_instance_valid(drawer_scroll):
-			drawer_scroll.custom_minimum_size = Vector2(0, 370)
+			drawer_scroll.custom_minimum_size = Vector2(0, 320)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		var sb = StyleBoxFlat.new()
@@ -1472,6 +1487,14 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		sb.corner_radius_top_left = 12
 		sb.corner_radius_top_right = 12
 		drawer_modal.add_theme_stylebox_override("panel", sb)
+	
+	if is_instance_valid(bottom_ribbon):
+		bottom_ribbon.z_index = 20
+		bottom_ribbon.z_as_relative = false
+		bottom_ribbon.offset_top = -104.0
+		bottom_ribbon.offset_bottom = 0.0
+		if is_instance_valid(main_menu):
+			main_menu.move_child(bottom_ribbon, -1)
 	
 	for child in drawer_content.get_children():
 		drawer_content.remove_child(child)
@@ -1545,6 +1568,14 @@ func _input(event: InputEvent) -> void:
 		_scroll_is_dragging = false
 		return
 	
+	# Explicitly prioritize the bottom ribbon: never intercept touches/clicks hitting the ribbon area
+	if is_instance_valid(bottom_ribbon) and bottom_ribbon.visible:
+		var ribbon_rect: Rect2 = bottom_ribbon.get_global_rect()
+		if ribbon_rect.has_point(event.position):
+			_scroll_touch_active = false
+			_scroll_is_dragging = false
+			return
+	
 	var drawer_rect: Rect2 = drawer_modal.get_global_rect()
 	
 	if event is InputEventScreenTouch:
@@ -1569,7 +1600,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		if _scroll_touch_active and not _scroll_is_mouse:
 			var dy = event.position.y - _scroll_start_y
-			if not _scroll_is_dragging and abs(dy) > 4.0:
+			if not _scroll_is_dragging and abs(dy) > 12.0:
 				_scroll_is_dragging = true
 			if _scroll_is_dragging:
 				var max_scroll = _get_max_drawer_scroll()
@@ -1607,7 +1638,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion:
 		if _scroll_touch_active and _scroll_is_mouse and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
 			var dy = event.position.y - _scroll_start_y
-			if not _scroll_is_dragging and abs(dy) > 4.0:
+			if not _scroll_is_dragging and abs(dy) > 12.0:
 				_scroll_is_dragging = true
 			if _scroll_is_dragging:
 				var max_scroll = _get_max_drawer_scroll()
@@ -3791,6 +3822,17 @@ func _on_window_resized() -> void:
 			camera.size = raw_needed_size * aspect_mult
 		else:
 			camera.size = BASE_CAMERA_SIZE * aspect_mult
+	
+	if is_instance_valid(bottom_ribbon):
+		bottom_ribbon.z_index = 20
+		bottom_ribbon.z_as_relative = false
+		bottom_ribbon.offset_top = -104.0
+		bottom_ribbon.offset_bottom = 0.0
+		if is_instance_valid(main_menu):
+			main_menu.move_child(bottom_ribbon, -1)
+	
+	if is_instance_valid(drawer_modal) and drawer_modal.visible:
+		drawer_modal.offset_bottom = -104.0
 	
 	if is_instance_valid(level_cleared_overlay) and level_cleared_overlay.visible:
 		for emitter in _active_confetti_emitters:
