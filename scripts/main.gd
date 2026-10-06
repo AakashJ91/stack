@@ -2,6 +2,7 @@ extends Node3D
 
 const StackBox = preload("res://scripts/box.gd")
 const CubeSlider = preload("res://scripts/cube_slider.gd")
+const FallingStars = preload("res://scripts/falling_stars.gd")
 
 enum GameState { MENU, READY, PLAYING, DROPPING, GAME_OVER, LEVEL_CLEARED }
 
@@ -204,6 +205,7 @@ var bg_gradient: Gradient
 var bg_texture: GradientTexture2D
 var bg_material: StandardMaterial3D
 var bg_tween: Tween = null
+var falling_stars: Node3D = null
 
 # Textured Skins System
 const SKIN_TEXTURES = {
@@ -532,6 +534,11 @@ func _setup_gradient_background() -> void:
 	bg_quad.material_override = bg_material
 	
 	camera.add_child(bg_quad)
+	
+	falling_stars = FallingStars.new()
+	falling_stars.name = "FallingStars"
+	falling_stars.position = Vector3(0, 0, -42.0)
+	camera.add_child(falling_stars)
 
 func _transition_gradient_background(target_top: Color, target_bottom: Color) -> void:
 	if not bg_gradient or bg_gradient.colors.size() < 2:
