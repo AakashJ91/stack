@@ -60,12 +60,17 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_drawer"]
-bg_color = Color(0.07, 0.08, 0.13, 0.98)
+bg_color = Color(0.04, 0.05, 0.08, 0.55)
 border_width_top = 1
-border_color = Color(1, 1, 1, 0.07)
+border_color = Color(1, 1, 1, 0.12)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
-bg_color = Color(0.10, 0.12, 0.18, 0.85)
+bg_color = Color(0.1, 0.12, 0.18, 0.5)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.08)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6

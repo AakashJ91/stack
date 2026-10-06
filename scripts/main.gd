@@ -1440,7 +1440,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 			drawer_scroll.custom_minimum_size = Vector2(0, 0)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.07, 0.08, 0.13, 0.99)
+		sb.bg_color = Color(0.04, 0.05, 0.08, 0.55)
 		sb.content_margin_left = 16
 		sb.content_margin_right = 16
 		sb.content_margin_top = 28
@@ -1462,13 +1462,13 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.07, 0.08, 0.13, 0.98)
+		sb.bg_color = Color(0.04, 0.05, 0.08, 0.55)
 		sb.content_margin_left = 16
 		sb.content_margin_right = 16
 		sb.content_margin_top = 12
 		sb.content_margin_bottom = 12
 		sb.border_width_top = 1
-		sb.border_color = Color(1.0, 1.0, 1.0, 0.07)
+		sb.border_color = Color(1.0, 1.0, 1.0, 0.12)
 		sb.corner_radius_top_left = 12
 		sb.corner_radius_top_right = 12
 		drawer_modal.add_theme_stylebox_override("panel", sb)
@@ -1625,8 +1625,10 @@ func _input(event: InputEvent) -> void:
 func _create_card_container() -> PanelContainer:
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.09, 0.11, 0.17, 0.90)
+	style.bg_color = Color(0.10, 0.12, 0.18, 0.50)
 	style.set_corner_radius_all(6)
+	style.set_border_width_all(1)
+	style.border_color = Color(1.0, 1.0, 1.0, 0.08)
 	style.content_margin_left = 14
 	style.content_margin_right = 14
 	style.content_margin_top = 10
@@ -1661,13 +1663,13 @@ func _make_tile_style(selected: bool, corner: int = 4) -> StyleBoxFlat:
 	st.content_margin_bottom = 6
 	if selected:
 		# Exact white square box selection matching ribbon tab
-		st.bg_color = Color(1.0, 1.0, 1.0, 0.16)
+		st.bg_color = Color(1.0, 1.0, 1.0, 0.30)
 		st.set_border_width_all(2)
-		st.border_color = Color(1.0, 1.0, 1.0, 1.0)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.80)
 	else:
-		st.bg_color = Color(0.10, 0.13, 0.20, 0.90)
+		st.bg_color = Color(0.10, 0.13, 0.20, 0.50)
 		st.set_border_width_all(1)
-		st.border_color = Color(1.0, 1.0, 1.0, 0.22)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.15)
 	return st
 
 func _create_selection_square() -> Control:
@@ -2345,15 +2347,15 @@ func _open_campaign_drawer() -> void:
 		elif is_cleared:
 			tile_style = _make_tile_style(false, 4)
 			tile_style.border_color = Color(0.35, 0.90, 0.55, 0.35)
-			tile_style.bg_color = Color(0.08, 0.16, 0.14, 0.90)
+			tile_style.bg_color = Color(0.08, 0.16, 0.14, 0.55)
 		elif is_unlocked:
 			tile_style = _make_tile_style(false, 4)
 			tile_style.border_color = Color(1.0, 1.0, 1.0, 0.12)
-			tile_style.bg_color = Color(0.10, 0.13, 0.20, 0.90)
+			tile_style.bg_color = Color(0.10, 0.13, 0.20, 0.55)
 		else:
 			tile_style = _make_tile_style(false, 4)
 			tile_style.border_color = Color(1.0, 1.0, 1.0, 0.04)
-			tile_style.bg_color = Color(0.07, 0.08, 0.12, 0.60)
+			tile_style.bg_color = Color(0.07, 0.08, 0.12, 0.35)
 		
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
