@@ -1704,18 +1704,9 @@ func _make_tile_style(selected: bool, corner: int = 4) -> StyleBoxFlat:
 	return st
 
 func _create_selection_square() -> Control:
-	var container = CenterContainer.new()
+	var container = Control.new()
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.custom_minimum_size = Vector2(0, 10)
-	
-	var sq = Panel.new()
-	sq.custom_minimum_size = Vector2(8, 8)
-	sq.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var st = StyleBoxFlat.new()
-	st.bg_color = Color(1.0, 1.0, 1.0, 1.0)
-	st.set_corner_radius_all(1)
-	sq.add_theme_stylebox_override("panel", st)
-	container.add_child(sq)
+	container.visible = false
 	return container
 
 func _refresh_skin_tiles() -> void:
