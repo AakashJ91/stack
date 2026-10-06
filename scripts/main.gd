@@ -1417,6 +1417,7 @@ func _set_active_tab(tab_name: String) -> void:
 			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 			if lbl:
 				lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+			_animate_tile_pop(btn)
 		else:
 			btn.flat = true
 			btn.add_theme_stylebox_override("normal", inactive_style)
@@ -1426,6 +1427,7 @@ func _set_active_tab(tab_name: String) -> void:
 			btn.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.75))
 			if lbl:
 				lbl.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.75))
+			_reset_tile_transform(btn)
 
 func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 	if drawer_tween:
@@ -1563,6 +1565,10 @@ func _is_scroll_dragging() -> bool:
 	return false
 
 func _input(event: InputEvent) -> void:
+	# Only handle positional pointer events (touch/drag/mouse) for drawer scrolling
+	if not ("position" in event):
+		return
+
 	if not is_instance_valid(drawer_modal) or not drawer_modal.visible or not is_instance_valid(drawer_scroll):
 		_scroll_touch_active = false
 		_scroll_is_dragging = false
@@ -1709,6 +1715,62 @@ func _create_selection_square() -> Control:
 	container.visible = false
 	return container
 
+func _reset_tile_transform(control: Control) -> void:
+	if not is_instance_valid(control):
+		return
+	if control.has_meta("pop_tween"):
+		var old_tw = control.get_meta("pop_tween")
+		if is_instance_valid(old_tw) and old_tw is Tween and old_tw.is_valid():
+			old_tw.kill()
+		control.remove_meta("pop_tween")
+	control.scale = Vector2(1.0, 1.0)
+	control.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	control.z_index = 0
+
+func _animate_tile_pop(control: Control) -> void:
+	if not is_instance_valid(control) or not control.is_inside_tree():
+		return
+	if control.size.x > 1.0 and control.size.y > 1.0:
+		_do_tile_pop(control)
+	else:
+		get_tree().process_frame.connect(func():
+			if is_instance_valid(control) and control.is_inside_tree():
+				_do_tile_pop(control)
+		, CONNECT_ONE_SHOT)
+
+func _do_tile_pop(control: Control) -> void:
+	if not is_instance_valid(control) or not control.is_inside_tree():
+		return
+	control.pivot_offset = control.size * 0.5
+	if control.has_meta("pop_tween"):
+		var old_tw = control.get_meta("pop_tween")
+		if is_instance_valid(old_tw) and old_tw is Tween and old_tw.is_valid():
+			old_tw.kill()
+	
+	control.z_index = 1
+	var tw = control.create_tween()
+	control.set_meta("pop_tween", tw)
+	
+	control.scale = Vector2(0.92, 0.92)
+	control.modulate = Color(1.15, 1.15, 1.15, 1.0)
+	
+	tw.tween_property(control, "scale", Vector2(1.08, 1.08), 0.10)\
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(control, "modulate", Color(1.05, 1.05, 1.05, 1.0), 0.10)
+	
+	tw.tween_property(control, "scale", Vector2(1.0, 1.0), 0.12)\
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(control, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.12)
+	
+	tw.tween_callback(func():
+		if is_instance_valid(control):
+			control.z_index = 0
+			control.scale = Vector2(1.0, 1.0)
+			control.modulate = Color(1.0, 1.0, 1.0, 1.0)
+			if control.has_meta("pop_tween"):
+				control.remove_meta("pop_tween")
+	)
+
 func _refresh_skin_tiles() -> void:
 	for i in _skin_tile_btns.size():
 		var btn: Button = _skin_tile_btns[i]
@@ -1738,6 +1800,10 @@ func _refresh_skin_tiles() -> void:
 				inner.add_child(badge)
 			elif not sel and inner.get_child_count() >= 3:
 				inner.get_child(2).queue_free()
+		if sel:
+			_animate_tile_pop(btn)
+		else:
+			_reset_tile_transform(btn)
 	# Palette section is always visible for all skins
 	if is_instance_valid(_pal_section_root):
 		_pal_section_root.visible = true
@@ -1770,6 +1836,10 @@ func _refresh_pal_tiles() -> void:
 				p_inner.add_child(p_check)
 			elif not sel and p_inner.get_child_count() >= 3:
 				p_inner.get_child(2).queue_free()
+		if sel:
+			_animate_tile_pop(btn)
+		else:
+			_reset_tile_transform(btn)
 
 func _open_skins_drawer() -> void:
 	_open_drawer("SKINS")
@@ -1829,6 +1899,7 @@ func _open_skins_drawer() -> void:
 		if is_equipped:
 			var badge = _create_selection_square()
 			inner.add_child(badge)
+			_animate_tile_pop(tile_btn)
 		
 		# Connect equip action — update in-place, no drawer rebuild
 		var skin_id = s["id"]
@@ -1836,6 +1907,7 @@ func _open_skins_drawer() -> void:
 			if _is_scroll_dragging():
 				return
 			if active_skin_id == skin_id:
+				_animate_tile_pop(tile_btn)
 				return
 			active_skin_id = skin_id
 			sound_mgr.play_click()
@@ -1978,17 +2050,24 @@ func _open_skins_drawer() -> void:
 		sniper_badge.visible = is_sniper
 	
 	update_reticle_options_ui.call()
+	if not sniper_reticle_enabled:
+		_animate_tile_pop(btn_none)
+	else:
+		_animate_tile_pop(btn_sniper)
 	
 	btn_none.pressed.connect(func():
 		if _is_scroll_dragging():
 			return
 		if not sniper_reticle_enabled:
+			_animate_tile_pop(btn_none)
 			return
 		sniper_reticle_enabled = false
 		sound_mgr.play_click()
 		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
 			slider.set_sniper_reticle_enabled(false)
 		update_reticle_options_ui.call()
+		_animate_tile_pop(btn_none)
+		_reset_tile_transform(btn_sniper)
 		save_skin_data()
 	)
 	
@@ -1996,12 +2075,15 @@ func _open_skins_drawer() -> void:
 		if _is_scroll_dragging():
 			return
 		if sniper_reticle_enabled:
+			_animate_tile_pop(btn_sniper)
 			return
 		sniper_reticle_enabled = true
 		sound_mgr.play_click()
 		if is_instance_valid(slider) and slider.has_method("set_sniper_reticle_enabled"):
 			slider.set_sniper_reticle_enabled(true)
 		update_reticle_options_ui.call()
+		_animate_tile_pop(btn_sniper)
+		_reset_tile_transform(btn_none)
 		save_skin_data()
 	)
 	
@@ -2107,6 +2189,7 @@ func _open_skins_drawer() -> void:
 		if is_pal_active:
 			var p_check = _create_selection_square()
 			p_inner.add_child(p_check)
+			_animate_tile_pop(pal_btn)
 		
 		# Connect palette select — update in-place, no drawer rebuild
 		var chosen_idx = i
@@ -2114,6 +2197,7 @@ func _open_skins_drawer() -> void:
 			if _is_scroll_dragging():
 				return
 			if palette_index == chosen_idx:
+				_animate_tile_pop(pal_btn)
 				return
 			palette_index = chosen_idx
 			sound_mgr.play_click()
@@ -2219,6 +2303,8 @@ func _open_challenge_drawer() -> void:
 		var badge = _create_selection_square()
 		badge.modulate.a = 1.0 if is_active else 0.0
 		inner.add_child(badge)
+		if is_active:
+			_animate_tile_pop(tile_btn)
 		
 		var cid = c["id"]
 		var c_speed = c["speed"]
@@ -2227,6 +2313,7 @@ func _open_challenge_drawer() -> void:
 			if _is_scroll_dragging():
 				return
 			if active_challenge_id == cid:
+				_animate_tile_pop(tile_btn)
 				return
 			active_challenge_id = cid
 			challenge_speed_multiplier = c_speed
@@ -2422,6 +2509,7 @@ func _open_campaign_drawer() -> void:
 		if is_selected:
 			var badge = _create_selection_square()
 			inner.add_child(badge)
+			_animate_tile_pop(tile_btn)
 		elif is_cleared:
 			var clr_lbl = Label.new()
 			clr_lbl.text = "✓"
@@ -2440,6 +2528,7 @@ func _open_campaign_drawer() -> void:
 				_show_task_toast("🔒 Stage %d is locked! Clear Stage %d first." % [target_id, target_id - 1])
 				return
 			if _campaign_selected_stage_id == target_id:
+				_animate_tile_pop(tile_btn)
 				start_campaign_stage(target_id)
 			else:
 				_campaign_selected_stage_id = target_id
