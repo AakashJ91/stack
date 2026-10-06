@@ -215,6 +215,7 @@ const SKIN_TEXTURES = {
 	"frosted": preload("res://textures/skin_frosted.png"),
 	"dusty": preload("res://textures/skin_dusty.png"),
 	"reflective": preload("res://textures/skin_reflective.png"),
+	"crystal": preload("res://textures/skin_crystal.png"),
 }
 
 const SKINS: Array[Dictionary] = [
@@ -242,6 +243,19 @@ const SKINS: Array[Dictionary] = [
 		"metallic": 0.90,
 		"reflection_strength": 0.95,
 		"uv_scale": Vector2(0.50, 0.50)
+	},
+	{
+		"id": "crystal",
+		"name": "Prismatic Crystal",
+		"icon": "💎",
+		"desc": "Faceted gemstone cube with internal refractive facets, high gloss, and prismatic luster.",
+		"type": "textured",
+		"strength": 0.72,
+		"emission": 0.0,
+		"roughness": 0.07,
+		"metallic": 0.15,
+		"reflection_strength": 0.50,
+		"uv_scale": Vector2(0.55, 0.55)
 	},
 	{
 		"id": "marble",
@@ -360,11 +374,13 @@ func _update_active_skins_in_scene() -> void:
 			if b.has_method("set_color"):
 				b.set_color(_get_box_shade(i))
 
-# Curated high-aesthetic pastel color palettes for stacking runs
-# Each palette has its own dedicated complementary atmospheric gradient background
+# Curated high-aesthetic color palettes for stacking runs across distinct visual types
+# (Pastel, Neon Cyber, Metallic Luxury, Monochrome Noir, Botanical Forest, Cosmic & Sunset, Translucent Glass)
 const PALETTES: Array[Dictionary] = [
+	# --- 1. PASTEL TYPE ---
 	{
-		"name": "Pastel Rainbow Spectrum",
+		"name": "Pastel Rainbow",
+		"type": "pastel",
 		"mode": "rainbow",
 		"speed": 0.026,
 		"sat": 0.54,
@@ -374,37 +390,46 @@ const PALETTES: Array[Dictionary] = [
 	},
 	{
 		"name": "Cotton Candy",
+		"type": "pastel",
 		"mode": "gradient",
 		"colors": [
 			Color(0.95, 0.52, 0.68), # Pastel Rose Pink
 			Color(0.78, 0.58, 0.92), # Pastel Lilac
 			Color(0.58, 0.65, 0.96), # Pastel Periwinkle
 			Color(0.48, 0.76, 0.96), # Pastel Sky Blue
+			Color(0.42, 0.82, 0.88), # Pastel Aqua Turquoise
 			Color(0.45, 0.88, 0.74), # Pastel Mint Seafoam
-			Color(0.96, 0.84, 0.45)  # Pastel Buttercup
+			Color(0.96, 0.84, 0.45), # Pastel Buttercup
+			Color(0.98, 0.70, 0.62)  # Soft Peach Bubblegum
 		],
 		"bg_top": Color(0.12, 0.09, 0.22),    # Deep Heather Mauve
 		"bg_bottom": Color(0.24, 0.12, 0.22) # Soft Dusty Rose
 	},
 	{
 		"name": "Peach Sorbet",
+		"type": "pastel",
 		"mode": "gradient",
 		"colors": [
 			Color(0.98, 0.62, 0.48), # Pastel Peach
 			Color(0.98, 0.75, 0.48), # Pastel Apricot
+			Color(0.98, 0.54, 0.38), # Warm Cantaloupe
 			Color(0.96, 0.86, 0.45), # Pastel Vanilla Cream
 			Color(0.96, 0.58, 0.68), # Pastel Strawberry
+			Color(0.95, 0.48, 0.58), # Blossom Coral Pink
 			Color(0.82, 0.62, 0.88)  # Pastel Wisteria
 		],
 		"bg_top": Color(0.15, 0.10, 0.17),    # Deep Cocoa Slate
 		"bg_bottom": Color(0.26, 0.15, 0.18) # Warm Sunset Mauve
 	},
 	{
-		"name": "Mint & Sage Serenity",
+		"name": "Mint & Sage",
+		"type": "pastel",
 		"mode": "gradient",
 		"colors": [
 			Color(0.45, 0.88, 0.72), # Pastel Mint
+			Color(0.40, 0.78, 0.68), # Frosted Eucalyptus
 			Color(0.52, 0.88, 0.84), # Pastel Seafoam
+			Color(0.68, 0.88, 0.65), # Celadon Green
 			Color(0.48, 0.78, 0.94), # Pastel Powder Blue
 			Color(0.75, 0.65, 0.92), # Pastel Soft Lilac
 			Color(0.95, 0.82, 0.50)  # Pastel Primrose
@@ -413,20 +438,181 @@ const PALETTES: Array[Dictionary] = [
 		"bg_bottom": Color(0.11, 0.20, 0.21) # Soft Deep Seafoam
 	},
 	{
-		"name": "Nordic Rose & Ice",
+		"name": "Nordic Rose",
+		"type": "pastel",
 		"mode": "gradient",
 		"colors": [
 			Color(0.92, 0.58, 0.68), # Pastel Dusk Rose
+			Color(0.85, 0.52, 0.62), # Antique Mauve
 			Color(0.78, 0.62, 0.85), # Pastel Heather
 			Color(0.52, 0.75, 0.92), # Pastel Ice Blue
+			Color(0.45, 0.78, 0.86), # Nordic Glacier Cyan
 			Color(0.48, 0.84, 0.78), # Pastel Sage Teal
 			Color(0.92, 0.78, 0.58)  # Pastel Sand Amber
 		],
 		"bg_top": Color(0.09, 0.12, 0.20),    # Deep Arctic Slate
 		"bg_bottom": Color(0.17, 0.14, 0.25) # Soft Nordic Lilac
 	},
+
+	# --- 2. NEON & CYBERPUNK TYPE ---
+	{
+		"name": "Cyber Neon",
+		"type": "neon",
+		"mode": "gradient",
+		"colors": [
+			Color(1.0, 0.08, 0.58),  # Electric Magenta
+			Color(1.0, 0.05, 0.82),  # Ultra Neon Pink
+			Color(0.0, 0.95, 1.0),   # Cyber Cyan
+			Color(0.08, 0.45, 1.0),  # Electric Cobalt
+			Color(0.22, 1.0, 0.38),  # Electric Lime
+			Color(0.75, 0.18, 1.0),  # Neon Violet
+			Color(1.0, 0.92, 0.08),  # Laser Yellow
+			Color(1.0, 0.40, 0.10)   # Blaze Orange
+		],
+		"bg_top": Color(0.04, 0.05, 0.12),    # Deep Void Blue
+		"bg_bottom": Color(0.16, 0.06, 0.24) # Synthwave Indigo
+	},
+	{
+		"name": "Synthwave Sunset",
+		"type": "neon",
+		"mode": "gradient",
+		"colors": [
+			Color(1.0, 0.18, 0.65),  # Hot Neon Pink
+			Color(0.92, 0.12, 0.48), # Sunset Crimson Fuchsia
+			Color(0.68, 0.15, 0.95), # Sunset Ultraviolet
+			Color(0.38, 0.22, 0.98), # Retro Indigo
+			Color(1.0, 0.65, 0.12),  # Horizon Gold
+			Color(1.0, 0.50, 0.38),  # Cyber Sunset Peach
+			Color(1.0, 0.35, 0.20)   # Neon Tangerine
+		],
+		"bg_top": Color(0.06, 0.05, 0.14),    # Grid Night
+		"bg_bottom": Color(0.24, 0.08, 0.25) # Retro Violet
+	},
+
+	# --- 3. METALLIC & LUXURY TYPE ---
+	{
+		"name": "Imperial Gold",
+		"type": "metallic",
+		"mode": "gradient",
+		"colors": [
+			Color(1.0, 0.84, 0.26),  # 24K Royal Gold
+			Color(1.0, 0.74, 0.15),  # Rich Yellow Topaz
+			Color(0.85, 0.60, 0.28), # Antique Bronze
+			Color(0.78, 0.48, 0.22), # Burnished Venetian Gold
+			Color(0.94, 0.54, 0.42), # Rose Copper
+			Color(0.96, 0.92, 0.76), # Platinum Champagne
+			Color(0.90, 0.65, 0.20)  # Polished Amber
+		],
+		"bg_top": Color(0.08, 0.07, 0.10),    # Imperial Velvet Slate
+		"bg_bottom": Color(0.22, 0.15, 0.14) # Royal Bronze Mist
+	},
+	{
+		"name": "Platinum Steel",
+		"type": "metallic",
+		"mode": "gradient",
+		"colors": [
+			Color(0.94, 0.95, 0.98), # Polished Chrome
+			Color(0.90, 0.92, 0.95), # Beryllium Pearl
+			Color(0.76, 0.80, 0.88), # Liquid Titanium
+			Color(0.86, 0.89, 0.94), # Silver Frost
+			Color(0.52, 0.56, 0.66), # Gunmetal Slate
+			Color(0.38, 0.44, 0.56), # Deep Cobalt Steel
+			Color(0.64, 0.74, 0.86)  # Blue Steel
+		],
+		"bg_top": Color(0.06, 0.07, 0.10),    # Carbon Dark
+		"bg_bottom": Color(0.14, 0.16, 0.24) # Steel Mist
+	},
+
+	# --- 4. MONOCHROME & NOIR TYPE ---
+	{
+		"name": "Monochrome Noir",
+		"type": "monochrome",
+		"mode": "gradient",
+		"colors": [
+			Color(0.98, 0.98, 1.0),  # Pure Studio White
+			Color(0.90, 0.91, 0.94), # Alabaster Pearl
+			Color(0.80, 0.82, 0.86), # Light Chalk
+			Color(0.60, 0.62, 0.68), # Neutral Gray
+			Color(0.48, 0.50, 0.55), # Ash Gray
+			Color(0.36, 0.38, 0.44), # Carbon Slate
+			Color(0.20, 0.22, 0.26)  # Deep Charcoal
+		],
+		"bg_top": Color(0.05, 0.05, 0.07),    # Dark OLED Slate
+		"bg_bottom": Color(0.13, 0.14, 0.18) # Architectural Carbon
+	},
+
+	# --- 5. BOTANICAL & FOREST TYPE ---
+	{
+		"name": "Matcha Forest",
+		"type": "botanical",
+		"mode": "gradient",
+		"colors": [
+			Color(0.55, 0.82, 0.42), # Fresh Matcha
+			Color(0.64, 0.90, 0.46), # Sprout Spring Green
+			Color(0.22, 0.66, 0.48), # Deep Forest Pine
+			Color(0.14, 0.52, 0.42), # Shadow Juniper
+			Color(0.72, 0.84, 0.38), # Bamboo Olive
+			Color(0.18, 0.78, 0.58), # Emerald Jade
+			Color(0.88, 0.78, 0.42)  # Golden Lichen
+		],
+		"bg_top": Color(0.05, 0.10, 0.08),    # Forest Canopy
+		"bg_bottom": Color(0.12, 0.20, 0.15) # Moss Twilight
+	},
+
+	# --- 6. COSMIC, SUNSET & OCEAN TYPE ---
+	{
+		"name": "Cosmic Nebula",
+		"type": "cosmic",
+		"mode": "gradient",
+		"colors": [
+			Color(0.92, 0.25, 0.65), # Nebula Magenta
+			Color(0.82, 0.22, 1.0),  # Supernova Violet
+			Color(0.65, 0.28, 0.95), # Pulsar Purple
+			Color(0.25, 0.85, 0.98), # Starlight Cyan
+			Color(0.18, 0.92, 0.88), # Cosmic Aquamarine
+			Color(0.22, 0.45, 0.95), # Deep Celestial Blue
+			Color(1.0, 0.62, 0.26)   # Solar Flare
+		],
+		"bg_top": Color(0.04, 0.04, 0.12),    # Deep Interstellar Void
+		"bg_bottom": Color(0.16, 0.08, 0.24) # Galactic Core Violet
+	},
+	{
+		"name": "Sunset Ember",
+		"type": "sunset",
+		"mode": "gradient",
+		"colors": [
+			Color(0.95, 0.25, 0.32), # Crimson Flame
+			Color(0.85, 0.15, 0.24), # Deep Ruby Ember
+			Color(1.0, 0.52, 0.18),  # Blazing Tangerine
+			Color(1.0, 0.88, 0.28),  # Radiant Golden Sun
+			Color(1.0, 0.76, 0.22),  # Molten Amber
+			Color(0.70, 0.32, 0.65), # Dusk Violet
+			Color(0.92, 0.42, 0.55)  # Rose Horizon
+		],
+		"bg_top": Color(0.12, 0.06, 0.10),    # Dusk Horizon Night
+		"bg_bottom": Color(0.28, 0.11, 0.12) # Burning Sunset Ember
+	},
+	{
+		"name": "Bioluminescent Deep",
+		"type": "ocean",
+		"mode": "gradient",
+		"colors": [
+			Color(0.10, 0.92, 0.88), # Glowing Cyan
+			Color(0.12, 0.96, 0.70), # Radiant Sea Green
+			Color(0.65, 0.35, 0.95), # Jellyfish Violet
+			Color(0.38, 0.25, 0.98), # Electric Abyss Indigo
+			Color(0.20, 0.82, 0.70), # Electric Aquamarine
+			Color(0.15, 0.55, 0.95), # Marine Sapphire
+			Color(0.45, 0.95, 0.55)  # Phosphor Lime
+		],
+		"bg_top": Color(0.03, 0.06, 0.11),    # Midnight Trench Abyss
+		"bg_bottom": Color(0.08, 0.16, 0.24) # Bioluminescent Deep
+	},
+
+	# --- 7. TRANSLUCENT TYPE ---
 	{
 		"name": "Translucent Prism",
+		"type": "translucent",
 		"mode": "rainbow",
 		"is_transparent": true,
 		"speed": 0.026,
@@ -438,12 +624,15 @@ const PALETTES: Array[Dictionary] = [
 	},
 	{
 		"name": "Translucent Jelly",
+		"type": "translucent",
 		"mode": "gradient",
 		"is_transparent": true,
 		"colors": [
 			Color(0.98, 0.28, 0.52, 0.56), # Lucid Ruby Pink
+			Color(0.95, 0.22, 0.78, 0.56), # Lucid Orchid Magenta
 			Color(0.82, 0.35, 0.96, 0.56), # Lucid Violet Amethyst
 			Color(0.30, 0.64, 0.98, 0.56), # Lucid Azure Sapphire
+			Color(0.15, 0.85, 0.92, 0.56), # Lucid Turquoise Gem
 			Color(0.20, 0.88, 0.72, 0.56), # Lucid Emerald Jade
 			Color(0.98, 0.78, 0.22, 0.56), # Lucid Citrine Topaz
 			Color(0.98, 0.46, 0.28, 0.56)  # Lucid Sunset Coral
@@ -453,12 +642,15 @@ const PALETTES: Array[Dictionary] = [
 	},
 	{
 		"name": "Frosted Crystal",
+		"type": "translucent",
 		"mode": "gradient",
 		"is_transparent": true,
 		"colors": [
 			Color(0.96, 0.68, 0.82, 0.52), # Frosted Rose Quartz
+			Color(0.88, 0.65, 0.94, 0.52), # Frosted Lilac Mist
 			Color(0.80, 0.72, 0.98, 0.52), # Frosted Lavender
 			Color(0.60, 0.82, 0.98, 0.52), # Frosted Glacier Blue
+			Color(0.68, 0.96, 0.82, 0.52), # Frosted Ice Mint
 			Color(0.55, 0.94, 0.86, 0.52), # Frosted Aquamarine
 			Color(0.96, 0.88, 0.66, 0.52)  # Frosted Soft Champagne
 		],
@@ -467,12 +659,15 @@ const PALETTES: Array[Dictionary] = [
 	},
 	{
 		"name": "Smoky Obsidian",
+		"type": "translucent",
 		"mode": "gradient",
 		"is_transparent": true,
 		"colors": [
 			Color(0.36, 0.44, 0.58, 0.62), # Smoky Slate Glass
 			Color(0.58, 0.42, 0.55, 0.62), # Smoky Mauve Glass
+			Color(0.32, 0.36, 0.54, 0.62), # Smoky Indigo Tint
 			Color(0.28, 0.52, 0.55, 0.62), # Smoky Teal Glass
+			Color(0.52, 0.42, 0.32, 0.62), # Smoky Bronze Glass
 			Color(0.60, 0.48, 0.36, 0.62), # Smoky Amber Topaz
 			Color(0.44, 0.38, 0.55, 0.62)  # Smoky Dusk Glass
 		],
@@ -2158,11 +2353,11 @@ func _open_skins_drawer() -> void:
 		swatch_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var is_trans = pal.get("is_transparent", false)
 		if pal.get("mode", "") == "rainbow":
-			var sample_hues = [0.0, 0.16, 0.33, 0.5, 0.66, 0.83]
+			var sample_hues = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]
 			var pal_alpha = float(pal.get("alpha", 1.0))
 			for h in sample_hues:
 				var sw = PanelContainer.new()
-				sw.custom_minimum_size = Vector2(14, 14)
+				sw.custom_minimum_size = Vector2(10, 10)
 				sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				var sc = Color.from_hsv(h, float(pal.get("sat", 0.54)), float(pal.get("val", 0.92)))
 				sc.a = pal_alpha
@@ -2178,7 +2373,7 @@ func _open_skins_drawer() -> void:
 			var colors = pal.get("colors", []) as Array
 			for c in colors:
 				var sw = PanelContainer.new()
-				sw.custom_minimum_size = Vector2(14, 14)
+				sw.custom_minimum_size = Vector2(10, 10)
 				sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				var sb = StyleBoxFlat.new()
 				sb.bg_color = c as Color
