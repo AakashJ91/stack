@@ -214,6 +214,7 @@ const SKIN_TEXTURES = {
 	"glass": preload("res://textures/skin_glass.png"),
 	"frosted": preload("res://textures/skin_frosted.png"),
 	"dusty": preload("res://textures/skin_dusty.png"),
+	"reflective": preload("res://textures/skin_reflective.png"),
 }
 
 const SKINS: Array[Dictionary] = [
@@ -228,6 +229,19 @@ const SKINS: Array[Dictionary] = [
 		"roughness": 0.32,
 		"metallic": 0.03,
 		"uv_scale": Vector2(0.65, 0.65)
+	},
+	{
+		"id": "reflective",
+		"name": "Reflective Mirror",
+		"icon": "🪞",
+		"desc": "Liquid mirror chrome cube with real-time environment reflections, studio highlights, and high-gloss sheen.",
+		"type": "textured",
+		"strength": 0.65,
+		"emission": 0.0,
+		"roughness": 0.02,
+		"metallic": 0.90,
+		"reflection_strength": 0.95,
+		"uv_scale": Vector2(0.50, 0.50)
 	},
 	{
 		"id": "marble",

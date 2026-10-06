@@ -39,15 +39,22 @@ uniform float bevel_width = 0.09;
 uniform float chamfer_width = 0.022;
 uniform float roughness : hint_range(0.0, 1.0) = 0.32;
 uniform float metallic : hint_range(0.0, 1.0) = 0.03;
+uniform float reflection_strength : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 emission_color : source_color = vec4(1.0, 0.94, 0.6, 1.0);
 uniform float emission_energy : hint_range(0.0, 5.0) = 0.0;
 
 varying vec3 v_local_pos;
 varying vec3 v_normal;
+varying vec3 v_world_pos;
+varying vec3 v_world_normal;
+varying vec3 v_view_dir;
 
 void vertex() {
 	v_local_pos = VERTEX;
 	v_normal = NORMAL;
+	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	v_view_dir = normalize(CAMERA_POSITION_WORLD - v_world_pos);
 }
 
 void fragment() {
@@ -108,12 +115,52 @@ void fragment() {
 		}
 	}
 	
+	// 7. Dynamic Studio & Horizon Reflection for Reflective Cube
+	if (reflection_strength > 0.001) {
+		vec3 norm = normalize(v_world_normal);
+		vec3 view = normalize(v_view_dir);
+		vec3 refl_dir = reflect(-view, norm);
+		
+		// Horizon & atmospheric environment gradient
+		float horizon = smoothstep(-0.25, 0.20, refl_dir.y);
+		vec3 sky_zenith = vec3(0.18, 0.28, 0.52);
+		vec3 sky_horizon = vec3(0.85, 0.92, 1.0);
+		vec3 sky_env = mix(sky_horizon, sky_zenith, clamp(refl_dir.y, 0.0, 1.0));
+		vec3 ground_env = mix(vec3(0.06, 0.08, 0.12), vec3(0.24, 0.28, 0.36), clamp(-refl_dir.y, 0.0, 1.0));
+		vec3 env_base = mix(ground_env, sky_env, horizon);
+		
+		// Studio softbox light reflections (crisp architectural reflection bands)
+		vec3 s1_dir = normalize(vec3(0.40, 0.75, 0.52));
+		float s1_dot = max(dot(refl_dir, s1_dir), 0.0);
+		float softbox1 = pow(s1_dot, 20.0) * 1.5 + pow(s1_dot, 72.0) * 2.5;
+		
+		vec3 s2_dir = normalize(vec3(-0.60, 0.50, -0.62));
+		float s2_dot = max(dot(refl_dir, s2_dir), 0.0);
+		float softbox2 = pow(s2_dot, 28.0) * 1.1 + pow(s2_dot, 90.0) * 1.8;
+		
+		vec3 s3_dir = normalize(vec3(0.10, 0.96, -0.25));
+		float s3_dot = max(dot(refl_dir, s3_dir), 0.0);
+		float softbox3 = pow(s3_dot, 36.0) * 1.2;
+		
+		vec3 studio_highlights = vec3(1.0, 0.98, 0.95) * (softbox1 + softbox2 + softbox3);
+		vec3 reflection_rgb = env_base + studio_highlights;
+		
+		// Fresnel reflection glaze (stronger at glancing angles)
+		float NdotV = max(dot(norm, view), 0.0);
+		float fresnel = 0.35 + 0.65 * pow(1.0 - NdotV, 3.5);
+		
+		// Tinted reflection: metallic mirror tints with cube's base pastel color
+		vec3 tinted_refl = mix(reflection_rgb, reflection_rgb * base_rgb * 1.35, metallic);
+		base_rgb = mix(base_rgb, tinted_refl, reflection_strength * clamp(fresnel, 0.0, 1.0));
+	}
+	
 	vec3 col = base_rgb * ao + vec3(chamfer) + vec3(grain) + vec3(top_inset) + vec3(vert_shade);
 	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
 	
-	ROUGHNESS = clamp(mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t) * skin_spec, 0.08, 0.95);
-	METALLIC = metallic;
-	SPECULAR = 0.55;
+	float min_r = mix(0.08, 0.02, reflection_strength);
+	ROUGHNESS = clamp(mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t) * skin_spec, min_r, 0.95);
+	METALLIC = clamp(mix(metallic, max(metallic, 0.88), reflection_strength), 0.0, 1.0);
+	SPECULAR = mix(0.55, 0.95, reflection_strength);
 	
 	vec3 total_emission = skin_emit;
 	if (emission_energy > 0.001) {
@@ -253,6 +300,7 @@ func apply_skin(skin_config: Dictionary) -> void:
 	var rough = float(skin_config.get("roughness", 0.32))
 	var metal = float(skin_config.get("metallic", 0.03))
 	var uv_sc = skin_config.get("uv_scale", Vector2(0.65, 0.65))
+	var refl = float(skin_config.get("reflection_strength", 0.0))
 	
 	if tex:
 		material.set_shader_parameter("skin_texture", tex)
@@ -261,6 +309,7 @@ func apply_skin(skin_config: Dictionary) -> void:
 	material.set_shader_parameter("roughness", rough)
 	material.set_shader_parameter("metallic", metal)
 	material.set_shader_parameter("uv_scale", uv_sc)
+	material.set_shader_parameter("reflection_strength", refl)
 
 func _apply_color() -> void:
 	if material:
