@@ -1454,9 +1454,9 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_modal.anchor_top = 1.0
 		drawer_modal.anchor_bottom = 1.0
 		drawer_modal.offset_left = 0.0
-		drawer_modal.offset_top = -488.0
+		drawer_modal.offset_top = -504.0
 		drawer_modal.offset_right = 0.0
-		drawer_modal.offset_bottom = -88.0
+		drawer_modal.offset_bottom = -104.0
 		if is_instance_valid(drawer_scroll):
 			drawer_scroll.custom_minimum_size = Vector2(0, 370)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

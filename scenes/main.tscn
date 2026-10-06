@@ -43,9 +43,9 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ribbon"]
-bg_color = Color(0.06, 0.07, 0.11, 0.97)
+bg_color = Color(0, 0, 0, 0.65)
 border_width_top = 1
-border_color = Color(1, 1, 1, 0.08)
+border_color = Color(1, 1, 1, 0.1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_active"]
 bg_color = Color(1, 1, 1, 0.16)
@@ -401,7 +401,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 0.0
-offset_top = -88.0
+offset_top = -104.0
 offset_right = 0.0
 offset_bottom = 0.0
 grow_horizontal = 2
@@ -414,7 +414,7 @@ theme_override_constants/separation = 4
 alignment = 1
 
 [node name="BtnSkin" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
 flat = true
@@ -427,11 +427,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 3
 alignment = 1
 
 [node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnSkin/VBox"]
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -443,13 +443,13 @@ stretch_mode = 5
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 11
 text = "SKINS"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="BtnChallenge" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
 flat = true
@@ -462,11 +462,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 3
 alignment = 1
 
 [node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnChallenge/VBox"]
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -478,13 +478,13 @@ stretch_mode = 5
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 11
 text = "CHALLENGE"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="BtnHome" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxFlat_tab_active")
@@ -498,11 +498,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 3
 alignment = 1
 
 [node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnHome/VBox"]
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -514,13 +514,13 @@ stretch_mode = 5
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.95, 1, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 11
 text = "HOME"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="BtnCampaign" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
 flat = true
@@ -533,11 +533,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 3
 alignment = 1
 
 [node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnCampaign/VBox"]
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -549,13 +549,13 @@ stretch_mode = 5
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 11
 text = "CAMPAIGN"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="BtnLevels" type="Button" parent="UI/MainMenu/BottomRibbon/HBox"]
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 size_flags_horizontal = 3
 flat = true
@@ -568,11 +568,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 3
 alignment = 1
 
 [node name="Icon" type="TextureRect" parent="UI/MainMenu/BottomRibbon/HBox/BtnLevels/VBox"]
-custom_minimum_size = Vector2(34, 34)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -584,7 +584,7 @@ stretch_mode = 5
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.62, 0.78, 0.75)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 11
 text = "EXPERIENCE"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -597,9 +597,9 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 0.0
-offset_top = -488.0
+offset_top = -504.0
 offset_right = 0.0
-offset_bottom = -88.0
+offset_bottom = -104.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_drawer")
