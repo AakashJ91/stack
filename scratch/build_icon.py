@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+import math
+
+def build_5tier_icon_svg():
+    width = 512
+    height = 512
+
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
   <defs>
     <!-- Background Space Gradient -->
     <radialGradient id="bgRadial" cx="50%" cy="32%" r="80%">
@@ -319,4 +325,11 @@
   <circle cx="116" cy="426" r="2" fill="#ffffff" opacity="0.4"/>
   <circle cx="396" cy="444" r="2" fill="#f43f5e" opacity="0.5"/>
 
-</svg>
+</svg>'''
+    return svg
+
+if __name__ == "__main__":
+    svg = build_5tier_icon_svg()
+    with open("d:/GitHub/stack2/icon.svg", "w", encoding="utf-8") as f:
+        f.write(svg)
+    print("5-tier icon.svg successfully built!")
