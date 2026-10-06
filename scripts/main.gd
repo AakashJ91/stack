@@ -1368,16 +1368,16 @@ func _set_active_tab(tab_name: String) -> void:
 	
 	# Simple square white box style for the active ribbon tab (stays permanently on clicked tab)
 	var active_style = StyleBoxFlat.new()
-	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.16)
+	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.3)
 	active_style.border_width_left = 2
 	active_style.border_width_top = 2
 	active_style.border_width_right = 2
 	active_style.border_width_bottom = 2
-	active_style.border_color = Color(1.0, 1.0, 1.0, 1.0)
-	active_style.corner_radius_top_left = 4
-	active_style.corner_radius_top_right = 4
-	active_style.corner_radius_bottom_right = 4
-	active_style.corner_radius_bottom_left = 4
+	active_style.border_color = Color(1.0, 1.0, 1.0, 0.8)
+	active_style.corner_radius_top_left = 6
+	active_style.corner_radius_top_right = 6
+	active_style.corner_radius_bottom_right = 6
+	active_style.corner_radius_bottom_left = 6
 	
 	# Inactive tab: completely flat, muted
 	var inactive_style = StyleBoxEmpty.new()
