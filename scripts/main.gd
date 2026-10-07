@@ -3943,84 +3943,117 @@ func restart_game() -> void:
 		active_box = null
 	
 	var count = boxes_to_destroy.size()
+	var max_collapse_time: float = 0.0
 	
-	trigger_screen_shake(0.35)
-	sound_mgr.play_land()
-	_spawn_impact_dust(Vector3(0, 0.2, 0))
-	if count > 4:
-		_spawn_impact_dust(Vector3(0, current_top_y * 0.5, 0))
+	if count > 0:
+		trigger_screen_shake(0.35)
+		sound_mgr.play_land()
+		_spawn_impact_dust(Vector3(0, 0.2, 0))
+		if count > 4:
+			_spawn_impact_dust(Vector3(0, current_top_y * 0.5, 0))
+		
+		# Pick a random fall direction for the entire stack (360 degrees)
+		var fall_angle = randf_range(0.0, TAU)
+		var fall_dir = Vector2(cos(fall_angle), sin(fall_angle))
+		# Perpendicular axis for forward toppling tilt
+		var tilt_axis = Vector3(-fall_dir.y, 0.0, fall_dir.x)
+		
+		for i in range(count):
+			var b = boxes_to_destroy[i]
+			if not is_instance_valid(b):
+				continue
+			
+			# Height fraction from bottom (0.0) to top (1.0)
+			var h_frac = float(i + 1) / float(max(1, count))
+			
+			# In a toppling tower, higher blocks swing much farther in the fall direction
+			var horiz_dist = lerp(4.0, 18.0, h_frac) * randf_range(0.9, 1.15)
+			# Slight natural spread around the main fall direction
+			var block_angle = fall_angle + randf_range(-0.16, 0.16)
+			var target_x = b.position.x + cos(block_angle) * horiz_dist
+			var target_z = b.position.z + sin(block_angle) * horiz_dist
+			
+			# Vertical motion: top blocks drop farther as the tower topples over
+			var lift = lerp(0.3, 1.8, h_frac)
+			var fall = lerp(8.0, 22.0, h_frac)
+			
+			# Forward tilt in the fall direction + gentle 3D tumbling
+			var tilt_amount = lerp(1.2, 2.6, h_frac)
+			var spin_rot = b.rotation + (tilt_axis * tilt_amount) + Vector3(
+				randf_range(-0.6, 0.6),
+				randf_range(-0.6, 0.6),
+				randf_range(-0.6, 0.6)
+			)
+			
+			# Progressive top-to-bottom collapse wave
+			var delay = clamp(float(count - 1 - i) * 0.018, 0.0, 0.22)
+			var duration = randf_range(0.85, 1.05)
+			var total_time = delay + duration
+			if total_time > max_collapse_time:
+				max_collapse_time = total_time
+			
+			var bt = create_tween().set_parallel(true)
+			# Horizontal displacement accelerating naturally under gravity
+			bt.tween_property(b, "position:x", target_x, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			bt.tween_property(b, "position:z", target_z, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			bt.tween_property(b, "rotation", spin_rot, duration).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			
+			# Maintain size while toppling, then smoothly shrink down as it drops
+			var shrink_delay = delay + duration * 0.45
+			var shrink_dur = duration * 0.55
+			bt.tween_property(b, "scale", Vector3(0.01, 0.01, 0.01), shrink_dur).set_delay(shrink_delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			
+			# Vertical arc: initial lean lift then downward gravity plunge
+			var duration_up = duration * 0.26
+			var duration_down = duration * 0.74
+			var yt = create_tween()
+			if delay > 0.0:
+				yt.tween_interval(delay)
+			yt.tween_property(b, "position:y", b.position.y + lift, duration_up).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			yt.tween_property(b, "position:y", b.position.y - fall, duration_down).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			
+			# Free block once animation completes
+			bt.chain().tween_callback(func():
+				if is_instance_valid(b):
+					b.queue_free()
+			)
 	
-	# Pick a random fall direction for the entire stack (360 degrees)
-	var fall_angle = randf_range(0.0, TAU)
-	var fall_dir = Vector2(cos(fall_angle), sin(fall_angle))
-	# Perpendicular axis for forward toppling tilt
-	var tilt_axis = Vector3(-fall_dir.y, 0.0, fall_dir.x)
+	# Animate pedestal plunging completely below the player view field alongside collapsing blocks
+	var current_cam_size = camera.size if is_instance_valid(camera) else 14.5
+	var current_cam_y = camera_pivot.position.y if is_instance_valid(camera_pivot) else 3.5
+	var drop_offset = max(24.0, current_cam_y + (current_cam_size * 0.90) + 10.0)
 	
-	for i in range(count):
-		var b = boxes_to_destroy[i]
-		if not is_instance_valid(b):
-			continue
-		
-		# Height fraction from bottom (0.0) to top (1.0)
-		var h_frac = float(i + 1) / float(max(1, count))
-		
-		# In a toppling tower, higher blocks swing much farther in the fall direction
-		var horiz_dist = lerp(4.0, 18.0, h_frac) * randf_range(0.9, 1.15)
-		# Slight natural spread around the main fall direction
-		var block_angle = fall_angle + randf_range(-0.16, 0.16)
-		var target_x = b.position.x + cos(block_angle) * horiz_dist
-		var target_z = b.position.z + sin(block_angle) * horiz_dist
-		
-		# Vertical motion: top blocks drop farther as the tower topples over
-		var lift = lerp(0.3, 1.8, h_frac)
-		var fall = lerp(8.0, 22.0, h_frac)
-		
-		# Forward tilt in the fall direction + gentle 3D tumbling
-		var tilt_amount = lerp(1.2, 2.6, h_frac)
-		var spin_rot = b.rotation + (tilt_axis * tilt_amount) + Vector3(
-			randf_range(-0.6, 0.6),
-			randf_range(-0.6, 0.6),
-			randf_range(-0.6, 0.6)
-		)
-		
-		# Progressive top-to-bottom collapse wave
-		var delay = clamp(float(count - 1 - i) * 0.018, 0.0, 0.22)
-		var duration = randf_range(0.90, 1.10)
-		
-		var bt = create_tween().set_parallel(true)
-		# Horizontal displacement accelerating naturally under gravity
-		bt.tween_property(b, "position:x", target_x, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		bt.tween_property(b, "position:z", target_z, duration).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		bt.tween_property(b, "rotation", spin_rot, duration).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		
-		# Maintain size while toppling, then smoothly shrink down as it drops
-		var shrink_delay = delay + duration * 0.45
-		var shrink_dur = duration * 0.55
-		bt.tween_property(b, "scale", Vector3(0.01, 0.01, 0.01), shrink_dur).set_delay(shrink_delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		
-		# Vertical arc: initial lean lift then downward gravity plunge
-		var duration_up = duration * 0.26
-		var duration_down = duration * 0.74
-		var yt = create_tween()
-		if delay > 0.0:
-			yt.tween_interval(delay)
-		yt.tween_property(b, "position:y", b.position.y + lift, duration_up).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		yt.tween_property(b, "position:y", b.position.y - fall, duration_down).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		
-		# Free block once animation completes
-		bt.chain().tween_callback(func():
-			if is_instance_valid(b):
-				b.queue_free()
-		)
-	
-	# 2. Main base appears from the bottom
-	const BASE_DROP_OFFSET: float = 6.0
+	var pedestal_drop_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	if is_instance_valid(base_pedestal):
-		base_pedestal.position.y = -12.0 - BASE_DROP_OFFSET
+		pedestal_drop_tween.tween_property(base_pedestal, "position:y", -12.0 - drop_offset, 0.55)
 	if is_instance_valid(pedestal_rim):
-		pedestal_rim.position.y = 0.0 - BASE_DROP_OFFSET
+		pedestal_drop_tween.tween_property(pedestal_rim, "position:y", 0.0 - drop_offset, 0.55)
 	if is_instance_valid(pedestal_mist_particles):
-		pedestal_mist_particles.position.y = -6.0 - BASE_DROP_OFFSET
+		pedestal_drop_tween.tween_property(pedestal_mist_particles, "position:y", -6.0 - drop_offset, 0.55)
+	
+	# 2. Only after blocks finish collapsing, update dynamic color and start pedestal entry
+	_restart_tween = create_tween()
+	if max_collapse_time > 0.0:
+		_restart_tween.tween_interval(max_collapse_time)
+	
+	_restart_tween.tween_callback(func():
+		_start_pedestal_entry()
+	)
+
+func _start_pedestal_entry() -> void:
+	# Update to fresh dynamic color from active palette before pedestal enters
+	_pick_new_dynamic_palette_start(true)
+	_update_pedestal_color(false)
+	_update_height_gradient_tint(0)
+	
+	# Ensure base starts from below the ground view before rising
+	const ENTRY_DROP_OFFSET: float = 14.0
+	if is_instance_valid(base_pedestal):
+		base_pedestal.position.y = -12.0 - ENTRY_DROP_OFFSET
+	if is_instance_valid(pedestal_rim):
+		pedestal_rim.position.y = 0.0 - ENTRY_DROP_OFFSET
+	if is_instance_valid(pedestal_mist_particles):
+		pedestal_mist_particles.position.y = -6.0 - ENTRY_DROP_OFFSET
 	
 	# Calculate target camera size for normal view
 	var aspect_mult = 1.0
@@ -4032,25 +4065,26 @@ func restart_game() -> void:
 	var normal_camera_size = BASE_CAMERA_SIZE * aspect_mult
 	
 	# Animate camera returning to ground and main base rising smoothly from the bottom
-	_restart_tween = create_tween().set_parallel(true)
+	var entry_tween = create_tween().set_parallel(true)
+	_restart_tween = entry_tween
 	
 	# Camera returns smoothly to base with matching cinematic timing
-	_restart_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_restart_tween.tween_property(camera, "size", normal_camera_size, 0.78).set_delay(0.32)
-	_restart_tween.tween_property(self, "target_camera_y", base_camera_pivot_y, 0.78).set_delay(0.32)
-	_restart_tween.tween_property(self, "target_camera_x", 0.0, 0.78).set_delay(0.32)
-	_restart_tween.tween_property(self, "target_camera_z", 0.0, 0.78).set_delay(0.32)
+	entry_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	entry_tween.tween_property(camera, "size", normal_camera_size, 0.75)
+	entry_tween.tween_property(self, "target_camera_y", base_camera_pivot_y, 0.75)
+	entry_tween.tween_property(self, "target_camera_x", 0.0, 0.75)
+	entry_tween.tween_property(self, "target_camera_z", 0.0, 0.75)
 	
 	# Main base rises up smoothly from bottom
 	if is_instance_valid(base_pedestal):
-		_restart_tween.tween_property(base_pedestal, "position:y", -12.0, 0.68).set_delay(0.40).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(base_pedestal, "position:y", -12.0, 0.70).set_delay(0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(pedestal_rim):
-		_restart_tween.tween_property(pedestal_rim, "position:y", 0.0, 0.68).set_delay(0.40).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(pedestal_rim, "position:y", 0.0, 0.70).set_delay(0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(pedestal_mist_particles):
-		_restart_tween.tween_property(pedestal_mist_particles, "position:y", -6.0, 0.68).set_delay(0.40).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(pedestal_mist_particles, "position:y", -6.0, 0.70).set_delay(0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	
 	# When the main base has risen into place, start game
-	_restart_tween.chain().tween_callback(func():
+	entry_tween.chain().tween_callback(func():
 		_is_restarting = false
 		_spawn_impact_dust(Vector3(0, 0.05, 0))
 		_finish_restart_game()
@@ -4094,11 +4128,6 @@ func _finish_restart_game() -> void:
 	# Initial slider level
 	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
-	
-	# Start each restarted game with a fresh dynamic color from the selected skin color palette
-	_pick_new_dynamic_palette_start(true)
-	_update_pedestal_color(false)
-	_update_height_gradient_tint(0)
 	
 	_spawn_next_box()
 
