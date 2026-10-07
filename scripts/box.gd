@@ -10,6 +10,7 @@ var gravity: float = 52.0
 
 # Target landing height (y coordinate of top face of the box below)
 var target_landing_y: float = 0.0
+var placed_base_pos: Vector3 = Vector3.ZERO
 
 # Hierarchy roots for decoupled animation
 # squash_root has origin at bottom face so squashes ground naturally
@@ -409,6 +410,7 @@ func _physics_process(delta: float) -> void:
 func settle(is_perfect: bool, overhang_ratio: float = 0.0, overhang_dir: Vector3 = Vector3.ZERO) -> void:
 	state = BoxState.LANDED
 	velocity = Vector3.ZERO
+	placed_base_pos = global_position
 	if is_instance_valid(tilt_root):
 		tilt_root.rotation = Vector3.ZERO
 	
@@ -557,3 +559,11 @@ func _spawn_impact_particles(is_perfect: bool) -> void:
 	particles.global_position = Vector3(global_position.x, target_landing_y + 0.02, global_position.z)
 	
 	get_tree().create_timer(1.0).timeout.connect(particles.queue_free)
+
+func apply_sway_offset(offset: Vector3, tilt_rotation: Vector3) -> void:
+	if state == BoxState.LANDED:
+		if placed_base_pos == Vector3.ZERO:
+			placed_base_pos = global_position
+		global_position = placed_base_pos + offset
+		if is_instance_valid(tilt_root) and (settle_tween == null or not settle_tween.is_running()):
+			tilt_root.rotation = tilt_rotation

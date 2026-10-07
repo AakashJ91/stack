@@ -33,6 +33,7 @@ var stack: Array[Node3D] = []
 var base_pedestal: MeshInstance3D
 var current_top_y: float = 0.0
 var current_target_pos: Vector3 = Vector3.ZERO
+var tower_sway_time: float = 0.0
 
 # Camera tracking
 @onready var camera_pivot: Node3D = $CameraPivot
@@ -3831,6 +3832,9 @@ func trigger_screen_shake(amount: float) -> void:
 	screen_shake_trauma = clamp(screen_shake_trauma + amount, 0.0, 1.0)
 
 func _process(delta: float) -> void:
+	# Subtle skyscraper micro-sway in the wind for tall towers (40+ blocks)
+	_update_tower_micro_sway(delta)
+
 	# Smooth kinetic inertia for drawer touch scrolling
 	if is_instance_valid(drawer_modal) and drawer_modal.visible and is_instance_valid(drawer_scroll) and not _scroll_touch_active:
 		if abs(_scroll_velocity_y) > 15.0:
@@ -3872,6 +3876,55 @@ func _process(delta: float) -> void:
 	else:
 		camera.h_offset = 0.0
 		camera.v_offset = 0.0
+
+func _update_tower_micro_sway(delta: float) -> void:
+	tower_sway_time += delta
+	if stack.is_empty():
+		return
+	
+	var count = stack.size()
+	if count < 40:
+		return
+	
+	# Smoothly ramp in sway intensity starting at 40 blocks up to 80+ blocks
+	var sway_intensity: float = clamp((float(count) - 40.0) / 40.0, 0.0, 1.0)
+	
+	# Atmospheric multi-harmonic wind oscillation (f1 ~ 0.24 Hz, f2 ~ 0.38 Hz)
+	var wind_x: float = sin(tower_sway_time * 0.24 * TAU) * 0.70 + sin(tower_sway_time * 0.38 * TAU + 0.9) * 0.30
+	var wind_z: float = cos(tower_sway_time * 0.20 * TAU + 1.3) * 0.65 + sin(tower_sway_time * 0.35 * TAU + 0.4) * 0.35
+	
+	# Maximum deflection at the skyscraper's crown (subtle, non-disruptive, ~0.14 units max)
+	var max_top_deflection: float = 0.14 * sway_intensity
+	var max_top_tilt: float = deg_to_rad(0.65 * sway_intensity)
+	
+	# Physically grounded cantilever deflection curve (quad/cubic power: base is rooted, top flexes)
+	for i in range(count):
+		var h_frac: float = float(i + 1) / float(count)
+		var curve: float = pow(h_frac, 1.85)
+		
+		var sway_offset = Vector3(
+			wind_x * max_top_deflection * curve,
+			0.0,
+			wind_z * max_top_deflection * curve
+		)
+		var sway_tilt = Vector3(
+			-wind_z * max_top_tilt * curve,
+			0.0,
+			wind_x * max_top_tilt * curve
+		)
+		
+		var b = stack[i]
+		if is_instance_valid(b) and b.has_method("apply_sway_offset"):
+			b.apply_sway_offset(sway_offset, sway_tilt)
+	
+	# Keep active cube slider and shadow guide harmonically synchronized with the top block's sway
+	if state in [GameState.READY, GameState.PLAYING] and is_instance_valid(slider):
+		var top_sway_offset = Vector3(
+			wind_x * max_top_deflection,
+			0.0,
+			wind_z * max_top_deflection
+		)
+		slider.current_target_center = current_target_pos + top_sway_offset
 
 func _trigger_game_over() -> void:
 	# Haptic vibration on Android
