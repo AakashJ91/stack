@@ -3667,28 +3667,26 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 		
 	else:
 		if active_challenge_id == "zen" and active_campaign_stage_id <= 0:
-			# ZEN MODE: No Game Over! Gently clamp and settle onto stack top
+			# ZEN MODE: Let the missed cube topple and fall, but DO NOT trigger Game Over!
 			combo = 0
-			score += 1
 			combo_label.visible = false
 			
-			var clamped_dist = min(dist, MAX_OVERHANG_DISTANCE * 0.90)
-			var clamped_dir = Vector2(dx, dz).normalized() if dist > 0.001 else Vector2(1, 0)
-			var settle_x = target_x + clamped_dir.x * clamped_dist
-			var settle_z = target_z + clamped_dir.y * clamped_dist
+			var topple_dir = Vector3(dx, 0, dz).normalized()
+			if topple_dir.length_squared() < 0.001:
+				topple_dir = Vector3.RIGHT
+			box.start_topple(topple_dir)
 			
-			# Snap box safely onto stack top
-			box.global_position = Vector3(settle_x, current_top_y + (BOX_SIZE.y * 0.5), settle_z)
-			current_target_pos = Vector3(settle_x, 0, settle_z)
-			
-			if stack.size() > 0 and is_instance_valid(stack.back()) and stack.back().has_method("absorb_impact"):
-				stack.back().absorb_impact()
-			
-			box.settle(false)
+			# Play soft land sound and slight screen shake
 			sound_mgr.play_land()
-			_spawn_sparkle_fx(box.global_position)
-			_show_task_toast("🧘 Zen Settle • Keep Flowing")
-			_on_box_placed_successfully(box)
+			trigger_screen_shake(0.2)
+			_show_task_toast("🧘 Missed • Keep Flowing")
+			
+			# Spawn next box after the missed block falls away
+			get_tree().create_timer(0.45).timeout.connect(func():
+				if state == GameState.DROPPING and active_challenge_id == "zen":
+					state = GameState.PLAYING
+					_spawn_next_box()
+			)
 			return
 
 		# MISSED - TOPPLE OFF TOWER!
