@@ -1476,7 +1476,6 @@ func show_main_menu() -> void:
 	# Setup attractive idling slider box over pedestal
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
-	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 0.85 * challenge_speed_multiplier
 	_pick_new_dynamic_palette_start(true)
 	_update_pedestal_color(false)
@@ -1495,6 +1494,7 @@ func _spawn_menu_preview_box() -> void:
 	var box_color = _get_box_shade(0)
 	new_box.set_color(box_color)
 	new_box.apply_skin(get_current_skin_config())
+	slider.set_target_level(current_top_y, current_target_pos, 0, true)
 	slider.attach_box(new_box)
 
 func _start_tap_pulse() -> void:
@@ -3483,7 +3483,9 @@ func _spawn_next_box() -> void:
 	new_box.landed.connect(_on_box_landed)
 	
 	# Update slider level and slide axis (alternates X and Z)
-	slider.set_target_level(current_top_y, current_target_pos, stack.size())
+	# When first block appears, slide in smoothly from the side
+	var is_first_block = (stack.size() == 0)
+	slider.set_target_level(current_top_y, current_target_pos, stack.size(), is_first_block)
 	slider.speed_multiplier = clamp((1.0 + (stack.size() * 0.03)) * challenge_speed_multiplier, 0.65, 3.2)
 	slider.attach_box(new_box)
 
@@ -4126,7 +4128,6 @@ func _finish_restart_game() -> void:
 	new_best_badge.visible = false
 	
 	# Initial slider level
-	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
 	
 	_spawn_next_box()

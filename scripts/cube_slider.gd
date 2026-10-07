@@ -20,6 +20,8 @@ var was_aligned: bool = false
 # 0 = X-axis (left-right in 3D), 1 = Z-axis (front-back in 3D)
 var current_axis: int = 0
 var current_slide_dir: Vector3 = Vector3.RIGHT
+var entry_offset: float = 0.0
+var entry_tween: Tween = null
 
 # Alignment guide / shadow projection
 var guide_mesh_instance: MeshInstance3D
@@ -77,7 +79,7 @@ func _setup_guide_projection() -> void:
 	sniper_reticle_instance.position = Vector3(0, 0.011, 0)
 	guide_mesh_instance.add_child(sniper_reticle_instance)
 
-func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> void:
+func set_target_level(top_y: float, target_center: Vector3, axis_index: int, slide_in_from_side: bool = false) -> void:
 	current_top_y = top_y
 	current_target_center = target_center
 	current_axis = axis_index % 2
@@ -90,7 +92,22 @@ func set_target_level(top_y: float, target_center: Vector3, axis_index: int) -> 
 	
 	# Start from outside the stack directly under the cube
 	current_time = -PI * 0.5
-	var start_offset = slide_amplitude * sin(current_time)
+	
+	if entry_tween:
+		entry_tween.kill()
+		entry_tween = null
+	
+	if slide_in_from_side:
+		entry_offset = -6.5 # Side offset so the block starts completely off-screen
+		entry_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(self, "entry_offset", 0.0, 0.65)
+		entry_tween.tween_callback(func():
+			entry_tween = null
+		)
+	else:
+		entry_offset = 0.0
+	
+	var start_offset = (slide_amplitude * sin(current_time)) + entry_offset
 	var start_pos = current_target_center + (current_slide_dir * start_offset)
 	var guide_y = current_top_y + (0.042 if current_top_y == 0.0 else 0.025)
 	_guide_smooth_pos = Vector3(start_pos.x, guide_y, start_pos.z)
@@ -103,6 +120,14 @@ func attach_box(box: Node3D) -> void:
 	current_box = box
 	box.state = box.BoxState.ATTACHED
 	was_aligned = false
+	
+	var offset = (slide_amplitude * sin(current_time)) + entry_offset
+	var hover_bob = sin(current_time * 3.4) * 0.08
+	var box_y = current_top_y + hover_height + (current_box.box_size.y * 0.5 if is_instance_valid(current_box) else 0.4) + hover_bob
+	var slide_pos = current_target_center + (current_slide_dir * offset)
+	slide_pos.y = box_y
+	box.global_position = slide_pos
+	
 	guide_mesh_instance.visible = true
 	if sniper_reticle_instance:
 		sniper_reticle_instance.visible = sniper_reticle_enabled
@@ -113,8 +138,8 @@ func _process(delta: float) -> void:
 	
 	current_time += delta * (base_speed * speed_multiplier)
 	
-	# Smooth oscillating slide: offset = amplitude * sin(time)
-	var offset = slide_amplitude * sin(current_time)
+	# Smooth oscillating slide: offset = amplitude * sin(time) + entry_offset
+	var offset = (slide_amplitude * sin(current_time)) + entry_offset
 	var velocity_factor = cos(current_time) # +1 to -1 indicating instantaneous velocity
 	
 	# Floating anti-gravity hover bobbing
@@ -172,6 +197,11 @@ func _process(delta: float) -> void:
 func release_box() -> Node3D:
 	if not is_instance_valid(current_box) or current_box.state != current_box.BoxState.ATTACHED:
 		return null
+	
+	if entry_tween:
+		entry_tween.kill()
+		entry_tween = null
+	entry_offset = 0.0
 	
 	var box = current_box
 	current_box = null
