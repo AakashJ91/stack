@@ -1129,8 +1129,8 @@ const CHALLENGES: Array[Dictionary] = [
 	},
 	{
 		"id": "zen",
-		"title": "🧘 Zen Harmony",
-		"desc": "Relaxed 0.72x tempo & forgiving alignment. Pure tranquility.",
+		"title": "🧘 Zen Mode",
+		"desc": "Relaxing lo-fi ambient soundtrack, no Game Over (infinite gentle stacking), & shifting palettes.",
 		"speed": 0.72,
 		"perf": 1.25
 	},
@@ -1414,6 +1414,8 @@ func _on_game_over_close_pressed() -> void:
 
 func show_main_menu() -> void:
 	state = GameState.MENU
+	if sound_mgr and sound_mgr.has_method("stop_zen_ambient"):
+		sound_mgr.stop_zen_ambient()
 	if _campaign_selected_stage_id <= 0:
 		_campaign_selected_stage_id = clampi(campaign_unlocked_stage, 1, CAMPAIGN_STAGES.size())
 	active_campaign_stage_id = 0
@@ -1548,6 +1550,12 @@ func start_game_from_menu() -> void:
 		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
 	else:
 		prompt_label.text = "TAP SCREEN TO DROP"
+	
+	# Zen mode ambient soundtrack
+	if active_challenge_id == "zen" and active_campaign_stage_id <= 0:
+		sound_mgr.start_zen_ambient()
+	else:
+		sound_mgr.stop_zen_ambient()
 	
 	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
 	if is_instance_valid(active_box):
@@ -2560,6 +2568,10 @@ func _open_challenge_drawer() -> void:
 			challenge_speed_multiplier = c_speed
 			challenge_perfect_multiplier = c_perf
 			sound_mgr.play_click()
+			if active_challenge_id == "zen" and state in [GameState.READY, GameState.PLAYING]:
+				sound_mgr.start_zen_ambient()
+			else:
+				sound_mgr.stop_zen_ambient()
 			if state == GameState.MENU:
 				slider.speed_multiplier = 0.85 * challenge_speed_multiplier
 			_open_challenge_drawer()
@@ -3654,6 +3666,31 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 		_on_box_placed_successfully(box)
 		
 	else:
+		if active_challenge_id == "zen" and active_campaign_stage_id <= 0:
+			# ZEN MODE: No Game Over! Gently clamp and settle onto stack top
+			combo = 0
+			score += 1
+			combo_label.visible = false
+			
+			var clamped_dist = min(dist, MAX_OVERHANG_DISTANCE * 0.90)
+			var clamped_dir = Vector2(dx, dz).normalized() if dist > 0.001 else Vector2(1, 0)
+			var settle_x = target_x + clamped_dir.x * clamped_dist
+			var settle_z = target_z + clamped_dir.y * clamped_dist
+			
+			# Snap box safely onto stack top
+			box.global_position = Vector3(settle_x, current_top_y + (BOX_SIZE.y * 0.5), settle_z)
+			current_target_pos = Vector3(settle_x, 0, settle_z)
+			
+			if stack.size() > 0 and is_instance_valid(stack.back()) and stack.back().has_method("absorb_impact"):
+				stack.back().absorb_impact()
+			
+			box.settle(false)
+			sound_mgr.play_land()
+			_spawn_sparkle_fx(box.global_position)
+			_show_task_toast("🧘 Zen Settle • Keep Flowing")
+			_on_box_placed_successfully(box)
+			return
+
 		# MISSED - TOPPLE OFF TOWER!
 		state = GameState.GAME_OVER
 		var topple_dir = Vector3(dx, 0, dz).normalized()
@@ -3704,6 +3741,16 @@ func _on_box_placed_successfully(box: Node3D) -> void:
 	
 	# Gently evolve background gradient as the tower ascends
 	_update_height_gradient_tint(stack.size())
+	
+	# Zen Mode: Continuous ambient palette transitions every 10 blocks
+	if active_challenge_id == "zen" and (stack.size() % 10) == 0:
+		palette_index = (palette_index + 1) % PALETTES.size()
+		var p_data = PALETTES[palette_index]
+		var top_c = p_data.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
+		var bot_c = p_data.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
+		_transition_gradient_background(top_c, bot_c)
+		_update_pedestal_color(true)
+		_show_task_toast("🌌 Atmosphere Shift: %s" % p_data.get("name", "New Palette"))
 	
 	# Campaign Stage Progression
 	if active_campaign_stage_id > 0:
@@ -4129,6 +4176,11 @@ func _finish_restart_game() -> void:
 	
 	# Initial slider level
 	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
+	
+	if active_challenge_id == "zen" and active_campaign_stage_id <= 0:
+		sound_mgr.start_zen_ambient()
+	else:
+		sound_mgr.stop_zen_ambient()
 	
 	_spawn_next_box()
 
