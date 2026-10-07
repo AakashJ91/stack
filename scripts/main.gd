@@ -677,6 +677,29 @@ const PALETTES: Array[Dictionary] = [
 ]
 var palette_index: int = 0
 var current_palette_start_hue: float = 0.58
+var current_palette_start_step: float = 0.0
+var _last_palette_start_idx: int = -1
+
+# Selects a fresh, dynamic starting color from the equipped skin color palette
+func _pick_new_dynamic_palette_start(force_change: bool = true) -> void:
+	var pal = PALETTES[palette_index % PALETTES.size()]
+	if pal.get("mode", "") == "rainbow":
+		var new_hue = randf()
+		if absf(new_hue - current_palette_start_hue) < 0.18:
+			new_hue = fmod(new_hue + 0.35 + randf_range(0.0, 0.3), 1.0)
+		current_palette_start_hue = new_hue
+		current_palette_start_step = 0.0
+	else:
+		var colors = pal.get("colors", []) as Array
+		var count = colors.size()
+		if count > 1:
+			var next_idx = randi() % count
+			if force_change and next_idx == _last_palette_start_idx:
+				next_idx = (next_idx + 1 + (randi() % (count - 1))) % count
+			_last_palette_start_idx = next_idx
+			current_palette_start_step = float(next_idx)
+		else:
+			current_palette_start_step = 0.0
 
 func _ready() -> void:
 	_setup_desktop_window_size()
@@ -687,6 +710,7 @@ func _ready() -> void:
 	load_exp_data()
 	load_campaign_data()
 	load_skin_data()
+	_pick_new_dynamic_palette_start(false)
 	_setup_lighting_and_env()
 	_setup_gradient_background()
 	_create_pedestal()
@@ -1454,7 +1478,9 @@ func show_main_menu() -> void:
 	current_target_pos = Vector3.ZERO
 	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 0.85 * challenge_speed_multiplier
+	_pick_new_dynamic_palette_start(true)
 	_update_pedestal_color(false)
+	_update_height_gradient_tint(0)
 	_spawn_menu_preview_box()
 
 func _spawn_menu_preview_box() -> void:
@@ -1495,6 +1521,10 @@ func start_game_from_menu() -> void:
 	tween.tween_callback(func():
 		main_menu.visible = false
 	)
+	
+	# Palette was already picked when showing the menu preview box — no re-pick needed
+	_update_pedestal_color(true)
+	_update_height_gradient_tint(0)
 	
 	score = 0
 	combo = 0
@@ -2410,12 +2440,14 @@ func _open_skins_drawer() -> void:
 				return
 			palette_index = chosen_idx
 			sound_mgr.play_click()
+			_pick_new_dynamic_palette_start(false)
 			var p_data = PALETTES[palette_index]
 			var top_c = p_data.get("bg_top", Color(0.08, 0.09, 0.18)) as Color
 			var bot_c = p_data.get("bg_bottom", Color(0.20, 0.14, 0.28)) as Color
 			_transition_gradient_background(top_c, bot_c)
 			_update_pedestal_color(true)
 			_update_active_skins_in_scene()
+			_update_height_gradient_tint(0)
 			_refresh_pal_tiles()
 			save_skin_data()
 		)
@@ -4062,7 +4094,11 @@ func _finish_restart_game() -> void:
 	# Initial slider level
 	slider.set_target_level(current_top_y, current_target_pos, 0)
 	slider.speed_multiplier = 1.0 * challenge_speed_multiplier
+	
+	# Start each restarted game with a fresh dynamic color from the selected skin color palette
+	_pick_new_dynamic_palette_start(true)
 	_update_pedestal_color(false)
+	_update_height_gradient_tint(0)
 	
 	_spawn_next_box()
 
@@ -4137,16 +4173,18 @@ func _on_window_resized() -> void:
 # Generates smooth, vibrant gradient colors through curated designer palettes or prismatic rainbow
 func _get_box_shade(index: int) -> Color:
 	var pal = PALETTES[palette_index % PALETTES.size()]
-	if pal["mode"] == "rainbow":
-		var h = fmod(current_palette_start_hue + index * float(pal["speed"]), 1.0)
-		var c = Color.from_hsv(h, float(pal["sat"]), float(pal["val"]))
+	if pal.get("mode", "") == "rainbow":
+		var h = fmod(current_palette_start_hue + index * float(pal.get("speed", 0.026)), 1.0)
+		var c = Color.from_hsv(h, float(pal.get("sat", 0.54)), float(pal.get("val", 0.92)))
 		if pal.has("alpha"):
 			c.a = float(pal["alpha"])
 		return c
 	else:
-		var colors = pal["colors"] as Array
+		var colors = pal.get("colors", []) as Array
 		var count = colors.size()
-		var step = index * 0.22 # Smooth transition every ~4-5 blocks
+		if count == 0:
+			return Color.WHITE
+		var step = current_palette_start_step + (index * 0.22) # Smooth transition every ~4-5 blocks
 		var idx = int(step) % count
 		var next_idx = (idx + 1) % count
 		var t = fmod(step, 1.0)
