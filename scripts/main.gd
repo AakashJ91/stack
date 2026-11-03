@@ -39,6 +39,9 @@ var tower_sway_time: float = 0.0
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 const BASE_CAMERA_SIZE: float = 12.8
+const HOME_PLATFORM_CAMERA_OFFSET: float = 2.4 # Lowers platform on Home page and during gameplay
+const PREVIEW_DRAWER_CAMERA_OFFSET: float = -1.6 # Raises platform higher for Skins & Challenges preview
+const SINK_PLATFORM_CAMERA_OFFSET: float = 12.0 # Sinks platform below screen for Campaign & Experience tabs
 var target_camera_y: float = 0.0
 var base_camera_pivot_y: float = 0.0
 var target_camera_x: float = 0.0
@@ -238,10 +241,10 @@ const SKINS: Array[Dictionary] = [
 		"icon": "🪞",
 		"desc": "Liquid mirror chrome cube with real-time environment reflections, studio highlights, and high-gloss sheen.",
 		"type": "textured",
-		"strength": 0.65,
+		"strength": 0.45,
 		"emission": 0.0,
-		"roughness": 0.02,
-		"metallic": 0.90,
+		"roughness": 0.015,
+		"metallic": 0.10,
 		"reflection_strength": 0.95,
 		"uv_scale": Vector2(0.50, 0.50)
 	},
@@ -717,9 +720,10 @@ func _ready() -> void:
 	_create_pedestal()
 	_setup_realistic_fog_sheets()
 	base_camera_pivot_y = camera_pivot.position.y
-	target_camera_y = base_camera_pivot_y
+	target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
 	target_camera_x = camera_pivot.position.x
 	target_camera_z = camera_pivot.position.z
+	camera_pivot.position = Vector3(0.0, target_camera_y, 0.0)
 	
 	slider.box_released.connect(_on_box_released)
 	if slider.has_method("set_sniper_reticle_enabled"):
@@ -942,27 +946,31 @@ func _update_pedestal_color(animate: bool = false) -> void:
 	var rim_dark = first_color.darkened(0.38)
 	rim_dark.a = 1.0
 	
-	if is_instance_valid(pedestal_mat):
-		if animate and bg_tween:
+	if animate:
+		var p_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if is_instance_valid(pedestal_mat):
 			var cur_top = pedestal_mat.get_shader_parameter("top_color")
 			if cur_top == null:
 				cur_top = base_dark
-			bg_tween.tween_method(func(c: Color):
+			p_tween.tween_method(func(c: Color):
 				if is_instance_valid(pedestal_mat):
 					pedestal_mat.set_shader_parameter("top_color", c)
 			, cur_top, base_dark, 0.7)
-		else:
+		if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
+			var rm = pedestal_rim.material_override as StandardMaterial3D
+			p_tween.tween_property(rm, "albedo_color", rim_dark, 0.7)
+			rm.emission_enabled = false
+			rm.roughness = 0.50
+			rm.metallic = 0.10
+	else:
+		if is_instance_valid(pedestal_mat):
 			pedestal_mat.set_shader_parameter("top_color", base_dark)
-	
-	if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
-		var rm = pedestal_rim.material_override as StandardMaterial3D
-		if animate and bg_tween:
-			bg_tween.tween_property(rm, "albedo_color", rim_dark, 0.7)
-		else:
+		if is_instance_valid(pedestal_rim) and pedestal_rim.material_override:
+			var rm = pedestal_rim.material_override as StandardMaterial3D
 			rm.albedo_color = rim_dark
-		rm.emission_enabled = false
-		rm.roughness = 0.50
-		rm.metallic = 0.10
+			rm.emission_enabled = false
+			rm.roughness = 0.50
+			rm.metallic = 0.10
 
 func _setup_pedestal_mist() -> void:
 	pedestal_mist_particles = CPUParticles3D.new()
@@ -1435,11 +1443,11 @@ func show_main_menu() -> void:
 		active_box.queue_free()
 		active_box = null
 	
-	# Reset camera to starting position
-	target_camera_y = base_camera_pivot_y
+	# Reset camera to starting position (lower on home page)
+	target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
 	target_camera_x = 0.0
 	target_camera_z = 0.0
-	camera_pivot.position = Vector3(0.0, base_camera_pivot_y, 0.0)
+	camera_pivot.position = Vector3(0.0, target_camera_y, 0.0)
 	_on_window_resized()
 	
 	# Hide in-game HUD & Game Over panel
@@ -1535,6 +1543,7 @@ func start_game_from_menu() -> void:
 	_last_awarded_bonus_stack = 100
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
+	target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
 	
 	score_label.text = "0"
 	score_label.visible = true
@@ -1620,6 +1629,16 @@ func _set_active_tab(tab_name: String) -> void:
 	if tab_name == "levels":
 		tab_name = "exp"
 	active_ribbon_tab = tab_name
+	
+	if state == GameState.MENU:
+		if active_ribbon_tab == "home":
+			target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
+		elif active_ribbon_tab == "skin" or active_ribbon_tab == "challenge":
+			target_camera_y = base_camera_pivot_y + PREVIEW_DRAWER_CAMERA_OFFSET
+		elif active_ribbon_tab == "campaign" or active_ribbon_tab == "exp":
+			target_camera_y = base_camera_pivot_y + SINK_PLATFORM_CAMERA_OFFSET
+		else:
+			target_camera_y = base_camera_pivot_y
 	
 	# Simple square white box style for the active ribbon tab (stays permanently on clicked tab)
 	var active_style = StyleBoxFlat.new()
@@ -3736,7 +3755,7 @@ func _on_box_placed_successfully(box: Node3D) -> void:
 	_animate_score_bump()
 	
 	# Pan camera up smoothly
-	target_camera_y = base_camera_pivot_y + current_top_y * 0.95
+	target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET + current_top_y * 0.95
 	
 	# Gently evolve background gradient as the tower ascends
 	_update_height_gradient_tint(stack.size())
@@ -3848,24 +3867,24 @@ func _process(delta: float) -> void:
 		else:
 			_scroll_velocity_y = 0.0
 
-	# Vertical camera tracking follows the rising stack
-	camera_pivot.position.y = lerp(camera_pivot.position.y, target_camera_y, delta * 3.5)
-	
-	# Horizontal camera tracking: only adjust if the stack drifts towards screen boundaries
-	if state != GameState.GAME_OVER and is_instance_valid(camera):
-		var stack_top = Vector3(current_target_pos.x, current_top_y + (BOX_SIZE.y * 0.5), current_target_pos.z)
-		var screen_pos = camera.unproject_position(stack_top)
-		var vp_size = get_viewport().get_visible_rect().size
-		if vp_size.x > 0.0 and vp_size.y > 0.0:
-			var norm_x = screen_pos.x / vp_size.x
-			# If stack top drifts past comfortable framing boundaries (outside 35% - 65% of screen width),
-			# adjust target horizontal camera coordinates to re-center the stack
-			if norm_x < 0.35 or norm_x > 0.65:
-				target_camera_x = current_target_pos.x
-				target_camera_z = current_target_pos.z
-	
-	camera_pivot.position.x = lerp(camera_pivot.position.x, target_camera_x, delta * 3.0)
-	camera_pivot.position.z = lerp(camera_pivot.position.z, target_camera_z, delta * 3.0)
+	# Vertical & horizontal camera tracking follows the rising stack (disabled during active restart tween)
+	if not _is_restarting:
+		var cam_lerp_speed: float = 4.5 if state == GameState.MENU else 3.5
+		camera_pivot.position.y = lerp(camera_pivot.position.y, target_camera_y, delta * cam_lerp_speed)
+		
+		# Horizontal camera tracking: only adjust if the stack drifts towards screen boundaries
+		if state != GameState.GAME_OVER and is_instance_valid(camera):
+			var stack_top = Vector3(current_target_pos.x, current_top_y + (BOX_SIZE.y * 0.5), current_target_pos.z)
+			var screen_pos = camera.unproject_position(stack_top)
+			var vp_size = get_viewport().get_visible_rect().size
+			if vp_size.x > 0.0 and vp_size.y > 0.0:
+				var norm_x = screen_pos.x / vp_size.x
+				if norm_x < 0.35 or norm_x > 0.65:
+					target_camera_x = current_target_pos.x
+					target_camera_z = current_target_pos.z
+		
+		camera_pivot.position.x = lerp(camera_pivot.position.x, target_camera_x, delta * 3.0)
+		camera_pivot.position.z = lerp(camera_pivot.position.z, target_camera_z, delta * 3.0)
 	
 	# Screen shake decay
 	if screen_shake_trauma > 0.0:
@@ -4131,6 +4150,27 @@ func restart_game() -> void:
 	if is_instance_valid(pedestal_mist_particles):
 		pedestal_drop_tween.tween_property(pedestal_mist_particles, "position:y", -6.0 - drop_offset, 0.55)
 	
+	# Calculate target camera size for normal view
+	var aspect_mult = 1.0
+	var win_size = get_viewport().get_visible_rect().size
+	if win_size.y > 0.0:
+		var aspect = win_size.x / win_size.y
+		if aspect < 0.5625:
+			aspect_mult = 0.5625 / aspect
+	var normal_camera_size = BASE_CAMERA_SIZE * aspect_mult
+	var home_cam_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
+	target_camera_y = home_cam_y
+	target_camera_x = 0.0
+	target_camera_z = 0.0
+	
+	# While blocks collapse, camera smoothly descends to the ground baseline
+	if max_collapse_time > 0.0:
+		var cam_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		cam_tween.tween_property(camera, "size", normal_camera_size, max_collapse_time * 0.92)
+		cam_tween.tween_property(camera_pivot, "position:y", home_cam_y, max_collapse_time * 0.92)
+		cam_tween.tween_property(camera_pivot, "position:x", 0.0, max_collapse_time * 0.92)
+		cam_tween.tween_property(camera_pivot, "position:z", 0.0, max_collapse_time * 0.92)
+	
 	# 2. Only after blocks finish collapsing, update dynamic color and start pedestal entry
 	_restart_tween = create_tween()
 	if max_collapse_time > 0.0:
@@ -4163,25 +4203,29 @@ func _start_pedestal_entry() -> void:
 		if aspect < 0.5625:
 			aspect_mult = 0.5625 / aspect
 	var normal_camera_size = BASE_CAMERA_SIZE * aspect_mult
+	var home_cam_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
+	target_camera_y = home_cam_y
+	target_camera_x = 0.0
+	target_camera_z = 0.0
 	
-	# Animate camera returning to ground and main base rising smoothly from the bottom
+	# Animate camera and main base rising smoothly into the lower starting position
 	var entry_tween = create_tween().set_parallel(true)
 	_restart_tween = entry_tween
 	
-	# Camera returns smoothly to base with matching cinematic timing
+	# Camera settles smoothly at baseline with matching timing
 	entry_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	entry_tween.tween_property(camera, "size", normal_camera_size, 0.75)
-	entry_tween.tween_property(self, "target_camera_y", base_camera_pivot_y, 0.75)
-	entry_tween.tween_property(self, "target_camera_x", 0.0, 0.75)
-	entry_tween.tween_property(self, "target_camera_z", 0.0, 0.75)
+	entry_tween.tween_property(camera, "size", normal_camera_size, 0.65)
+	entry_tween.tween_property(camera_pivot, "position:y", home_cam_y, 0.65)
+	entry_tween.tween_property(camera_pivot, "position:x", 0.0, 0.65)
+	entry_tween.tween_property(camera_pivot, "position:z", 0.0, 0.65)
 	
-	# Main base rises up smoothly from bottom
+	# Main base rises up smoothly from bottom directly into lower starting position (no TRANS_BACK overshoot)
 	if is_instance_valid(base_pedestal):
-		entry_tween.tween_property(base_pedestal, "position:y", -12.0, 0.70).set_delay(0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(base_pedestal, "position:y", -12.0, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(pedestal_rim):
-		entry_tween.tween_property(pedestal_rim, "position:y", 0.0, 0.70).set_delay(0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(pedestal_rim, "position:y", 0.0, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(pedestal_mist_particles):
-		entry_tween.tween_property(pedestal_mist_particles, "position:y", -6.0, 0.70).set_delay(0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		entry_tween.tween_property(pedestal_mist_particles, "position:y", -6.0, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	
 	# When the main base has risen into place, start game
 	entry_tween.chain().tween_callback(func():
@@ -4197,10 +4241,10 @@ func _finish_restart_game() -> void:
 	_last_awarded_bonus_stack = 100
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
-	target_camera_y = base_camera_pivot_y
+	target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
 	target_camera_x = 0.0
 	target_camera_z = 0.0
-	camera_pivot.position = Vector3(0.0, base_camera_pivot_y, 0.0)
+	camera_pivot.position = Vector3(0.0, target_camera_y, 0.0)
 	_on_window_resized()
 	
 	main_menu.visible = false

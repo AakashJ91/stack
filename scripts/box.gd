@@ -101,69 +101,101 @@ void fragment() {
 	// 5. Vertical soft volumetric shading
 	float vert_shade = (v_local_pos.y / box_half_size.y) * 0.04;
 	
+	// Mirror-finish suppressions: pristine glass/chrome surfaces have zero dirty grain,
+	// clean edge separation instead of muddy ambient occlusion, and diamond-cut specular bevels
+	float eff_ao = mix(ao, mix(0.92, 1.0, ao_t), reflection_strength);
+	float eff_grain = grain * (1.0 - reflection_strength);
+	float eff_inset = top_inset * (1.0 - reflection_strength);
+	float eff_vert = vert_shade * (1.0 - reflection_strength * 0.85);
+	float mirror_edge_gleam = chamfer * mix(1.0, 5.5, reflection_strength);
+	
 	// 6. Skin Texture Sampling & Dynamic Blending
 	vec3 base_rgb = base_color.rgb;
 	float skin_spec = 1.0;
 	vec3 skin_emit = vec3(0.0);
+	vec3 tex_sheen = vec3(0.0);
 	
 	if (skin_texture_strength > 0.001) {
 		vec4 skin_tex_val = texture(skin_texture, uv * uv_scale);
-		vec3 tinted_tex = base_rgb * skin_tex_val.rgb;
-		base_rgb = mix(base_rgb, tinted_tex, skin_texture_strength);
-		skin_spec = mix(1.0, skin_tex_val.a, skin_texture_strength * 0.35);
-		if (skin_emission_strength > 0.001) {
-			skin_emit = base_color.rgb * (skin_tex_val.a * skin_emission_strength);
+		if (reflection_strength > 0.001) {
+			// For reflective mirror: texture contributes chromatic sheen streaks & micro-specular gloss
+			tex_sheen = (skin_tex_val.rgb - 0.5) * (skin_texture_strength * 0.6);
+			skin_spec = mix(1.0, skin_tex_val.a, skin_texture_strength * 0.5);
+		} else {
+			vec3 tinted_tex = base_rgb * skin_tex_val.rgb;
+			base_rgb = mix(base_rgb, tinted_tex, skin_texture_strength);
+			skin_spec = mix(1.0, skin_tex_val.a, skin_texture_strength * 0.35);
+			if (skin_emission_strength > 0.001) {
+				skin_emit = base_color.rgb * (skin_tex_val.a * skin_emission_strength);
+			}
 		}
 	}
 	
-	// 7. Dynamic Studio & Horizon Reflection for Reflective Cube
+	// 7. Dynamic Liquid Mirror & Studio HDR Reflection for Reflective Cube
+	vec3 chrome_emission = vec3(0.0);
 	if (reflection_strength > 0.001) {
 		vec3 norm = normalize(v_world_normal);
 		vec3 view = normalize(v_view_dir);
 		vec3 refl_dir = reflect(-view, norm);
 		
-		// Horizon & atmospheric environment gradient
-		float horizon = smoothstep(-0.25, 0.20, refl_dir.y);
-		vec3 sky_zenith = vec3(0.18, 0.28, 0.52);
-		vec3 sky_horizon = vec3(0.85, 0.92, 1.0);
-		vec3 sky_env = mix(sky_horizon, sky_zenith, clamp(refl_dir.y, 0.0, 1.0));
-		vec3 ground_env = mix(vec3(0.06, 0.08, 0.12), vec3(0.24, 0.28, 0.36), clamp(-refl_dir.y, 0.0, 1.0));
+		// 1. Horizon & atmospheric studio environment
+		float horizon = smoothstep(-0.22, 0.18, refl_dir.y);
+		vec3 sky_zenith = vec3(0.20, 0.35, 0.62);
+		vec3 sky_horizon = vec3(0.88, 0.94, 1.0);
+		vec3 sky_env = mix(sky_horizon, sky_zenith, clamp(refl_dir.y * 1.3, 0.0, 1.0));
+		vec3 ground_env = mix(vec3(0.05, 0.06, 0.09), vec3(0.20, 0.22, 0.28), clamp(-refl_dir.y * 1.5, 0.0, 1.0));
 		vec3 env_base = mix(ground_env, sky_env, horizon);
 		
-		// Studio softbox light reflections (crisp architectural reflection bands)
-		vec3 s1_dir = normalize(vec3(0.40, 0.75, 0.52));
+		// 2. Razor-sharp chrome horizon stripe (signature liquid metal glint)
+		float horiz_glint = exp(-abs(refl_dir.y) * 14.0) * 0.85;
+		
+		// 3. Multi-source architectural studio softbox reflections
+		vec3 s1_dir = normalize(vec3(0.42, 0.78, 0.46));
 		float s1_dot = max(dot(refl_dir, s1_dir), 0.0);
-		float softbox1 = pow(s1_dot, 20.0) * 1.5 + pow(s1_dot, 72.0) * 2.5;
+		float softbox1 = pow(s1_dot, 16.0) * 1.8 + pow(s1_dot, 72.0) * 3.4;
 		
-		vec3 s2_dir = normalize(vec3(-0.60, 0.50, -0.62));
+		vec3 s2_dir = normalize(vec3(-0.58, 0.48, -0.66));
 		float s2_dot = max(dot(refl_dir, s2_dir), 0.0);
-		float softbox2 = pow(s2_dot, 28.0) * 1.1 + pow(s2_dot, 90.0) * 1.8;
+		float softbox2 = pow(s2_dot, 22.0) * 1.3 + pow(s2_dot, 85.0) * 2.5;
 		
-		vec3 s3_dir = normalize(vec3(0.10, 0.96, -0.25));
+		vec3 s3_dir = normalize(vec3(0.12, 0.96, -0.22));
 		float s3_dot = max(dot(refl_dir, s3_dir), 0.0);
-		float softbox3 = pow(s3_dot, 36.0) * 1.2;
+		float softbox3 = pow(s3_dot, 30.0) * 1.4;
 		
-		vec3 studio_highlights = vec3(1.0, 0.98, 0.95) * (softbox1 + softbox2 + softbox3);
-		vec3 reflection_rgb = env_base + studio_highlights;
+		vec3 studio_highlights = vec3(1.0, 0.99, 0.97) * (softbox1 + softbox2 + softbox3);
 		
-		// Fresnel reflection glaze (stronger at glancing angles)
+		// 4. Subtle dynamic liquid sheen sweep across mirror faces
+		float sheen_wave = sin((v_local_pos.x * 0.75 + v_local_pos.z * 0.75 + v_local_pos.y * 1.1) * 3.14159 + (refl_dir.x + refl_dir.z) * 2.8);
+		float sheen_band = pow(clamp(sheen_wave * 0.5 + 0.5, 0.0, 1.0), 10.0) * 0.35;
+		
+		// 5. Chromatic mirror color fusion:
+		// Midtones & environment are richly infused with the tower's vibrant pastel palette
+		vec3 palette_tint = base_rgb * 1.45 + vec3(0.08);
+		vec3 chrome_body = mix(env_base, env_base * palette_tint + base_rgb * 0.28, 0.68);
+		
+		// Luminous pure silver-white highlights & streaks
+		vec3 specular_chrome = studio_highlights + vec3(horiz_glint) + vec3(sheen_band) + tex_sheen;
+		vec3 full_mirror_rgb = chrome_body + specular_chrome;
+		
+		// High specular reflectance across all angles (true mirror F0 ~ 0.85)
 		float NdotV = max(dot(norm, view), 0.0);
-		float fresnel = 0.35 + 0.65 * pow(1.0 - NdotV, 3.5);
+		float mirror_reflectance = mix(0.85, 1.0, pow(1.0 - NdotV, 3.0));
+		base_rgb = mix(base_rgb, full_mirror_rgb, reflection_strength * mirror_reflectance);
 		
-		// Tinted reflection: metallic mirror tints with cube's base pastel color
-		vec3 tinted_refl = mix(reflection_rgb, reflection_rgb * base_rgb * 1.35, metallic);
-		base_rgb = mix(base_rgb, tinted_refl, reflection_strength * clamp(fresnel, 0.0, 1.0));
+		// Route luminous chrome highlights and bevel sparkle to emission for bloom
+		chrome_emission = (studio_highlights * 0.50 + vec3(horiz_glint * 0.38) + vec3(mirror_edge_gleam * 0.85)) * mix(vec3(1.0), base_color.rgb, 0.35) * reflection_strength;
 	}
 	
-	vec3 col = base_rgb * ao + vec3(chamfer) + vec3(grain) + vec3(top_inset) + vec3(vert_shade);
+	vec3 col = base_rgb * eff_ao + vec3(mirror_edge_gleam) + vec3(eff_grain) + vec3(eff_inset) + vec3(eff_vert);
 	ALBEDO = clamp(col, vec3(0.0), vec3(1.0));
 	
-	float min_r = mix(0.08, 0.02, reflection_strength);
-	ROUGHNESS = clamp(mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t) * skin_spec, min_r, 0.95);
-	METALLIC = clamp(mix(metallic, max(metallic, 0.88), reflection_strength), 0.0, 1.0);
-	SPECULAR = mix(0.55, 0.95, reflection_strength);
+	// Keep METALLIC balanced (0.10) so Godot PBR preserves rich diffuse ALBEDO,
+	// while keeping ROUGHNESS at pristine 0.012 mirror-finish and maximum SPECULAR
+	ROUGHNESS = clamp(mix(mix(roughness * 0.65, roughness * 1.15, 1.0 - ao_t) * skin_spec, 0.012, reflection_strength), 0.01, 0.95);
+	METALLIC = clamp(mix(metallic, 0.10, reflection_strength), 0.0, 1.0);
+	SPECULAR = mix(0.55, 1.0, reflection_strength);
 	
-	vec3 total_emission = skin_emit;
+	vec3 total_emission = skin_emit + chrome_emission;
 	if (emission_energy > 0.001) {
 		total_emission += emission_color.rgb * emission_energy;
 	}

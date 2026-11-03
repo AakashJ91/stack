@@ -3,48 +3,55 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 def generate_reflective(size=512):
-    print("Generating seamless Reflective Chrome / Mirror texture...")
-    np.random.seed(777)
-    
-    # 1. Coordinate grids
-    x = np.arange(size, dtype=np.float32)
-    y = np.arange(size, dtype=np.float32)
+    """
+    Generates a seamless, high-dynamic-range Reflective Mirror / Chrome texture.
+    Features:
+    - Seamless diagonal studio reflection softbox bands
+    - Subtle optical chromatic dispersion prism fringe along reflection edges
+    - High-gloss specular alpha map for razor-sharp chrome reflections
+    """
+    print("Generating seamless Reflective Mirror / Chrome texture...")
+    np.random.seed(42)
+    x = np.linspace(0, 2 * np.pi, size, endpoint=False)
+    y = np.linspace(0, 2 * np.pi, size, endpoint=False)
     xx, yy = np.meshgrid(x, y)
     
-    # 2. Seamless periodic angle coordinates for mirror sheen
-    # Diagonal studio soft reflection bands (period matching texture wrap)
-    diag1 = (xx + yy * 0.75) / size
-    # 3 major reflection bands across diagonal
-    streak1 = np.sin(diag1 * np.pi * 4.0) * 0.5 + 0.5
-    streak1 = np.power(streak1, 4.0) * 0.18
+    # 1. Seamless diagonal studio reflection banks
+    # Primary softbox light band angled at 45 degrees
+    diag1 = xx + yy
+    # 2 smooth broad studio highlights across the tile
+    band1 = np.sin(diag1 * 2.0) * 0.5 + 0.5
+    band1 = np.power(band1, 6.0)
     
-    # Counter-diagonal secondary highlight band
-    diag2 = (xx * 0.65 - yy) / size
-    streak2 = np.sin(diag2 * np.pi * 6.0 + 0.8) * 0.5 + 0.5
-    streak2 = np.power(streak2, 5.0) * 0.12
+    # Secondary counter-diagonal rim highlight
+    diag2 = xx - yy
+    band2 = np.sin(diag2 * 3.0 + 1.2) * 0.5 + 0.5
+    band2 = np.power(band2, 8.0) * 0.65
     
-    # 3. Ultra-subtle liquid mirror undulating micro-reflection
-    # Using seamless sine/cosine harmonics
-    liquid_wave = (
-        np.sin(xx * (2 * np.pi / size) * 2.0) * np.cos(yy * (2 * np.pi / size) * 2.0) * 0.03 +
-        np.sin((xx + yy) * (2 * np.pi / size) * 4.0) * 0.02
-    )
+    # Combined studio streaks
+    total_streaks = band1 + band2
     
-    # 4. Chrome albedo: near-pure silver/white (0.86 to 0.98)
-    albedo = np.clip(0.88 + streak1 + streak2 + liquid_wave, 0.0, 1.0)
+    # 2. Chromatic optical dispersion on edges (prism fringe like luxury glass coating)
+    r_channel = np.power(np.sin(diag1 * 2.0 + 0.08) * 0.5 + 0.5, 6.0) + band2 * 0.95
+    g_channel = total_streaks
+    b_channel = np.power(np.sin(diag1 * 2.0 - 0.08) * 0.5 + 0.5, 6.0) + band2 * 1.05
     
-    # 5. Mirror specular gloss in Alpha: nearly 1.0 everywhere, peaking at reflection streaks
-    spec = np.clip(0.92 + streak1 * 0.35 + streak2 * 0.25, 0.0, 1.0)
+    # Base neutral silver tone (centered around 0.5 so it brightens highlights smoothly)
+    r_val = np.clip(0.48 + r_channel * 0.50, 0.0, 1.0)
+    g_val = np.clip(0.50 + g_channel * 0.48, 0.0, 1.0)
+    b_val = np.clip(0.52 + b_channel * 0.46, 0.0, 1.0)
+    
+    # Alpha channel: Ultra-high specular gloss map (0.92 to 1.0)
+    alpha_val = np.clip(0.92 + total_streaks * 0.08, 0.0, 1.0)
     
     arr = np.zeros((size, size, 4), dtype=np.uint8)
-    # Neutral platinum/silver tone: R=0.98, G=0.99, B=1.00
-    arr[:, :, 0] = np.clip(albedo * 0.98 * 255.0, 0, 255).astype(np.uint8)
-    arr[:, :, 1] = np.clip(albedo * 0.99 * 255.0, 0, 255).astype(np.uint8)
-    arr[:, :, 2] = np.clip(albedo * 1.00 * 255.0, 0, 255).astype(np.uint8)
-    arr[:, :, 3] = np.clip(spec * 255.0, 0, 255).astype(np.uint8)
+    arr[:, :, 0] = (r_val * 255.0).astype(np.uint8)
+    arr[:, :, 1] = (g_val * 255.0).astype(np.uint8)
+    arr[:, :, 2] = (b_val * 255.0).astype(np.uint8)
+    arr[:, :, 3] = (alpha_val * 255.0).astype(np.uint8)
     
     pil_img = Image.fromarray(arr, mode="RGBA")
-    pil_img = pil_img.filter(ImageFilter.GaussianBlur(radius=0.5))
+    pil_img = pil_img.filter(ImageFilter.GaussianBlur(radius=1.0))
     pil_img.save("textures/skin_reflective.png")
     print("Saved textures/skin_reflective.png successfully!")
 
