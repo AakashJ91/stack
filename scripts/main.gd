@@ -25,6 +25,11 @@ var _level_cleared_time: int = 0
 var _active_confetti_emitters: Array[CPUParticles2D] = []
 var _last_awarded_bonus_stack: int = 100
 
+# Typography
+const FONT_BOLD = preload("res://fonts/Poppins-Bold.ttf")
+const FONT_SEMIBOLD = preload("res://fonts/Poppins-SemiBold.ttf")
+const FONT_MEDIUM = preload("res://fonts/Poppins-Medium.ttf")
+
 const BOX_SIZE: Vector3 = Vector3(2.4, 0.8, 2.4)
 const PERFECT_THRESHOLD: float = 0.22
 const MAX_OVERHANG_DISTANCE: float = 1.15
@@ -738,11 +743,94 @@ func _ready() -> void:
 		game_over_close_btn.pressed.connect(_on_game_over_close_pressed)
 		game_over_close_btn.visible = false
 	
+	_setup_modern_ui_styling()
 	_setup_exp_badge()
 	_setup_ribbon_listeners()
 	_setup_level_cleared_ui()
 	_set_active_tab("home")
 	show_main_menu()
+
+func _setup_modern_ui_styling() -> void:
+	# Typography Hierarchy: apply clean Poppins geometric font
+	if is_instance_valid(game_title):
+		game_title.add_theme_font_override("font", FONT_BOLD)
+		game_title.add_theme_font_size_override("font_size", 54)
+		game_title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
+		game_title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.35))
+		game_title.add_theme_constant_override("shadow_offset_y", 2)
+	if is_instance_valid(menu_best_score):
+		menu_best_score.add_theme_font_override("font", FONT_SEMIBOLD)
+		menu_best_score.add_theme_font_size_override("font_size", 16)
+		menu_best_score.add_theme_color_override("font_color", Color(0.72, 0.78, 0.90, 0.85))
+	if is_instance_valid(score_label):
+		score_label.add_theme_font_override("font", FONT_BOLD)
+		score_label.add_theme_font_size_override("font_size", 76)
+		score_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.96))
+		score_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.40))
+		score_label.add_theme_constant_override("shadow_offset_y", 3)
+	if is_instance_valid(combo_label):
+		combo_label.add_theme_font_override("font", FONT_BOLD)
+		combo_label.add_theme_font_size_override("font_size", 26)
+	if is_instance_valid(prompt_label):
+		prompt_label.add_theme_font_override("font", FONT_SEMIBOLD)
+		prompt_label.add_theme_font_size_override("font_size", 20)
+		prompt_label.add_theme_color_override("font_color", Color(0.85, 0.90, 1.0, 0.85))
+	if is_instance_valid(drawer_title):
+		drawer_title.add_theme_font_override("font", FONT_BOLD)
+		drawer_title.add_theme_font_size_override("font_size", 18)
+		drawer_title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
+	if is_instance_valid(tap_to_play_label):
+		tap_to_play_label.add_theme_font_override("font", FONT_BOLD)
+		tap_to_play_label.add_theme_font_size_override("font_size", 16)
+	if is_instance_valid(final_score_label):
+		final_score_label.add_theme_font_override("font", FONT_BOLD)
+	if is_instance_valid(best_score_label):
+		best_score_label.add_theme_font_override("font", FONT_BOLD)
+	if is_instance_valid(new_best_badge):
+		new_best_badge.add_theme_font_override("font", FONT_BOLD)
+	var restart_btn = $UI/GameOverPanel/VBox/RestartBtn as Button
+	if is_instance_valid(restart_btn):
+		restart_btn.add_theme_font_override("font", FONT_BOLD)
+	if is_instance_valid(home_btn):
+		home_btn.add_theme_font_override("font", FONT_BOLD)
+	
+	# Circular glass styling for floating action buttons
+	var circle_style = StyleBoxFlat.new()
+	circle_style.bg_color = Color(0.06, 0.08, 0.14, 0.72)
+	circle_style.set_corner_radius_all(20)
+	circle_style.set_border_width_all(1)
+	circle_style.border_color = Color(1.0, 1.0, 1.0, 0.16)
+	circle_style.shadow_color = Color(0, 0, 0, 0.28)
+	circle_style.shadow_size = 6
+	
+	var circle_hover = circle_style.duplicate() as StyleBoxFlat
+	circle_hover.bg_color = Color(0.18, 0.22, 0.32, 0.90)
+	circle_hover.border_color = Color(1.0, 1.0, 1.0, 0.38)
+	
+	var round_btns = [sound_btn, play_close_btn, game_over_close_btn, close_drawer_btn]
+	for b in round_btns:
+		if is_instance_valid(b):
+			b.flat = false
+			b.focus_mode = Control.FOCUS_NONE
+			b.add_theme_stylebox_override("normal", circle_style)
+			b.add_theme_stylebox_override("hover", circle_hover)
+			b.add_theme_stylebox_override("pressed", circle_hover)
+			b.add_theme_stylebox_override("focus", circle_style)
+			b.pivot_offset = b.size * 0.5
+	
+	# Modern glass dock for bottom ribbon
+	if is_instance_valid(bottom_ribbon):
+		var rib_style = StyleBoxFlat.new()
+		rib_style.bg_color = Color(0.04, 0.05, 0.08, 0.90)
+		rib_style.set_border_width_all(0)
+		rib_style.border_width_top = 1
+		rib_style.border_color = Color(1.0, 1.0, 1.0, 0.12)
+		rib_style.corner_radius_top_left = 20
+		rib_style.corner_radius_top_right = 20
+		rib_style.shadow_color = Color(0, 0, 0, 0.40)
+		rib_style.shadow_size = 14
+		rib_style.shadow_offset = Vector2(0, -3)
+		bottom_ribbon.add_theme_stylebox_override("panel", rib_style)
 
 func _setup_gradient_background() -> void:
 	bg_quad = MeshInstance3D.new()
@@ -1217,6 +1305,7 @@ func _setup_exp_badge() -> void:
 	exp_badge_btn.add_theme_stylebox_override("pressed", style_hover)
 	exp_badge_btn.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
 	exp_badge_btn.add_theme_font_size_override("font_size", 14)
+	exp_badge_btn.add_theme_font_override("font", FONT_BOLD)
 	
 	exp_badge_btn.pressed.connect(func():
 		sound_mgr.play_click()
@@ -1337,6 +1426,7 @@ func _show_task_toast(message: String) -> void:
 		
 		_toast_label = Label.new()
 		_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_toast_label.add_theme_font_override("font", FONT_SEMIBOLD)
 		_toast_label.add_theme_font_size_override("font_size", 15)
 		_toast_label.add_theme_color_override("font_color", Color(1.0, 0.90, 0.35, 1.0))
 		_toast_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
@@ -1461,10 +1551,31 @@ func show_main_menu() -> void:
 	if is_instance_valid(play_close_btn):
 		play_close_btn.visible = false
 	
-	# Show Main Menu
+	# Show Main Menu with smooth entrance animation
 	main_menu.visible = true
-	main_menu.modulate.a = 1.0
+	main_menu.modulate.a = 0.0
 	menu_best_score.text = "BEST: " + str(high_score)
+	
+	if is_instance_valid(top_section):
+		top_section.modulate.a = 0.0
+		top_section.position.y -= 18.0
+	if is_instance_valid(bottom_ribbon):
+		bottom_ribbon.modulate.a = 0.0
+		bottom_ribbon.position.y += 24.0
+	if is_instance_valid(tap_to_play_btn):
+		tap_to_play_btn.scale = Vector2(0.85, 0.85)
+		tap_to_play_btn.pivot_offset = tap_to_play_btn.size * 0.5
+	
+	var menu_in_tw = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	menu_in_tw.tween_property(main_menu, "modulate:a", 1.0, 0.28)
+	if is_instance_valid(top_section):
+		menu_in_tw.tween_property(top_section, "position:y", top_section.position.y + 18.0, 0.32)
+		menu_in_tw.tween_property(top_section, "modulate:a", 1.0, 0.26)
+	if is_instance_valid(bottom_ribbon):
+		menu_in_tw.tween_property(bottom_ribbon, "position:y", bottom_ribbon.position.y - 24.0, 0.32)
+		menu_in_tw.tween_property(bottom_ribbon, "modulate:a", 1.0, 0.26)
+	if is_instance_valid(tap_to_play_btn):
+		menu_in_tw.tween_property(tap_to_play_btn, "scale", Vector2.ONE, 0.36).set_trans(Tween.TRANS_BACK)
 	
 	# Close any open drawer and reset tab to home
 	if _restart_tween:
@@ -1481,8 +1592,9 @@ func show_main_menu() -> void:
 	_close_drawer(true)
 	_set_active_tab("home")
 	
-	# Start pulsing tap to play button
-	_start_tap_pulse()
+	menu_in_tw.chain().tween_callback(func():
+		_start_tap_pulse()
+	)
 	
 	# Setup attractive idling slider box over pedestal
 	current_top_y = 0.0
@@ -1511,9 +1623,15 @@ func _spawn_menu_preview_box() -> void:
 func _start_tap_pulse() -> void:
 	if tap_pulse_tween:
 		tap_pulse_tween.kill()
-	tap_pulse_tween = create_tween().set_loops()
-	tap_pulse_tween.tween_property(tap_to_play_btn, "modulate:a", 0.55, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tap_pulse_tween.tween_property(tap_to_play_btn, "modulate:a", 1.0, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if not is_instance_valid(tap_to_play_btn):
+		return
+	tap_to_play_btn.pivot_offset = tap_to_play_btn.size * 0.5
+	tap_pulse_tween = create_tween().set_loops().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tap_pulse_tween.tween_property(tap_to_play_btn, "modulate:a", 0.60, 0.85)
+	tap_pulse_tween.tween_property(tap_to_play_btn, "scale", Vector2(0.96, 0.96), 0.85)
+	tap_pulse_tween.chain().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tap_pulse_tween.tween_property(tap_to_play_btn, "modulate:a", 1.0, 0.85)
+	tap_pulse_tween.tween_property(tap_to_play_btn, "scale", Vector2(1.02, 1.02), 0.85)
 
 func start_game_from_menu() -> void:
 	if state != GameState.MENU:
@@ -1526,11 +1644,24 @@ func start_game_from_menu() -> void:
 	
 	_close_drawer(true)
 	
-	# Smooth fade-out of menu
-	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(main_menu, "modulate:a", 0.0, 0.2)
-	tween.tween_callback(func():
+	# Smooth choreographed exit of menu elements
+	var tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(main_menu, "modulate:a", 0.0, 0.22)
+	if is_instance_valid(top_section):
+		tween.tween_property(top_section, "position:y", top_section.position.y - 24.0, 0.22)
+	if is_instance_valid(bottom_ribbon):
+		tween.tween_property(bottom_ribbon, "position:y", bottom_ribbon.position.y + 30.0, 0.22)
+	if is_instance_valid(tap_to_play_btn):
+		tween.tween_property(tap_to_play_btn, "scale", Vector2(0.85, 0.85), 0.20)
+	
+	tween.chain().tween_callback(func():
 		main_menu.visible = false
+		if is_instance_valid(top_section):
+			top_section.position.y += 24.0
+		if is_instance_valid(bottom_ribbon):
+			bottom_ribbon.position.y -= 30.0
+		if is_instance_valid(tap_to_play_btn):
+			tap_to_play_btn.scale = Vector2.ONE
 	)
 	
 	# Palette was already picked when showing the menu preview box — no re-pick needed
@@ -1547,10 +1678,28 @@ func start_game_from_menu() -> void:
 	
 	score_label.text = "0"
 	score_label.visible = true
+	score_label.modulate.a = 0.0
+	score_label.scale = Vector2(0.45, 0.45)
+	score_label.pivot_offset = score_label.size * 0.5
+	
 	combo_label.visible = false
 	prompt_label.visible = true
+	prompt_label.modulate.a = 0.0
+	prompt_label.pivot_offset = prompt_label.size * 0.5
+	
 	if is_instance_valid(play_close_btn):
 		play_close_btn.visible = true
+		play_close_btn.modulate.a = 0.0
+		play_close_btn.scale = Vector2(0.6, 0.6)
+		play_close_btn.pivot_offset = play_close_btn.size * 0.5
+	
+	var hud_tw = create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	hud_tw.tween_property(score_label, "scale", Vector2.ONE, 0.35)
+	hud_tw.tween_property(score_label, "modulate:a", 1.0, 0.24)
+	hud_tw.tween_property(prompt_label, "modulate:a", 1.0, 0.28).set_trans(Tween.TRANS_CUBIC)
+	if is_instance_valid(play_close_btn):
+		hud_tw.tween_property(play_close_btn, "scale", Vector2.ONE, 0.32)
+		hud_tw.tween_property(play_close_btn, "modulate:a", 1.0, 0.22)
 	if active_campaign_stage_id > 0:
 		for st in CAMPAIGN_STAGES:
 			if st["id"] == active_campaign_stage_id:
@@ -1640,18 +1789,16 @@ func _set_active_tab(tab_name: String) -> void:
 		else:
 			target_camera_y = base_camera_pivot_y
 	
-	# Simple square white box style for the active ribbon tab (stays permanently on clicked tab)
+	# Modern pill style for active tab
 	var active_style = StyleBoxFlat.new()
-	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.3)
-	active_style.border_width_left = 2
-	active_style.border_width_top = 2
-	active_style.border_width_right = 2
-	active_style.border_width_bottom = 2
-	active_style.border_color = Color(1.0, 1.0, 1.0, 0.8)
-	active_style.corner_radius_top_left = 6
-	active_style.corner_radius_top_right = 6
-	active_style.corner_radius_bottom_right = 6
-	active_style.corner_radius_bottom_left = 6
+	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.20)
+	active_style.set_border_width_all(1)
+	active_style.border_color = Color(1.0, 1.0, 1.0, 0.50)
+	active_style.set_corner_radius_all(14)
+	active_style.content_margin_top = 6
+	active_style.content_margin_bottom = 6
+	active_style.shadow_color = Color(1.0, 1.0, 1.0, 0.08)
+	active_style.shadow_size = 6
 	
 	# Inactive tab: completely flat, muted
 	var inactive_style = StyleBoxEmpty.new()
@@ -1671,9 +1818,9 @@ func _set_active_tab(tab_name: String) -> void:
 		var icon = btn.get_node_or_null("VBox/Icon") as TextureRect
 		var lbl = btn.get_node_or_null("VBox/Label") as Label
 		
-		# All ribbon icons remain pure white
-		if icon:
-			icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		if lbl:
+			lbl.add_theme_font_override("font", FONT_SEMIBOLD)
+			lbl.add_theme_font_size_override("font_size", 10)
 		
 		if key == tab_name:
 			btn.flat = false
@@ -1682,6 +1829,8 @@ func _set_active_tab(tab_name: String) -> void:
 			btn.add_theme_stylebox_override("pressed", active_style)
 			btn.add_theme_stylebox_override("focus", active_style)
 			btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+			if icon:
+				icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
 			if lbl:
 				lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 			_animate_tile_pop(btn)
@@ -1691,9 +1840,11 @@ func _set_active_tab(tab_name: String) -> void:
 			btn.add_theme_stylebox_override("hover", inactive_style)
 			btn.add_theme_stylebox_override("pressed", inactive_style)
 			btn.add_theme_stylebox_override("focus", inactive_style)
-			btn.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.75))
+			btn.add_theme_color_override("font_color", Color(0.68, 0.74, 0.86, 0.65))
+			if icon:
+				icon.modulate = Color(0.72, 0.78, 0.88, 0.65)
 			if lbl:
-				lbl.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.75))
+				lbl.add_theme_color_override("font_color", Color(0.68, 0.74, 0.86, 0.65))
 			_reset_tile_transform(btn)
 
 func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
@@ -1702,9 +1853,53 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_tween = null
 	
 	drawer_title.text = title_text
+	drawer_title.add_theme_font_override("font", FONT_BOLD)
 	drawer_modal.clip_contents = true
 	
-	var ribbon_h = abs(bottom_ribbon.offset_top) if is_instance_valid(bottom_ribbon) else 104.0
+	# Add modern top grab handle pill if not already present
+	var vbox = drawer_modal.get_node_or_null("VBox") as VBoxContainer
+	if vbox and not vbox.has_node("DrawerGrabHandle"):
+		var handle_center = CenterContainer.new()
+		handle_center.name = "DrawerGrabHandle"
+		handle_center.custom_minimum_size = Vector2(0, 8)
+		handle_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var handle_bar = Panel.new()
+		handle_bar.custom_minimum_size = Vector2(38, 4)
+		handle_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var h_sb = StyleBoxFlat.new()
+		h_sb.bg_color = Color(1.0, 1.0, 1.0, 0.28)
+		h_sb.set_corner_radius_all(2)
+		handle_bar.add_theme_stylebox_override("panel", h_sb)
+		handle_center.add_child(handle_bar)
+		vbox.add_child(handle_center)
+		vbox.move_child(handle_center, 0)
+	
+	# Symmetrical left spacer for perfectly centered title
+	var header_hbox = drawer_modal.get_node_or_null("VBox/HeaderHBox") as HBoxContainer
+	if header_hbox and not header_hbox.has_node("HeaderLeftSpacer"):
+		var left_spacer = Control.new()
+		left_spacer.name = "HeaderLeftSpacer"
+		left_spacer.custom_minimum_size = Vector2(40, 40)
+		left_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header_hbox.add_child(left_spacer)
+		header_hbox.move_child(left_spacer, 0)
+	
+	# Modern translucent obsidian glass panel styling
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.07, 0.11, 0.90)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_bottom = 12
+	sb.border_width_top = 1
+	sb.border_color = Color(1.0, 1.0, 1.0, 0.15)
+	sb.corner_radius_top_left = 22
+	sb.corner_radius_top_right = 22
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 18
+	sb.shadow_offset = Vector2(0, -4)
+	
+	var target_top: float = -540.0
+	var was_already_open = drawer_modal.visible and drawer_modal.modulate.a > 0.05
 	
 	if is_fullscreen:
 		drawer_modal.anchor_left = 0.0
@@ -1712,24 +1907,15 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_modal.anchor_top = 0.0
 		drawer_modal.anchor_bottom = 1.0
 		drawer_modal.offset_left = 0.0
-		drawer_modal.offset_top = 0.0
 		drawer_modal.offset_right = 0.0
 		drawer_modal.offset_bottom = -104.0
 		drawer_modal.grow_vertical = Control.GROW_DIRECTION_BOTH
+		target_top = 0.0
 		if is_instance_valid(drawer_scroll):
 			drawer_scroll.custom_minimum_size = Vector2(0, 0)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.04, 0.05, 0.08, 0.55)
-		sb.content_margin_left = 16
-		sb.content_margin_right = 16
-		sb.content_margin_top = 28
-		sb.content_margin_bottom = 14
-		sb.set_border_width_all(0)
-		sb.border_width_bottom = 1
-		sb.border_color = Color(1.0, 1.0, 1.0, 0.12)
-		sb.set_corner_radius_all(0)
+		sb.content_margin_top = 22
 		drawer_modal.add_theme_stylebox_override("panel", sb)
 	else:
 		drawer_modal.anchor_left = 0.0
@@ -1737,24 +1923,15 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		drawer_modal.anchor_top = 1.0
 		drawer_modal.anchor_bottom = 1.0
 		drawer_modal.offset_left = 0.0
-		drawer_modal.offset_top = -540.0
 		drawer_modal.offset_right = 0.0
 		drawer_modal.offset_bottom = -104.0
 		drawer_modal.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		target_top = -540.0
 		if is_instance_valid(drawer_scroll):
 			drawer_scroll.custom_minimum_size = Vector2(0, 320)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.04, 0.05, 0.08, 0.55)
-		sb.content_margin_left = 16
-		sb.content_margin_right = 16
-		sb.content_margin_top = 12
-		sb.content_margin_bottom = 12
-		sb.border_width_top = 1
-		sb.border_color = Color(1.0, 1.0, 1.0, 0.12)
-		sb.corner_radius_top_left = 12
-		sb.corner_radius_top_right = 12
+		sb.content_margin_top = 10
 		drawer_modal.add_theme_stylebox_override("panel", sb)
 	
 	if is_instance_valid(bottom_ribbon):
@@ -1775,15 +1952,30 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 	_scroll_is_dragging = false
 	_scroll_touch_active = false
 	
-	var was_already_open = drawer_modal.visible and drawer_modal.modulate.a > 0.05
 	drawer_modal.visible = true
 	
 	if not was_already_open:
 		drawer_modal.modulate.a = 0.0
-		drawer_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		drawer_tween.tween_property(drawer_modal, "modulate:a", 1.0, 0.20)
+		if is_fullscreen:
+			drawer_modal.offset_top = 280.0
+		else:
+			drawer_modal.offset_top = -104.0
+		
+		drawer_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		drawer_tween.tween_property(drawer_modal, "offset_top", target_top, 0.28)
+		drawer_tween.tween_property(drawer_modal, "modulate:a", 1.0, 0.22)
 	else:
+		if abs(drawer_modal.offset_top - target_top) > 2.0:
+			drawer_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			drawer_tween.tween_property(drawer_modal, "offset_top", target_top, 0.24)
 		drawer_modal.modulate.a = 1.0
+		
+		# Silky cross-fade & micro-float for tab content
+		drawer_content.modulate.a = 0.0
+		drawer_content.position.y = 12.0
+		var c_tw = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		c_tw.tween_property(drawer_content, "modulate:a", 1.0, 0.22)
+		c_tw.tween_property(drawer_content, "position:y", 0.0, 0.22)
 
 func _close_drawer(immediate: bool = false) -> void:
 	if drawer_tween:
@@ -1800,12 +1992,16 @@ func _close_drawer(immediate: bool = false) -> void:
 	if immediate:
 		drawer_modal.visible = false
 		drawer_modal.modulate.a = 0.0
+		drawer_modal.offset_top = -104.0
 		return
 	
-	drawer_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	drawer_tween.tween_property(drawer_modal, "modulate:a", 0.0, 0.14)
-	drawer_tween.tween_callback(func():
+	var close_target_top = 280.0 if drawer_modal.anchor_top == 0.0 else -104.0
+	drawer_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	drawer_tween.tween_property(drawer_modal, "offset_top", close_target_top, 0.22)
+	drawer_tween.tween_property(drawer_modal, "modulate:a", 0.0, 0.18)
+	drawer_tween.chain().tween_callback(func():
 		drawer_modal.visible = false
+		drawer_modal.offset_top = -104.0
 	)
 
 var _scroll_is_mouse: bool = false
@@ -1929,36 +2125,45 @@ func _input(event: InputEvent) -> void:
 func _create_card_container() -> PanelContainer:
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.12, 0.18, 0.50)
-	style.set_corner_radius_all(6)
+	style.bg_color = Color(0.08, 0.11, 0.18, 0.65)
+	style.set_corner_radius_all(14)
 	style.set_border_width_all(1)
-	style.border_color = Color(1.0, 1.0, 1.0, 0.08)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
+	style.border_color = Color(1.0, 1.0, 1.0, 0.12)
+	style.shadow_color = Color(0, 0, 0, 0.25)
+	style.shadow_size = 8
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
 	panel.add_theme_stylebox_override("panel", style)
 	return panel
 
 func _create_card_button(btn_text: String, is_active: bool) -> Button:
 	var btn = Button.new()
 	btn.text = btn_text
-	btn.custom_minimum_size = Vector2(0, 34)
+	btn.custom_minimum_size = Vector2(0, 36)
 	btn.add_theme_font_size_override("font_size", 13)
+	btn.add_theme_font_override("font", FONT_SEMIBOLD)
 	var btn_style = StyleBoxFlat.new()
-	btn_style.set_corner_radius_all(5)
+	btn_style.set_corner_radius_all(10)
 	if is_active:
-		btn_style.bg_color = Color(0.14, 0.58, 0.40, 0.95)
+		btn_style.bg_color = Color(0.14, 0.62, 0.42, 0.95)
+		btn_style.set_border_width_all(1)
+		btn_style.border_color = Color(0.40, 0.95, 0.70, 0.60)
 		btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	else:
-		btn_style.bg_color = Color(0.16, 0.36, 0.70, 0.85)
-		btn.add_theme_color_override("font_color", Color(0.88, 0.92, 1, 1))
+		btn_style.bg_color = Color(0.18, 0.38, 0.72, 0.88)
+		btn_style.set_border_width_all(1)
+		btn_style.border_color = Color(0.50, 0.75, 1.0, 0.45)
+		btn.add_theme_color_override("font_color", Color(0.90, 0.94, 1, 1))
+	var btn_hover = btn_style.duplicate() as StyleBoxFlat
+	btn_hover.bg_color = btn_style.bg_color.lightened(0.08)
 	btn.add_theme_stylebox_override("normal", btn_style)
-	btn.add_theme_stylebox_override("hover", btn_style)
+	btn.add_theme_stylebox_override("hover", btn_hover)
 	btn.add_theme_stylebox_override("pressed", btn_style)
 	return btn
 
-func _make_tile_style(selected: bool, corner: int = 4) -> StyleBoxFlat:
+func _make_tile_style(selected: bool, corner: int = 12) -> StyleBoxFlat:
 	var st = StyleBoxFlat.new()
 	st.set_corner_radius_all(corner)
 	st.content_margin_left = 6
@@ -1966,14 +2171,15 @@ func _make_tile_style(selected: bool, corner: int = 4) -> StyleBoxFlat:
 	st.content_margin_top = 6
 	st.content_margin_bottom = 6
 	if selected:
-		# Exact white square box selection matching ribbon tab
-		st.bg_color = Color(1.0, 1.0, 1.0, 0.30)
+		st.bg_color = Color(1.0, 1.0, 1.0, 0.22)
 		st.set_border_width_all(2)
-		st.border_color = Color(1.0, 1.0, 1.0, 0.80)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.75)
+		st.shadow_color = Color(1.0, 1.0, 1.0, 0.12)
+		st.shadow_size = 6
 	else:
-		st.bg_color = Color(0.10, 0.13, 0.20, 0.50)
+		st.bg_color = Color(0.08, 0.11, 0.18, 0.55)
 		st.set_border_width_all(1)
-		st.border_color = Color(1.0, 1.0, 1.0, 0.15)
+		st.border_color = Color(1.0, 1.0, 1.0, 0.10)
 	return st
 
 func _create_selection_square() -> Control:
@@ -2047,7 +2253,7 @@ func _refresh_skin_tiles() -> void:
 		var sel = (active_skin_id == skin_id)
 		btn.flat = false
 		btn.focus_mode = Control.FOCUS_NONE
-		var st = _make_tile_style(sel, 4)
+		var st = _make_tile_style(sel, 12)
 		var st_h = st.duplicate() as StyleBoxFlat
 		st_h.bg_color = st.bg_color.lightened(0.06)
 		btn.add_theme_stylebox_override("normal", st)
@@ -2059,8 +2265,9 @@ func _refresh_skin_tiles() -> void:
 		if inner and inner.get_child_count() >= 2:
 			var nlbl = inner.get_child(1) as Label
 			if nlbl:
+				nlbl.add_theme_font_override("font", FONT_SEMIBOLD)
 				nlbl.add_theme_color_override("font_color",
-					Color(0.80, 0.86, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
+					Color(0.85, 0.90, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
 			# Show/hide white square badge (child index 2 when equipped)
 			if sel and inner.get_child_count() < 3:
 				var badge = _create_selection_square()
@@ -2083,7 +2290,7 @@ func _refresh_pal_tiles() -> void:
 		var sel = (i == palette_index)
 		btn.flat = false
 		btn.focus_mode = Control.FOCUS_NONE
-		var st = _make_tile_style(sel, 4)
+		var st = _make_tile_style(sel, 12)
 		var st_h = st.duplicate() as StyleBoxFlat
 		st_h.bg_color = st.bg_color.lightened(0.06)
 		btn.add_theme_stylebox_override("normal", st)
@@ -2095,8 +2302,9 @@ func _refresh_pal_tiles() -> void:
 		if p_inner and p_inner.get_child_count() >= 2:
 			var pnlbl = p_inner.get_child(1) as Label
 			if pnlbl:
+				pnlbl.add_theme_font_override("font", FONT_SEMIBOLD)
 				pnlbl.add_theme_color_override("font_color",
-					Color(0.80, 0.86, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
+					Color(0.85, 0.90, 1.0, 0.95) if sel else Color(0.58, 0.65, 0.80, 0.80))
 			# Show/hide white square badge (child index 2)
 			if sel and p_inner.get_child_count() < 3:
 				var p_check = _create_selection_square()
@@ -2130,7 +2338,7 @@ func _open_skins_drawer() -> void:
 		tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tile_btn.custom_minimum_size = Vector2(0, 96)
 		
-		var tile_style = _make_tile_style(is_equipped, 4)
+		var tile_style = _make_tile_style(is_equipped, 12)
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
 		tile_btn.add_theme_stylebox_override("normal", tile_style)
@@ -2156,8 +2364,9 @@ func _open_skins_drawer() -> void:
 		var name_lbl = Label.new()
 		name_lbl.text = s["name"].to_upper()
 		name_lbl.add_theme_font_size_override("font_size", 9)
+		name_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 		name_lbl.add_theme_color_override("font_color",
-			Color(0.80, 0.86, 1.0, 0.95) if is_equipped else Color(0.58, 0.65, 0.80, 0.80))
+			Color(0.85, 0.90, 1.0, 0.95) if is_equipped else Color(0.58, 0.65, 0.80, 0.80))
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2198,7 +2407,8 @@ func _open_skins_drawer() -> void:
 	var r_header = Label.new()
 	r_header.text = "GUIDE MESH ACCESSORY"
 	r_header.add_theme_font_size_override("font_size", 12)
-	r_header.add_theme_color_override("font_color", Color(0.55, 0.64, 0.82, 0.80))
+	r_header.add_theme_font_override("font", FONT_BOLD)
+	r_header.add_theme_color_override("font_color", Color(0.65, 0.74, 0.90, 0.85))
 	reticle_section.add_child(r_header)
 	
 	var acc_grid = GridContainer.new()
@@ -2233,6 +2443,7 @@ func _open_skins_drawer() -> void:
 	var none_title = Label.new()
 	none_title.text = "NONE"
 	none_title.add_theme_font_size_override("font_size", 10)
+	none_title.add_theme_font_override("font", FONT_SEMIBOLD)
 	none_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	none_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner_none.add_child(none_title)
@@ -2240,6 +2451,7 @@ func _open_skins_drawer() -> void:
 	var none_desc = Label.new()
 	none_desc.text = "Standard Guide"
 	none_desc.add_theme_font_size_override("font_size", 8)
+	none_desc.add_theme_font_override("font", FONT_MEDIUM)
 	none_desc.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.70))
 	none_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	none_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2273,6 +2485,7 @@ func _open_skins_drawer() -> void:
 	var sniper_title = Label.new()
 	sniper_title.text = "SNIPER POINTER"
 	sniper_title.add_theme_font_size_override("font_size", 10)
+	sniper_title.add_theme_font_override("font", FONT_SEMIBOLD)
 	sniper_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sniper_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner_sniper.add_child(sniper_title)
@@ -2280,6 +2493,7 @@ func _open_skins_drawer() -> void:
 	var sniper_desc = Label.new()
 	sniper_desc.text = "Tactical Reticle"
 	sniper_desc.add_theme_font_size_override("font_size", 8)
+	sniper_desc.add_theme_font_override("font", FONT_MEDIUM)
 	sniper_desc.add_theme_color_override("font_color", Color(0.58, 0.65, 0.80, 0.70))
 	sniper_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sniper_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2293,7 +2507,7 @@ func _open_skins_drawer() -> void:
 		var is_sniper = sniper_reticle_enabled
 		
 		# Style None button
-		var st_n = _make_tile_style(is_none, 4)
+		var st_n = _make_tile_style(is_none, 12)
 		var st_nh = st_n.duplicate() as StyleBoxFlat
 		st_nh.bg_color = st_n.bg_color.lightened(0.06)
 		btn_none.add_theme_stylebox_override("normal", st_n)
@@ -2305,7 +2519,7 @@ func _open_skins_drawer() -> void:
 		none_badge.visible = is_none
 		
 		# Style Sniper button
-		var st_s = _make_tile_style(is_sniper, 4)
+		var st_s = _make_tile_style(is_sniper, 12)
 		var st_sh = st_s.duplicate() as StyleBoxFlat
 		st_sh.bg_color = st_s.bg_color.lightened(0.06)
 		btn_sniper.add_theme_stylebox_override("normal", st_s)
@@ -2369,7 +2583,8 @@ func _open_skins_drawer() -> void:
 	var pal_header = Label.new()
 	pal_header.text = "COLOR PALETTES"
 	pal_header.add_theme_font_size_override("font_size", 12)
-	pal_header.add_theme_color_override("font_color", Color(0.55, 0.64, 0.82, 0.80))
+	pal_header.add_theme_font_override("font", FONT_BOLD)
+	pal_header.add_theme_color_override("font_color", Color(0.65, 0.74, 0.90, 0.85))
 	pal_section.add_child(pal_header)
 	
 	var pal_grid = GridContainer.new()
@@ -2389,7 +2604,7 @@ func _open_skins_drawer() -> void:
 		pal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pal_btn.custom_minimum_size = Vector2(0, 88)
 		
-		var ps = _make_tile_style(is_pal_active, 4)
+		var ps = _make_tile_style(is_pal_active, 12)
 		var ps_h = ps.duplicate() as StyleBoxFlat
 		ps_h.bg_color = ps.bg_color.lightened(0.06)
 		pal_btn.add_theme_stylebox_override("normal", ps)
@@ -2421,7 +2636,7 @@ func _open_skins_drawer() -> void:
 				sc.a = pal_alpha
 				var sb = StyleBoxFlat.new()
 				sb.bg_color = sc
-				sb.set_corner_radius_all(2)
+				sb.set_corner_radius_all(3)
 				if is_trans:
 					sb.set_border_width_all(1)
 					sb.border_color = Color(1.0, 1.0, 1.0, 0.5)
@@ -2435,7 +2650,7 @@ func _open_skins_drawer() -> void:
 				sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				var sb = StyleBoxFlat.new()
 				sb.bg_color = c as Color
-				sb.set_corner_radius_all(2)
+				sb.set_corner_radius_all(3)
 				if is_trans:
 					sb.set_border_width_all(1)
 					sb.border_color = Color(1.0, 1.0, 1.0, 0.5)
@@ -2446,8 +2661,9 @@ func _open_skins_drawer() -> void:
 		var p_name = Label.new()
 		p_name.text = pal.get("name", "Palette " + str(i + 1))
 		p_name.add_theme_font_size_override("font_size", 9)
+		p_name.add_theme_font_override("font", FONT_SEMIBOLD)
 		p_name.add_theme_color_override("font_color",
-			Color(0.80, 0.86, 1.0, 0.95) if is_pal_active else Color(0.58, 0.65, 0.80, 0.80))
+			Color(0.85, 0.90, 1.0, 0.95) if is_pal_active else Color(0.58, 0.65, 0.80, 0.80))
 		p_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		p_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		p_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2515,7 +2731,7 @@ func _open_challenge_drawer() -> void:
 		tile_btn.size_flags_stretch_ratio = 1.0
 		tile_btn.custom_minimum_size = Vector2(0, 156)
 		
-		var tile_style = _make_tile_style(is_active, 6)
+		var tile_style = _make_tile_style(is_active, 14)
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
 		tile_btn.add_theme_stylebox_override("normal", tile_style)
@@ -2552,6 +2768,7 @@ func _open_challenge_drawer() -> void:
 		var title_lbl = Label.new()
 		title_lbl.text = title_str.to_upper()
 		title_lbl.add_theme_font_size_override("font_size", 13)
+		title_lbl.add_theme_font_override("font", FONT_BOLD)
 		title_lbl.add_theme_color_override("font_color",
 			Color(0.94, 0.96, 1.0, 1.0) if is_active else Color(0.70, 0.76, 0.88, 0.85))
 		title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2562,6 +2779,7 @@ func _open_challenge_drawer() -> void:
 		var desc_lbl = Label.new()
 		desc_lbl.text = c["desc"]
 		desc_lbl.add_theme_font_size_override("font_size", 10)
+		desc_lbl.add_theme_font_override("font", FONT_MEDIUM)
 		desc_lbl.add_theme_color_override("font_color",
 			Color(0.75, 0.82, 0.94, 0.90) if is_active else Color(0.52, 0.60, 0.74, 0.80))
 		desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2616,6 +2834,7 @@ func _open_campaign_drawer() -> void:
 	chap_lbl.text = "👑 CAMPAIGN: %d / %d CLEARED" % [campaign_completed_stages.size(), CAMPAIGN_STAGES.size()]
 	chap_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chap_lbl.add_theme_font_size_override("font_size", 14)
+	chap_lbl.add_theme_font_override("font", FONT_BOLD)
 	chap_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
 	header_row.add_child(chap_lbl)
 	s_vbox.add_child(header_row)
@@ -2650,6 +2869,7 @@ func _open_campaign_drawer() -> void:
 	var m_title = Label.new()
 	m_title.text = "%s %s" % [sel_st["badge"], sel_st["title"]]
 	m_title.add_theme_font_size_override("font_size", 13)
+	m_title.add_theme_font_override("font", FONT_BOLD)
 	m_title.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
 	m_info_vbox.add_child(m_title)
 	
@@ -2660,6 +2880,7 @@ func _open_campaign_drawer() -> void:
 	goal_str += " • ⭐ +%d EXP" % sel_st["exp_reward"]
 	m_desc.text = goal_str
 	m_desc.add_theme_font_size_override("font_size", 10)
+	m_desc.add_theme_font_override("font", FONT_MEDIUM)
 	m_desc.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0, 0.85))
 	m_info_vbox.add_child(m_desc)
 	mission_row.add_child(m_info_vbox)
@@ -2667,8 +2888,9 @@ func _open_campaign_drawer() -> void:
 	var play_btn = Button.new()
 	play_btn.custom_minimum_size = Vector2(88, 34)
 	play_btn.add_theme_font_size_override("font_size", 11)
+	play_btn.add_theme_font_override("font", FONT_BOLD)
 	var p_btn_st = StyleBoxFlat.new()
-	p_btn_st.set_corner_radius_all(4)
+	p_btn_st.set_corner_radius_all(10)
 	if not sel_is_unlocked:
 		play_btn.text = "LOCKED"
 		play_btn.disabled = true
@@ -2725,17 +2947,17 @@ func _open_campaign_drawer() -> void:
 		
 		var tile_style: StyleBoxFlat
 		if is_selected:
-			tile_style = _make_tile_style(true, 4)
+			tile_style = _make_tile_style(true, 10)
 		elif is_cleared:
-			tile_style = _make_tile_style(false, 4)
+			tile_style = _make_tile_style(false, 10)
 			tile_style.border_color = Color(0.35, 0.90, 0.55, 0.35)
 			tile_style.bg_color = Color(0.08, 0.16, 0.14, 0.55)
 		elif is_unlocked:
-			tile_style = _make_tile_style(false, 4)
+			tile_style = _make_tile_style(false, 10)
 			tile_style.border_color = Color(1.0, 1.0, 1.0, 0.12)
 			tile_style.bg_color = Color(0.10, 0.13, 0.20, 0.55)
 		else:
-			tile_style = _make_tile_style(false, 4)
+			tile_style = _make_tile_style(false, 10)
 			tile_style.border_color = Color(1.0, 1.0, 1.0, 0.04)
 			tile_style.bg_color = Color(0.07, 0.08, 0.12, 0.35)
 		
@@ -2767,6 +2989,7 @@ func _open_campaign_drawer() -> void:
 		var num_lbl = Label.new()
 		num_lbl.text = str(st_id)
 		num_lbl.add_theme_font_size_override("font_size", 11)
+		num_lbl.add_theme_font_override("font", FONT_BOLD)
 		if is_selected:
 			num_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 		elif is_cleared:
@@ -2787,6 +3010,7 @@ func _open_campaign_drawer() -> void:
 			var clr_lbl = Label.new()
 			clr_lbl.text = "✓"
 			clr_lbl.add_theme_font_size_override("font_size", 8)
+			clr_lbl.add_theme_font_override("font", FONT_BOLD)
 			clr_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 0.9))
 			clr_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			clr_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2937,6 +3161,7 @@ func _setup_level_cleared_ui() -> void:
 	level_cleared_title_lbl = Label.new()
 	level_cleared_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_cleared_title_lbl.add_theme_font_size_override("font_size", 28)
+	level_cleared_title_lbl.add_theme_font_override("font", FONT_BOLD)
 	level_cleared_title_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
 	level_cleared_title_lbl.text = "👑 LEVEL CLEARED!"
 	level_cleared_title_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -2945,6 +3170,7 @@ func _setup_level_cleared_ui() -> void:
 	level_cleared_subtitle_lbl = Label.new()
 	level_cleared_subtitle_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_cleared_subtitle_lbl.add_theme_font_size_override("font_size", 16)
+	level_cleared_subtitle_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 	level_cleared_subtitle_lbl.add_theme_color_override("font_color", Color(0.85, 0.90, 1.0, 0.90))
 	level_cleared_subtitle_lbl.text = "STAGE 1: FIRST FOUNDATION"
 	level_cleared_subtitle_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -2953,6 +3179,7 @@ func _setup_level_cleared_ui() -> void:
 	level_cleared_exp_lbl = Label.new()
 	level_cleared_exp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_cleared_exp_lbl.add_theme_font_size_override("font_size", 14)
+	level_cleared_exp_lbl.add_theme_font_override("font", FONT_BOLD)
 	level_cleared_exp_lbl.add_theme_color_override("font_color", Color(0.35, 0.95, 0.72, 1.0))
 	level_cleared_exp_lbl.text = "⭐ +2 EXP EARNED • STAGE 2 UNLOCKED"
 	level_cleared_exp_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -2969,6 +3196,7 @@ func _setup_level_cleared_ui() -> void:
 	level_cleared_action_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	level_cleared_action_btn.pivot_offset = Vector2(130, 24)
 	level_cleared_action_btn.add_theme_font_size_override("font_size", 18)
+	level_cleared_action_btn.add_theme_font_override("font", FONT_BOLD)
 	level_cleared_action_btn.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	level_cleared_action_btn.focus_mode = Control.FOCUS_NONE
 	
@@ -2986,6 +3214,7 @@ func _setup_level_cleared_ui() -> void:
 	level_cleared_hint_lbl = Label.new()
 	level_cleared_hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_cleared_hint_lbl.add_theme_font_size_override("font_size", 13)
+	level_cleared_hint_lbl.add_theme_font_override("font", FONT_MEDIUM)
 	level_cleared_hint_lbl.add_theme_color_override("font_color", Color(0.65, 0.72, 0.85, 0.70))
 	level_cleared_hint_lbl.text = "Tap anywhere to continue"
 	level_cleared_hint_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -3034,13 +3263,31 @@ func _show_level_cleared_ui(st: Dictionary, exp_gained: int, next_id: int, is_fi
 	level_cleared_pulse_tween.tween_property(level_cleared_action_btn, "scale", Vector2(1.04, 1.04), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	level_cleared_pulse_tween.tween_property(level_cleared_action_btn, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
-func _dismiss_level_cleared_ui() -> void:
+func _dismiss_level_cleared_ui(immediate: bool = false) -> void:
 	if level_cleared_pulse_tween:
 		level_cleared_pulse_tween.kill()
 		level_cleared_pulse_tween = null
-	if is_instance_valid(level_cleared_overlay):
+	if not is_instance_valid(level_cleared_overlay):
+		return
+	if not level_cleared_overlay.visible:
+		_clear_confetti_particles()
+		return
+	
+	if immediate:
 		level_cleared_overlay.visible = false
-	_clear_confetti_particles()
+		_clear_confetti_particles()
+		return
+	
+	var tw = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if is_instance_valid(level_cleared_card):
+		tw.tween_property(level_cleared_card, "scale", Vector2(0.85, 0.85), 0.16)
+	tw.tween_property(level_cleared_overlay, "modulate:a", 0.0, 0.16)
+	tw.chain().tween_callback(func():
+		if is_instance_valid(level_cleared_overlay):
+			level_cleared_overlay.visible = false
+			level_cleared_overlay.modulate.a = 1.0
+		_clear_confetti_particles()
+	)
 
 func _clear_confetti_particles() -> void:
 	for emitter in _active_confetti_emitters:
@@ -3219,12 +3466,14 @@ func _open_exp_drawer() -> void:
 	rank_lbl.text = "%s LEVEL %d: %s" % [current_icon, current_lvl, current_title.to_upper()]
 	rank_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rank_lbl.add_theme_font_size_override("font_size", 16)
+	rank_lbl.add_theme_font_override("font", FONT_BOLD)
 	rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
 	top_row.add_child(rank_lbl)
 	
 	var exp_badge = Label.new()
 	exp_badge.text = "⭐ %d EXP" % total_exp
 	exp_badge.add_theme_font_size_override("font_size", 15)
+	exp_badge.add_theme_font_override("font", FONT_BOLD)
 	exp_badge.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0, 1.0))
 	top_row.add_child(exp_badge)
 	s_vbox.add_child(top_row)
@@ -3240,6 +3489,7 @@ func _open_exp_drawer() -> void:
 	else:
 		next_lbl.text = "Max Stacker Rank Achieved 👑"
 	next_lbl.add_theme_font_size_override("font_size", 12)
+	next_lbl.add_theme_font_override("font", FONT_MEDIUM)
 	next_lbl.add_theme_color_override("font_color", Color(0.75, 0.82, 0.95, 0.8))
 	p_vbox.add_child(next_lbl)
 	
@@ -3278,9 +3528,12 @@ func _open_exp_drawer() -> void:
 		claim_all_btn.custom_minimum_size = Vector2(0, 42)
 		claim_all_btn.text = "★ CLAIM ALL REWARDS (%d TASKS READY) ★" % ready_count
 		claim_all_btn.add_theme_font_size_override("font_size", 14)
+		claim_all_btn.add_theme_font_override("font", FONT_BOLD)
 		var ca_style = StyleBoxFlat.new()
-		ca_style.bg_color = Color(0.20, 0.65, 0.38, 1.0)
-		ca_style.set_corner_radius_all(6)
+		ca_style.bg_color = Color(0.16, 0.65, 0.40, 0.95)
+		ca_style.set_corner_radius_all(10)
+		ca_style.border_width_top = 1
+		ca_style.border_color = Color(0.40, 0.95, 0.65, 0.60)
 		claim_all_btn.add_theme_stylebox_override("normal", ca_style)
 		claim_all_btn.add_theme_stylebox_override("hover", ca_style)
 		claim_all_btn.add_theme_stylebox_override("pressed", ca_style)
@@ -3294,6 +3547,7 @@ func _open_exp_drawer() -> void:
 	var section_lbl = Label.new()
 	section_lbl.text = "DAILY MISSIONS (RESETS DAILY)"
 	section_lbl.add_theme_font_size_override("font_size", 13)
+	section_lbl.add_theme_font_override("font", FONT_BOLD)
 	section_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
 	drawer_content.add_child(section_lbl)
 	
@@ -3359,12 +3613,14 @@ func _open_exp_drawer() -> void:
 		title_lbl.text = m["icon"] + " " + m["name"]
 		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title_lbl.add_theme_font_size_override("font_size", 15)
+		title_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 		title_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 		header_row.add_child(title_lbl)
 		
 		var exp_reward_lbl = Label.new()
 		exp_reward_lbl.text = "+%d EXP" % m["exp"]
 		exp_reward_lbl.add_theme_font_size_override("font_size", 14)
+		exp_reward_lbl.add_theme_font_override("font", FONT_BOLD)
 		exp_reward_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
 		header_row.add_child(exp_reward_lbl)
 		vbox.add_child(header_row)
@@ -3372,6 +3628,7 @@ func _open_exp_drawer() -> void:
 		var desc_lbl = Label.new()
 		desc_lbl.text = m["desc"]
 		desc_lbl.add_theme_font_size_override("font_size", 12)
+		desc_lbl.add_theme_font_override("font", FONT_MEDIUM)
 		desc_lbl.add_theme_color_override("font_color", Color(0.68, 0.73, 0.85, 0.75))
 		vbox.add_child(desc_lbl)
 		
@@ -3379,6 +3636,7 @@ func _open_exp_drawer() -> void:
 			var claimed_lbl = Label.new()
 			claimed_lbl.text = "✓ CLAIMED TODAY"
 			claimed_lbl.add_theme_font_size_override("font_size", 13)
+			claimed_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 			claimed_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
 			vbox.add_child(claimed_lbl)
 		elif m["ready"]:
@@ -3386,9 +3644,10 @@ func _open_exp_drawer() -> void:
 			claim_btn.custom_minimum_size = Vector2(0, 36)
 			claim_btn.text = "★ CLAIM +%d EXP ★" % m["exp"]
 			claim_btn.add_theme_font_size_override("font_size", 13)
+			claim_btn.add_theme_font_override("font", FONT_BOLD)
 			var c_style = StyleBoxFlat.new()
 			c_style.bg_color = Color(0.85, 0.65, 0.15, 1.0)
-			c_style.set_corner_radius_all(5)
+			c_style.set_corner_radius_all(10)
 			claim_btn.add_theme_stylebox_override("normal", c_style)
 			claim_btn.add_theme_stylebox_override("hover", c_style)
 			claim_btn.add_theme_stylebox_override("pressed", c_style)
@@ -3405,6 +3664,7 @@ func _open_exp_drawer() -> void:
 			prog_lbl.text = "In Progress: %d / %d %s" % [m["cur"], m["target"], m["unit"]]
 			prog_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			prog_lbl.add_theme_font_size_override("font_size", 12)
+			prog_lbl.add_theme_font_override("font", FONT_MEDIUM)
 			prog_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.82, 0.75))
 			prog_row.add_child(prog_lbl)
 			vbox.add_child(prog_row)
@@ -3437,12 +3697,14 @@ func _open_exp_drawer() -> void:
 	perk_title.text = "🌌 Infinite Height Mastery"
 	perk_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	perk_title.add_theme_font_size_override("font_size", 14)
+	perk_title.add_theme_font_override("font", FONT_BOLD)
 	perk_title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.0, 1.0))
 	perk_hdr.add_child(perk_title)
 	
 	var perk_badge = Label.new()
 	perk_badge.text = "+1 EXP / 20 STACKS"
 	perk_badge.add_theme_font_size_override("font_size", 12)
+	perk_badge.add_theme_font_override("font", FONT_BOLD)
 	perk_badge.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
 	perk_hdr.add_child(perk_badge)
 	perk_vbox.add_child(perk_hdr)
@@ -3450,6 +3712,7 @@ func _open_exp_drawer() -> void:
 	var perk_desc = Label.new()
 	perk_desc.text = "Reach past 100 blocks to continuously earn +1 EXP for every 20 stacks climbed in any run (120, 140, 160, 180...)."
 	perk_desc.add_theme_font_size_override("font_size", 12)
+	perk_desc.add_theme_font_override("font", FONT_MEDIUM)
 	perk_desc.add_theme_color_override("font_color", Color(0.70, 0.76, 0.88, 0.80))
 	perk_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	perk_vbox.add_child(perk_desc)
@@ -3459,6 +3722,7 @@ func _open_exp_drawer() -> void:
 	var rank_sec_lbl = Label.new()
 	rank_sec_lbl.text = "STACKER RANK TIERS"
 	rank_sec_lbl.add_theme_font_size_override("font_size", 13)
+	rank_sec_lbl.add_theme_font_override("font", FONT_BOLD)
 	rank_sec_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
 	drawer_content.add_child(rank_sec_lbl)
 	
@@ -3473,9 +3737,11 @@ func _open_exp_drawer() -> void:
 		r_name.text = "%s Lvl %d: %s" % [r["icon"], r["level"], r["name"]]
 		r_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		r_name.add_theme_font_size_override("font_size", 13)
+		r_name.add_theme_font_override("font", FONT_SEMIBOLD)
 		
 		var r_req = Label.new()
 		r_req.add_theme_font_size_override("font_size", 12)
+		r_req.add_theme_font_override("font", FONT_MEDIUM)
 		
 		if r["level"] == current_lvl:
 			r_name.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
@@ -3973,19 +4239,24 @@ func _trigger_game_over() -> void:
 	prompt_label.text = "Tap To Play Again"
 	prompt_label.visible = true
 	prompt_label.modulate.a = 0.0
+	prompt_label.scale = Vector2(0.80, 0.80)
+	prompt_label.pivot_offset = prompt_label.size * 0.5
 	
 	if is_instance_valid(play_close_btn):
 		play_close_btn.visible = true
 	if is_instance_valid(game_over_close_btn):
 		game_over_close_btn.visible = true
 		game_over_close_btn.modulate.a = 0.0
+		game_over_close_btn.scale = Vector2(0.60, 0.60)
+		game_over_close_btn.pivot_offset = game_over_close_btn.size * 0.5
 	
-	var tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(0.30)
-	tween.tween_property(prompt_label, "modulate:a", 1.0, 0.25)
+	var tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(prompt_label, "scale", Vector2.ONE, 0.32)
+	tween.tween_property(prompt_label, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_CUBIC)
 	if is_instance_valid(game_over_close_btn):
-		tween.parallel().tween_property(game_over_close_btn, "modulate:a", 1.0, 0.25)
-	tween.tween_callback(func():
+		tween.tween_property(game_over_close_btn, "scale", Vector2.ONE, 0.30)
+		tween.tween_property(game_over_close_btn, "modulate:a", 1.0, 0.22)
+	tween.chain().tween_callback(func():
 		if state == GameState.GAME_OVER:
 			_start_play_again_pulse()
 	)
@@ -3993,9 +4264,15 @@ func _trigger_game_over() -> void:
 func _start_play_again_pulse() -> void:
 	if play_again_pulse_tween:
 		play_again_pulse_tween.kill()
-	play_again_pulse_tween = create_tween().set_loops()
-	play_again_pulse_tween.tween_property(prompt_label, "modulate:a", 0.40, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	play_again_pulse_tween.tween_property(prompt_label, "modulate:a", 1.0, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if not is_instance_valid(prompt_label):
+		return
+	prompt_label.pivot_offset = prompt_label.size * 0.5
+	play_again_pulse_tween = create_tween().set_loops().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	play_again_pulse_tween.tween_property(prompt_label, "modulate:a", 0.50, 0.80)
+	play_again_pulse_tween.tween_property(prompt_label, "scale", Vector2(0.96, 0.96), 0.80)
+	play_again_pulse_tween.chain().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	play_again_pulse_tween.tween_property(prompt_label, "modulate:a", 1.0, 0.80)
+	play_again_pulse_tween.tween_property(prompt_label, "scale", Vector2(1.02, 1.02), 0.80)
 
 func _stop_play_again_pulse() -> void:
 	if play_again_pulse_tween:
@@ -4003,6 +4280,7 @@ func _stop_play_again_pulse() -> void:
 		play_again_pulse_tween = null
 	if is_instance_valid(prompt_label):
 		prompt_label.modulate.a = 1.0
+		prompt_label.scale = Vector2.ONE
 
 func _animate_game_over_tower_reveal() -> void:
 	if not is_instance_valid(camera) or not is_instance_valid(camera_pivot):
@@ -4250,10 +4528,29 @@ func _finish_restart_game() -> void:
 	main_menu.visible = false
 	score_label.text = "0"
 	score_label.visible = true
+	score_label.modulate.a = 0.0
+	score_label.scale = Vector2(0.45, 0.45)
+	score_label.pivot_offset = score_label.size * 0.5
+	
 	combo_label.visible = false
 	prompt_label.visible = true
+	prompt_label.modulate.a = 0.0
+	prompt_label.pivot_offset = prompt_label.size * 0.5
+	
 	if is_instance_valid(play_close_btn):
 		play_close_btn.visible = true
+		play_close_btn.modulate.a = 0.0
+		play_close_btn.scale = Vector2(0.60, 0.60)
+		play_close_btn.pivot_offset = play_close_btn.size * 0.5
+	
+	var r_tw = create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	r_tw.tween_property(score_label, "scale", Vector2.ONE, 0.35)
+	r_tw.tween_property(score_label, "modulate:a", 1.0, 0.24)
+	r_tw.tween_property(prompt_label, "modulate:a", 1.0, 0.28).set_trans(Tween.TRANS_CUBIC)
+	if is_instance_valid(play_close_btn):
+		r_tw.tween_property(play_close_btn, "scale", Vector2.ONE, 0.32)
+		r_tw.tween_property(play_close_btn, "modulate:a", 1.0, 0.22)
+	
 	if active_campaign_stage_id > 0:
 		for st in CAMPAIGN_STAGES:
 			if st["id"] == active_campaign_stage_id:
@@ -4263,7 +4560,6 @@ func _finish_restart_game() -> void:
 		prompt_label.text = "CLICK OR PRESS SPACE TO DROP"
 	else:
 		prompt_label.text = "TAP SCREEN TO DROP"
-	prompt_label.modulate.a = 1.0
 	game_over_panel.visible = false
 	if is_instance_valid(game_over_close_btn):
 		game_over_close_btn.visible = false
@@ -4283,6 +4579,7 @@ func _finish_restart_game() -> void:
 func _on_sound_btn_pressed() -> void:
 	var muted = sound_mgr.toggle_mute()
 	sound_btn.text = "🔇" if muted else "🔊"
+	_animate_tile_pop(sound_btn)
 
 func save_high_score() -> void:
 	var file = FileAccess.open("user://high_score.save", FileAccess.WRITE)
