@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#fcfcfc"/>
+  <g transform="translate(32 32) rotate(0) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(96 32) rotate(23) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(160 32) rotate(46) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(224 32) rotate(69) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(32 96) rotate(17) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(96 96) rotate(40) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(160 96) rotate(63) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(224 96) rotate(14) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(32 160) rotate(34) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(96 160) rotate(57) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(160 160) rotate(8) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(224 160) rotate(31) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(32 224) rotate(51) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(96 224) rotate(2) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(160 224) rotate(25) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+  <g transform="translate(224 224) rotate(48) scale(.90)">
+    <path d="M-10 7Q-26 1-29 17Q-17 20-10 7M10-4Q24-17 29-4Q23 5 10-4" fill="#929292"/>
+    <g fill="#b5b5b5" stroke="#858585" stroke-width="1.5">
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(0)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(72)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(144)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(216)"/>
+      <ellipse cy="-10" rx="6.5" ry="9" transform="rotate(288)"/>
+    </g>
+    <circle r="4.5" fill="#747474"/>
+  </g>
+</svg>

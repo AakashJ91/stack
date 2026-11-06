@@ -222,16 +222,14 @@ var falling_stars: Node3D = null
 
 # Textured Skins System
 const SKIN_TEXTURES = {
+	"floral": preload("res://textures/skin_floral.svg"),
 	"jelly": preload("res://textures/skin_jelly.svg"),
 	"candy": preload("res://textures/skin_candy.svg"),
 	"bricks": preload("res://textures/skin_bricks.svg"),
-	"marble": preload("res://textures/skin_marble.png"),
-	"terrazzo": preload("res://textures/skin_terrazzo.png"),
+	"terrazzo": preload("res://textures/skin_terrazzo_chips.svg"),
 	"glass": preload("res://textures/skin_glass.png"),
 	"frosted": preload("res://textures/skin_frosted.png"),
 	"dusty": preload("res://textures/skin_dusty.png"),
-	"reflective": preload("res://textures/skin_reflective.png"),
-	"crystal": preload("res://textures/skin_crystal.png"),
 }
 
 const SKINS: Array[Dictionary] = [
@@ -251,9 +249,9 @@ const SKINS: Array[Dictionary] = [
 		"id": "reflective",
 		"name": "Reflective Mirror",
 		"icon": preload("res://UI/Icons/skin-mirror.svg"),
-		"desc": "Liquid mirror chrome cube with real-time environment reflections, studio highlights, and high-gloss sheen.",
+		"desc": "Liquid mirror with a broad studio reflection that slides across the block.",
 		"type": "textured",
-		"strength": 0.45,
+		"strength": 0.0,
 		"emission": 0.0,
 		"roughness": 0.015,
 		"metallic": 0.10,
@@ -264,22 +262,18 @@ const SKINS: Array[Dictionary] = [
 		"id": "crystal",
 		"name": "Prismatic Crystal",
 		"icon": preload("res://UI/Icons/skin-crystal.svg"),
-		"desc": "Faceted gemstone cube with internal refractive facets, high gloss, and prismatic luster.",
+		"desc": "Large gemstone facets with color-tinted faces and prismatic edge flashes.",
 		"type": "textured",
-		"strength": 0.72,
-		"emission": 0.0,
 		"roughness": 0.07,
-		"metallic": 0.15,
-		"reflection_strength": 0.50,
-		"uv_scale": Vector2(0.55, 0.55)
+		"metallic": 0.15
 	},
 	{
 		"id": "marble",
 		"name": "Carrara Marble",
 		"icon": preload("res://UI/Icons/skin-marble.svg"),
-		"desc": "Polished Italian quartz with high-gloss crystalline veining and fine cracks.",
+		"desc": "Pale polished marble with bold veins that continue around the corners.",
 		"type": "textured",
-		"strength": 0.70,
+		"strength": 0.0,
 		"emission": 0.0,
 		"roughness": 0.16,
 		"metallic": 0.05,
@@ -289,19 +283,19 @@ const SKINS: Array[Dictionary] = [
 		"id": "terrazzo",
 		"name": "Modern Terrazzo",
 		"icon": preload("res://UI/Icons/skin-terrazzo.svg"),
-		"desc": "Architectural composite stone with embedded polished quartz and mineral flakes.",
+		"desc": "Matte stone with large, irregular chips tinted by your palette.",
 		"type": "textured",
 		"strength": 0.68,
 		"emission": 0.0,
-		"roughness": 0.36,
-		"metallic": 0.04,
-		"uv_scale": Vector2(0.70, 0.70)
+		"roughness": 0.62,
+		"metallic": 0.0,
+		"uv_scale": Vector2(0.44, 0.44)
 	},
 	{
 		"id": "glass",
 		"name": "Clear Glass",
 		"icon": preload("res://UI/Icons/skin-glass.svg"),
-		"desc": "Ultra-smooth polished glass surface with faint diagonal specular reflection streaks.",
+		"desc": "Clear centers with bright, palette-tinted glass edges.",
 		"type": "textured",
 		"strength": 0.60,
 		"emission": 0.0,
@@ -313,9 +307,9 @@ const SKINS: Array[Dictionary] = [
 		"id": "frosted",
 		"name": "Frosted Glass",
 		"icon": preload("res://UI/Icons/skin-frost.svg"),
-		"desc": "Soft milky diffusion surface etched with fine crystalline micro-scratches.",
+		"desc": "Milky frost with a wide, soft highlight and a faint palette tint.",
 		"type": "textured",
-		"strength": 0.72,
+		"strength": 0.25,
 		"emission": 0.0,
 		"roughness": 0.72,
 		"metallic": 0.01,
@@ -325,7 +319,7 @@ const SKINS: Array[Dictionary] = [
 		"id": "dusty",
 		"name": "Dusty Sand",
 		"icon": preload("res://UI/Icons/skin-sand.svg"),
-		"desc": "Warm sandy-beige surface with coarse aggregate grain and fine dust particulate speckling.",
+		"desc": "Dry, matte sand that releases a soft dust puff on landing.",
 		"type": "textured",
 		"strength": 0.80,
 		"emission": 0.0,
@@ -337,10 +331,9 @@ const SKINS: Array[Dictionary] = [
 		"id": "bricks",
 		"name": "Bricks",
 		"icon": preload("res://UI/Icons/skin-bricks.svg"),
-		"desc": "Terracotta bricks with staggered mortar joints and a matte finish.",
+		"desc": "Palette-tinted clay bricks with recessed, neutral mortar joints.",
 		"type": "textured",
 		"strength": 1.0,
-		"use_texture_color": true,
 		"emission": 0.0,
 		"roughness": 0.88,
 		"metallic": 0.0,
@@ -350,7 +343,7 @@ const SKINS: Array[Dictionary] = [
 		"id": "jelly",
 		"name": "Jelly",
 		"icon": preload("res://UI/Icons/skin-jelly.svg"),
-		"desc": "Glossy jelly with soft shading and suspended bubbles.",
+		"desc": "Glossy jelly with a soft inner glow and an extra wobble on landing.",
 		"type": "textured",
 		"strength": 1.0,
 		"roughness": 0.18,
@@ -361,14 +354,27 @@ const SKINS: Array[Dictionary] = [
 		"id": "candy",
 		"name": "Candy",
 		"icon": preload("res://UI/Icons/skin-candy.svg"),
-		"desc": "Polished candy with two-tone stripes in your selected colors.",
+		"desc": "Polished candy with wrapped two-tone stripes and a fine sugar glaze.",
 		"type": "textured",
 		"strength": 1.0,
 		"roughness": 0.24,
 		"metallic": 0.0,
 		"wrap_diagonal": true
 	},
+	{
+		"id": "floral",
+		"name": "Floral",
+		"icon": preload("res://UI/Icons/skin-floral.svg"),
+		"desc": "Dense repeating blossoms and leaves tinted by your selected palette.",
+		"type": "textured",
+		"strength": 0.92,
+		"roughness": 0.42,
+		"metallic": 0.0
+	},
 ]
+enum EdgeStyle { OFF, NORMAL, THICK }
+
+var skin_edge_styles: Dictionary = {}
 const SKIN_SAVE_PATH: String = "user://skin_data.json"
 var active_skin_id: String = "classic"
 var sniper_reticle_enabled: bool = false
@@ -378,6 +384,7 @@ func save_skin_data() -> void:
 	if file:
 		var data = {
 			"active_skin_id": active_skin_id,
+			"edge_styles": skin_edge_styles,
 			"sniper_reticle_enabled": sniper_reticle_enabled,
 			"palette_index": palette_index
 		}
@@ -391,6 +398,9 @@ func load_skin_data() -> void:
 			var json = JSON.new()
 			if json.parse(text) == OK and typeof(json.data) == TYPE_DICTIONARY:
 				var data: Dictionary = json.data
+				var saved_styles = data.get("edge_styles", {})
+				if saved_styles is Dictionary:
+					skin_edge_styles = saved_styles
 				if data.has("active_skin_id"):
 					var loaded_skin = str(data["active_skin_id"])
 					for s in SKINS:
@@ -402,10 +412,16 @@ func load_skin_data() -> void:
 				if data.has("palette_index"):
 					palette_index = clampi(int(data["palette_index"]), 0, PALETTES.size() - 1)
 
+func _get_skin_edge_style() -> int:
+	var default_style = EdgeStyle.OFF if active_skin_id == "crystal" else EdgeStyle.NORMAL
+	return clampi(int(skin_edge_styles.get(active_skin_id, default_style)), EdgeStyle.OFF, EdgeStyle.THICK)
+
+
 func get_current_skin_config() -> Dictionary:
 	for s in SKINS:
 		if s["id"] == active_skin_id:
 			var cfg = s.duplicate()
+			cfg["edge_style"] = _get_skin_edge_style()
 			if s["id"] in SKIN_TEXTURES:
 				cfg["texture"] = SKIN_TEXTURES[s["id"]]
 			return cfg
@@ -2443,6 +2459,32 @@ func _open_skins_drawer() -> void:
 	skins_grid.add_theme_constant_override("v_separation", 8)
 	skins_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_add_glass_grid(drawer_content, skins_grid)
+
+	var edge_row = HBoxContainer.new()
+	var edge_label = Label.new()
+	edge_label.text = "Edge Style"
+	edge_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edge_label.add_theme_font_size_override("font_size", 14)
+	edge_row.add_child(edge_label)
+
+	var edge_options = OptionButton.new()
+	edge_options.name = "EdgeStyle"
+	edge_options.custom_minimum_size = Vector2(150, 40)
+	edge_options.add_theme_stylebox_override("normal", _make_tile_style(false))
+	edge_options.add_theme_stylebox_override("hover", _make_tile_style(true))
+	edge_options.add_theme_stylebox_override("pressed", _make_tile_style(true))
+	edge_options.add_item("Off")
+	edge_options.add_item("Normal")
+	edge_options.add_item("Thick")
+	edge_options.select(_get_skin_edge_style())
+	edge_options.item_selected.connect(func(style: int):
+		skin_edge_styles[active_skin_id] = style
+		sound_mgr.play_click()
+		_update_active_skins_in_scene()
+		save_skin_data()
+	)
+	edge_row.add_child(edge_options)
+	drawer_content.add_child(edge_row)
 	
 	for s in SKINS:
 		var is_equipped = (active_skin_id == s["id"])
@@ -2495,6 +2537,7 @@ func _open_skins_drawer() -> void:
 				_animate_tile_pop(tile_btn)
 				return
 			active_skin_id = skin_id
+			edge_options.select(_get_skin_edge_style())
 			sound_mgr.play_click()
 			_update_active_skins_in_scene()
 			_refresh_skin_tiles()
