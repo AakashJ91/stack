@@ -3,6 +3,7 @@ extends Node3D
 const StackBox = preload("res://scripts/box.gd")
 const CubeSlider = preload("res://scripts/cube_slider.gd")
 const FallingStars = preload("res://scripts/falling_stars.gd")
+const GLASS_HIGHLIGHT = preload("res://UI/glass_highlight.gdshader")
 
 enum GameState { MENU, READY, PLAYING, DROPPING, GAME_OVER, LEVEL_CLEARED }
 
@@ -756,8 +757,6 @@ func _setup_modern_ui_styling() -> void:
 		game_title.add_theme_font_override("font", FONT_BOLD)
 		game_title.add_theme_font_size_override("font_size", 54)
 		game_title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
-		game_title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.35))
-		game_title.add_theme_constant_override("shadow_offset_y", 2)
 	if is_instance_valid(menu_best_score):
 		menu_best_score.add_theme_font_override("font", FONT_SEMIBOLD)
 		menu_best_score.add_theme_font_size_override("font_size", 16)
@@ -794,43 +793,41 @@ func _setup_modern_ui_styling() -> void:
 	if is_instance_valid(home_btn):
 		home_btn.add_theme_font_override("font", FONT_BOLD)
 	
-	# Circular glass styling for floating action buttons
-	var circle_style = StyleBoxFlat.new()
-	circle_style.bg_color = Color(0.06, 0.08, 0.14, 0.72)
-	circle_style.set_corner_radius_all(20)
-	circle_style.set_border_width_all(1)
-	circle_style.border_color = Color(1.0, 1.0, 1.0, 0.16)
-	circle_style.shadow_color = Color(0, 0, 0, 0.28)
-	circle_style.shadow_size = 6
-	
-	var circle_hover = circle_style.duplicate() as StyleBoxFlat
-	circle_hover.bg_color = Color(0.18, 0.22, 0.32, 0.90)
-	circle_hover.border_color = Color(1.0, 1.0, 1.0, 0.38)
-	
-	var round_btns = [sound_btn, play_close_btn, game_over_close_btn, close_drawer_btn]
-	for b in round_btns:
-		if is_instance_valid(b):
-			b.flat = false
-			b.focus_mode = Control.FOCUS_NONE
-			b.add_theme_stylebox_override("normal", circle_style)
-			b.add_theme_stylebox_override("hover", circle_hover)
-			b.add_theme_stylebox_override("pressed", circle_hover)
-			b.add_theme_stylebox_override("focus", circle_style)
-			b.pivot_offset = b.size * 0.5
-	
+	var transparent_style = StyleBoxEmpty.new()
+	for button: Button in [sound_btn, play_close_btn, game_over_close_btn, close_drawer_btn]:
+		button.flat = true
+		button.focus_mode = Control.FOCUS_NONE
+		for state_style in ["normal", "hover", "pressed", "focus"]:
+			button.add_theme_stylebox_override(state_style, transparent_style)
+
 	# Modern glass dock for bottom ribbon
 	if is_instance_valid(bottom_ribbon):
 		var rib_style = StyleBoxFlat.new()
-		rib_style.bg_color = Color(0.04, 0.05, 0.08, 0.90)
+		rib_style.bg_color = Color(1.0, 1.0, 1.0, 0.18)
 		rib_style.set_border_width_all(0)
 		rib_style.border_width_top = 1
 		rib_style.border_color = Color(1.0, 1.0, 1.0, 0.12)
-		rib_style.corner_radius_top_left = 20
-		rib_style.corner_radius_top_right = 20
-		rib_style.shadow_color = Color(0, 0, 0, 0.40)
-		rib_style.shadow_size = 14
-		rib_style.shadow_offset = Vector2(0, -3)
 		bottom_ribbon.add_theme_stylebox_override("panel", rib_style)
+		_add_glass_highlight(bottom_ribbon)
+	_add_glass_highlight(drawer_modal)
+
+
+func _add_glass_highlight(surface: Control) -> void:
+	var highlight = MeshInstance2D.new()
+	var quad = QuadMesh.new()
+	var glass = ShaderMaterial.new()
+	glass.shader = GLASS_HIGHLIGHT
+	highlight.mesh = quad
+	highlight.material = glass
+	surface.add_child(highlight)
+	surface.move_child(highlight, 0)
+
+	var resize_highlight = func():
+		quad.size = surface.size.max(Vector2.ONE)
+		highlight.position = surface.size * 0.5
+		glass.set_shader_parameter("surface_size", quad.size)
+	surface.resized.connect(resize_highlight)
+	resize_highlight.call()
 
 func _setup_gradient_background() -> void:
 	bg_quad = MeshInstance3D.new()
@@ -1290,7 +1287,6 @@ func _setup_exp_badge() -> void:
 	style.border_width_right = 1
 	style.border_width_top = 1
 	style.border_width_bottom = 1
-	style.set_corner_radius_all(16)
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 4
@@ -1789,12 +1785,11 @@ func _set_active_tab(tab_name: String) -> void:
 		else:
 			target_camera_y = base_camera_pivot_y
 	
-	# Modern pill style for active tab
+	# Glass highlight for the active tab
 	var active_style = StyleBoxFlat.new()
-	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.20)
+	active_style.bg_color = Color(1.0, 1.0, 1.0, 0.23)
 	active_style.set_border_width_all(1)
 	active_style.border_color = Color(1.0, 1.0, 1.0, 0.50)
-	active_style.set_corner_radius_all(14)
 	active_style.content_margin_top = 6
 	active_style.content_margin_bottom = 6
 	active_style.shadow_color = Color(1.0, 1.0, 1.0, 0.08)
@@ -1842,9 +1837,9 @@ func _set_active_tab(tab_name: String) -> void:
 			btn.add_theme_stylebox_override("focus", inactive_style)
 			btn.add_theme_color_override("font_color", Color(0.68, 0.74, 0.86, 0.65))
 			if icon:
-				icon.modulate = Color(0.72, 0.78, 0.88, 0.65)
+				icon.modulate = Color(0.90, 0.93, 0.98, 0.90)
 			if lbl:
-				lbl.add_theme_color_override("font_color", Color(0.68, 0.74, 0.86, 0.65))
+				lbl.add_theme_color_override("font_color", Color(0.90, 0.93, 0.98, 0.90))
 			_reset_tile_transform(btn)
 
 func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
@@ -1868,7 +1863,6 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		handle_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var h_sb = StyleBoxFlat.new()
 		h_sb.bg_color = Color(1.0, 1.0, 1.0, 0.28)
-		h_sb.set_corner_radius_all(2)
 		handle_bar.add_theme_stylebox_override("panel", h_sb)
 		handle_center.add_child(handle_bar)
 		vbox.add_child(handle_center)
@@ -1884,19 +1878,14 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 		header_hbox.add_child(left_spacer)
 		header_hbox.move_child(left_spacer, 0)
 	
-	# Modern translucent obsidian glass panel styling
+	# Translucent white glass drawer
 	var sb = StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.07, 0.11, 0.90)
+	sb.bg_color = Color(1.0, 1.0, 1.0, 0.24)
 	sb.content_margin_left = 16
 	sb.content_margin_right = 16
 	sb.content_margin_bottom = 12
 	sb.border_width_top = 1
 	sb.border_color = Color(1.0, 1.0, 1.0, 0.15)
-	sb.corner_radius_top_left = 22
-	sb.corner_radius_top_right = 22
-	sb.shadow_color = Color(0, 0, 0, 0.45)
-	sb.shadow_size = 18
-	sb.shadow_offset = Vector2(0, -4)
 	
 	var target_top: float = -540.0
 	var was_already_open = drawer_modal.visible and drawer_modal.modulate.a > 0.05
@@ -2126,11 +2115,8 @@ func _create_card_container() -> PanelContainer:
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.11, 0.18, 0.65)
-	style.set_corner_radius_all(14)
 	style.set_border_width_all(1)
 	style.border_color = Color(1.0, 1.0, 1.0, 0.12)
-	style.shadow_color = Color(0, 0, 0, 0.25)
-	style.shadow_size = 8
 	style.content_margin_left = 16
 	style.content_margin_right = 16
 	style.content_margin_top = 12
@@ -2145,7 +2131,6 @@ func _create_card_button(btn_text: String, is_active: bool) -> Button:
 	btn.add_theme_font_size_override("font_size", 13)
 	btn.add_theme_font_override("font", FONT_SEMIBOLD)
 	var btn_style = StyleBoxFlat.new()
-	btn_style.set_corner_radius_all(10)
 	if is_active:
 		btn_style.bg_color = Color(0.14, 0.62, 0.42, 0.95)
 		btn_style.set_border_width_all(1)
@@ -2163,9 +2148,8 @@ func _create_card_button(btn_text: String, is_active: bool) -> Button:
 	btn.add_theme_stylebox_override("pressed", btn_style)
 	return btn
 
-func _make_tile_style(selected: bool, corner: int = 12) -> StyleBoxFlat:
+func _make_tile_style(selected: bool) -> StyleBoxFlat:
 	var st = StyleBoxFlat.new()
-	st.set_corner_radius_all(corner)
 	st.content_margin_left = 6
 	st.content_margin_right = 6
 	st.content_margin_top = 6
@@ -2253,7 +2237,7 @@ func _refresh_skin_tiles() -> void:
 		var sel = (active_skin_id == skin_id)
 		btn.flat = false
 		btn.focus_mode = Control.FOCUS_NONE
-		var st = _make_tile_style(sel, 12)
+		var st = _make_tile_style(sel)
 		var st_h = st.duplicate() as StyleBoxFlat
 		st_h.bg_color = st.bg_color.lightened(0.06)
 		btn.add_theme_stylebox_override("normal", st)
@@ -2290,7 +2274,7 @@ func _refresh_pal_tiles() -> void:
 		var sel = (i == palette_index)
 		btn.flat = false
 		btn.focus_mode = Control.FOCUS_NONE
-		var st = _make_tile_style(sel, 12)
+		var st = _make_tile_style(sel)
 		var st_h = st.duplicate() as StyleBoxFlat
 		st_h.bg_color = st.bg_color.lightened(0.06)
 		btn.add_theme_stylebox_override("normal", st)
@@ -2338,7 +2322,7 @@ func _open_skins_drawer() -> void:
 		tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tile_btn.custom_minimum_size = Vector2(0, 96)
 		
-		var tile_style = _make_tile_style(is_equipped, 12)
+		var tile_style = _make_tile_style(is_equipped)
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
 		tile_btn.add_theme_stylebox_override("normal", tile_style)
@@ -2507,7 +2491,7 @@ func _open_skins_drawer() -> void:
 		var is_sniper = sniper_reticle_enabled
 		
 		# Style None button
-		var st_n = _make_tile_style(is_none, 12)
+		var st_n = _make_tile_style(is_none)
 		var st_nh = st_n.duplicate() as StyleBoxFlat
 		st_nh.bg_color = st_n.bg_color.lightened(0.06)
 		btn_none.add_theme_stylebox_override("normal", st_n)
@@ -2519,7 +2503,7 @@ func _open_skins_drawer() -> void:
 		none_badge.visible = is_none
 		
 		# Style Sniper button
-		var st_s = _make_tile_style(is_sniper, 12)
+		var st_s = _make_tile_style(is_sniper)
 		var st_sh = st_s.duplicate() as StyleBoxFlat
 		st_sh.bg_color = st_s.bg_color.lightened(0.06)
 		btn_sniper.add_theme_stylebox_override("normal", st_s)
@@ -2604,7 +2588,7 @@ func _open_skins_drawer() -> void:
 		pal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pal_btn.custom_minimum_size = Vector2(0, 88)
 		
-		var ps = _make_tile_style(is_pal_active, 12)
+		var ps = _make_tile_style(is_pal_active)
 		var ps_h = ps.duplicate() as StyleBoxFlat
 		ps_h.bg_color = ps.bg_color.lightened(0.06)
 		pal_btn.add_theme_stylebox_override("normal", ps)
@@ -2636,7 +2620,6 @@ func _open_skins_drawer() -> void:
 				sc.a = pal_alpha
 				var sb = StyleBoxFlat.new()
 				sb.bg_color = sc
-				sb.set_corner_radius_all(3)
 				if is_trans:
 					sb.set_border_width_all(1)
 					sb.border_color = Color(1.0, 1.0, 1.0, 0.5)
@@ -2650,7 +2633,6 @@ func _open_skins_drawer() -> void:
 				sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				var sb = StyleBoxFlat.new()
 				sb.bg_color = c as Color
-				sb.set_corner_radius_all(3)
 				if is_trans:
 					sb.set_border_width_all(1)
 					sb.border_color = Color(1.0, 1.0, 1.0, 0.5)
@@ -2731,7 +2713,7 @@ func _open_challenge_drawer() -> void:
 		tile_btn.size_flags_stretch_ratio = 1.0
 		tile_btn.custom_minimum_size = Vector2(0, 156)
 		
-		var tile_style = _make_tile_style(is_active, 14)
+		var tile_style = _make_tile_style(is_active)
 		var tile_hover = tile_style.duplicate() as StyleBoxFlat
 		tile_hover.bg_color = tile_style.bg_color.lightened(0.06)
 		tile_btn.add_theme_stylebox_override("normal", tile_style)
@@ -2846,10 +2828,8 @@ func _open_campaign_drawer() -> void:
 	p_bar.value = float(campaign_completed_stages.size())
 	var bg_st = StyleBoxFlat.new()
 	bg_st.bg_color = Color(0.14, 0.17, 0.25, 0.75)
-	bg_st.set_corner_radius_all(3)
 	var fill_st = StyleBoxFlat.new()
 	fill_st.bg_color = Color(0.95, 0.75, 0.25, 0.95)
-	fill_st.set_corner_radius_all(3)
 	p_bar.add_theme_stylebox_override("background", bg_st)
 	p_bar.add_theme_stylebox_override("fill", fill_st)
 	s_vbox.add_child(p_bar)
@@ -2890,7 +2870,6 @@ func _open_campaign_drawer() -> void:
 	play_btn.add_theme_font_size_override("font_size", 11)
 	play_btn.add_theme_font_override("font", FONT_BOLD)
 	var p_btn_st = StyleBoxFlat.new()
-	p_btn_st.set_corner_radius_all(10)
 	if not sel_is_unlocked:
 		play_btn.text = "LOCKED"
 		play_btn.disabled = true
@@ -2947,17 +2926,17 @@ func _open_campaign_drawer() -> void:
 		
 		var tile_style: StyleBoxFlat
 		if is_selected:
-			tile_style = _make_tile_style(true, 10)
+			tile_style = _make_tile_style(true)
 		elif is_cleared:
-			tile_style = _make_tile_style(false, 10)
+			tile_style = _make_tile_style(false)
 			tile_style.border_color = Color(0.35, 0.90, 0.55, 0.35)
 			tile_style.bg_color = Color(0.08, 0.16, 0.14, 0.55)
 		elif is_unlocked:
-			tile_style = _make_tile_style(false, 10)
+			tile_style = _make_tile_style(false)
 			tile_style.border_color = Color(1.0, 1.0, 1.0, 0.12)
 			tile_style.bg_color = Color(0.10, 0.13, 0.20, 0.55)
 		else:
-			tile_style = _make_tile_style(false, 10)
+			tile_style = _make_tile_style(false)
 			tile_style.border_color = Color(1.0, 1.0, 1.0, 0.04)
 			tile_style.bg_color = Color(0.07, 0.08, 0.12, 0.35)
 		
@@ -3446,7 +3425,7 @@ func _open_levels_drawer() -> void:
 	_open_exp_drawer()
 
 func _open_exp_drawer() -> void:
-	_open_drawer("EXPERIENCE & MISSIONS")
+	_open_drawer("EXPERIENCE & MISSIONS", true)
 	
 	var rank = get_current_rank_info()
 	var current_lvl: int = rank["level"]
@@ -3505,10 +3484,8 @@ func _open_exp_drawer() -> void:
 	
 	var bg_style = StyleBoxFlat.new()
 	bg_style.bg_color = Color(0.14, 0.17, 0.25, 0.75)
-	bg_style.set_corner_radius_all(5)
 	var fill_style = StyleBoxFlat.new()
 	fill_style.bg_color = Color(1.0, 0.78, 0.28, 0.95)
-	fill_style.set_corner_radius_all(5)
 	p_bar.add_theme_stylebox_override("background", bg_style)
 	p_bar.add_theme_stylebox_override("fill", fill_style)
 	p_vbox.add_child(p_bar)
@@ -3531,7 +3508,6 @@ func _open_exp_drawer() -> void:
 		claim_all_btn.add_theme_font_override("font", FONT_BOLD)
 		var ca_style = StyleBoxFlat.new()
 		ca_style.bg_color = Color(0.16, 0.65, 0.40, 0.95)
-		ca_style.set_corner_radius_all(10)
 		ca_style.border_width_top = 1
 		ca_style.border_color = Color(0.40, 0.95, 0.65, 0.60)
 		claim_all_btn.add_theme_stylebox_override("normal", ca_style)
@@ -3647,7 +3623,6 @@ func _open_exp_drawer() -> void:
 			claim_btn.add_theme_font_override("font", FONT_BOLD)
 			var c_style = StyleBoxFlat.new()
 			c_style.bg_color = Color(0.85, 0.65, 0.15, 1.0)
-			c_style.set_corner_radius_all(10)
 			claim_btn.add_theme_stylebox_override("normal", c_style)
 			claim_btn.add_theme_stylebox_override("hover", c_style)
 			claim_btn.add_theme_stylebox_override("pressed", c_style)
@@ -3676,10 +3651,8 @@ func _open_exp_drawer() -> void:
 			m_bar.value = float(clamp(m["cur"], 0, m["target"]))
 			var m_bg = StyleBoxFlat.new()
 			m_bg.bg_color = Color(0.18, 0.22, 0.32, 0.6)
-			m_bg.set_corner_radius_all(4)
 			var m_fill = StyleBoxFlat.new()
 			m_fill.bg_color = Color(0.28, 0.60, 0.90, 0.85)
-			m_fill.set_corner_radius_all(4)
 			m_bar.add_theme_stylebox_override("background", m_bg)
 			m_bar.add_theme_stylebox_override("fill", m_fill)
 			vbox.add_child(m_bar)
