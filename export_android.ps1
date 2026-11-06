@@ -6,7 +6,7 @@ if (-not (Test-Path "build")) {
     New-Item -ItemType Directory -Path "build" | Out-Null
 }
 
-$godotPath = "D:\GitHub\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe"
+$godotPath = "D:\GitHub\Godot_v4.7.2\Godot_v4.7.2-stable_win64_console.exe"
 
 if (-not (Test-Path $godotPath)) {
     Write-Host "[ERROR] Godot executable not found at: $godotPath" -ForegroundColor Red

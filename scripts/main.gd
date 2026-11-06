@@ -205,7 +205,7 @@ var _toast_tween: Tween = null
 # Skin / palette tile refs for in-place style updates (no drawer rebuild)
 var _skin_tile_btns: Array = []
 var _pal_tile_btns: Array = []
-var _pal_section_root: Control = null
+var _skin_tab_row: HBoxContainer
 
 var active_box: Node3D = null
 
@@ -2062,6 +2062,10 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 	for child in drawer_content.get_children():
 		drawer_content.remove_child(child)
 		child.queue_free()
+	if is_instance_valid(_skin_tab_row):
+		_skin_tab_row.get_parent().remove_child(_skin_tab_row)
+		_skin_tab_row.queue_free()
+		_skin_tab_row = null
 	
 	if is_instance_valid(drawer_scroll):
 		drawer_scroll.scroll_vertical = 0
@@ -2395,10 +2399,6 @@ func _refresh_skin_tiles() -> void:
 			_animate_tile_pop(btn)
 		else:
 			_reset_tile_transform(btn)
-	# Palette section is always visible for all skins
-	if is_instance_valid(_pal_section_root):
-		_pal_section_root.visible = true
-
 func _refresh_pal_tiles() -> void:
 	for i in _pal_tile_btns.size():
 		var btn: Button = _pal_tile_btns[i]
@@ -2464,7 +2464,10 @@ func _open_skins_drawer() -> void:
 	_open_drawer("SKINS")
 	_skin_tile_btns.clear()
 	_pal_tile_btns.clear()
-	_pal_section_root = null
+
+	var theme_section = VBoxContainer.new()
+	theme_section.add_theme_constant_override("separation", 10)
+	drawer_content.add_child(theme_section)
 	
 	# --- ALL SKINS GRID (3 columns of square tiles) ---
 	var skins_grid = GridContainer.new()
@@ -2472,7 +2475,7 @@ func _open_skins_drawer() -> void:
 	skins_grid.add_theme_constant_override("h_separation", 8)
 	skins_grid.add_theme_constant_override("v_separation", 8)
 	skins_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_add_glass_grid(drawer_content, skins_grid)
+	_add_glass_grid(theme_section, skins_grid)
 
 	var edge_row = HBoxContainer.new()
 	var edge_label = Label.new()
@@ -2498,7 +2501,7 @@ func _open_skins_drawer() -> void:
 		save_skin_data()
 	)
 	edge_row.add_child(edge_options)
-	drawer_content.add_child(edge_row)
+	theme_section.add_child(edge_row)
 	
 	for s in SKINS:
 		var is_equipped = (active_skin_id == s["id"])
@@ -2564,7 +2567,7 @@ func _open_skins_drawer() -> void:
 	var reticle_section = VBoxContainer.new()
 	reticle_section.add_theme_constant_override("separation", 6)
 	reticle_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	drawer_content.add_child(reticle_section)
+	theme_section.add_child(reticle_section)
 	
 	var r_spacer = Control.new()
 	r_spacer.custom_minimum_size = Vector2(0, 4)
@@ -2734,24 +2737,12 @@ func _open_skins_drawer() -> void:
 		save_skin_data()
 	)
 	
-	# --- PALETTE SECTION (always created; shown only when Classic is active) ---
 	var pal_section = VBoxContainer.new()
 	pal_section.add_theme_constant_override("separation", 8)
 	pal_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pal_section.visible = true
-	_pal_section_root = pal_section
+	pal_section.hide()
 	drawer_content.add_child(pal_section)
-	
-	var _spacer = Control.new()
-	_spacer.custom_minimum_size = Vector2(0, 6)
-	pal_section.add_child(_spacer)
-	
-	var pal_header = Label.new()
-	pal_header.text = "COLOR PALETTES"
-	pal_header.add_theme_font_size_override("font_size", 12)
-	pal_header.add_theme_font_override("font", FONT_BOLD)
-	pal_header.add_theme_color_override("font_color", Color(0.65, 0.74, 0.90, 0.85))
-	pal_section.add_child(pal_header)
+	_add_skin_tabs(theme_section, pal_section)
 	
 	var pal_grid = GridContainer.new()
 	pal_grid.columns = 3
@@ -2861,6 +2852,42 @@ func _open_skins_drawer() -> void:
 		)
 		_pal_tile_btns.append(pal_btn)
 		pal_grid.add_child(pal_btn)
+
+func _add_skin_tabs(theme_section: Control, pal_section: Control) -> void:
+	_skin_tab_row = HBoxContainer.new()
+	_skin_tab_row.add_theme_constant_override("separation", 8)
+	var drawer_layout = drawer_scroll.get_parent()
+	drawer_layout.add_child(_skin_tab_row)
+	drawer_layout.move_child(_skin_tab_row, drawer_scroll.get_index())
+	drawer_scroll.custom_minimum_size.y = 272.0
+
+	var tab_group = ButtonGroup.new()
+	for label: String in ["Themes", "Color Palettes"]:
+		var is_themes: bool = label == "Themes"
+		var button = Button.new()
+		button.text = label
+		button.toggle_mode = true
+		button.button_group = tab_group
+		button.set_pressed_no_signal(is_themes)
+		button.custom_minimum_size.y = 44.0
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_override("font", FONT_SEMIBOLD)
+		button.add_theme_font_size_override("font_size", 16)
+		var selected_style = _make_tile_style(true)
+		button.add_theme_stylebox_override("normal", _make_tile_style(false))
+		button.add_theme_stylebox_override("hover", _make_tile_style(false))
+		button.add_theme_stylebox_override("pressed", selected_style)
+		button.add_theme_stylebox_override("hover_pressed", selected_style)
+		button.toggled.connect(func(selected: bool):
+			if not selected:
+				return
+			theme_section.visible = is_themes
+			pal_section.visible = not is_themes
+			_scroll_velocity_y = 0.0
+			drawer_scroll.scroll_vertical = 0
+			sound_mgr.play_click()
+		)
+		_skin_tab_row.add_child(button)
 
 func _open_challenge_drawer() -> void:
 	_open_drawer("CHALLENGE MODES")

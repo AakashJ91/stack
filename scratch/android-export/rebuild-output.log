@@ -11,6 +11,61 @@ ERROR: Could not open 'user://' directory: 'user://'.
 [  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
 [92m[ DONE ][39m [1mfirst_scan_filesystem[22m
 [0m
+[   0% ] [90m[1m_update_scan_actions[22m | Started Scanning actions... (52 steps)[39m[0m
+[   0% ] [90m[1m_update_scan_actions[22m | Poppins-Bold.ttf[39m[0m
+[   1% ] [90m[1m_update_scan_actions[22m | Poppins-Medium.ttf[39m[0m
+[   3% ] [90m[1m_update_scan_actions[22m | Poppins-SemiBold.ttf[39m[0m
+[   5% ] [90m[1m_update_scan_actions[22m | cloud_cumulus.png[39m[0m
+[   7% ] [90m[1m_update_scan_actions[22m | cloud_puff.png[39m[0m
+[   9% ] [90m[1m_update_scan_actions[22m | cloud_wispy.png[39m[0m
+[  11% ] [90m[1m_update_scan_actions[22m | cube_albedo.png[39m[0m
+[  13% ] [90m[1m_update_scan_actions[22m | cube_normal.png[39m[0m
+[  15% ] [90m[1m_update_scan_actions[22m | cube_roughness.png[39m[0m
+[  16% ] [90m[1m_update_scan_actions[22m | falling_star_streak.png[39m[0m
+[  18% ] [90m[1m_update_scan_actions[22m | skin_bricks.svg[39m[0m
+[  20% ] [90m[1m_update_scan_actions[22m | skin_candy.svg[39m[0m
+[  22% ] [90m[1m_update_scan_actions[22m | skin_crystal.png[39m[0m
+[  24% ] [90m[1m_update_scan_actions[22m | skin_cyber.png[39m[0m
+[  26% ] [90m[1m_update_scan_actions[22m | skin_dusty.png[39m[0m
+[  28% ] [90m[1m_update_scan_actions[22m | skin_floral.svg[39m[0m
+[  30% ] [90m[1m_update_scan_actions[22m | skin_frosted.png[39m[0m
+[  32% ] [90m[1m_update_scan_actions[22m | skin_glass.png[39m[0m
+[  33% ] [90m[1m_update_scan_actions[22m | skin_jelly.svg[39m[0m
+[  35% ] [90m[1m_update_scan_actions[22m | skin_marble.png[39m[0m
+[  37% ] [90m[1m_update_scan_actions[22m | skin_reflective.png[39m[0m
+[  39% ] [90m[1m_update_scan_actions[22m | skin_terrazzo.png[39m[0m
+[  41% ] [90m[1m_update_scan_actions[22m | skin_terrazzo_chips.svg[39m[0m
+[  43% ] [90m[1m_update_scan_actions[22m | skin_wood.png[39m[0m
+[  45% ] [90m[1m_update_scan_actions[22m | sniper_reticle.png[39m[0m
+[  47% ] [90m[1m_update_scan_actions[22m | stardust_sparkle.png[39m[0m
+[  49% ] [90m[1m_update_scan_actions[22m | star_flare_head.png[39m[0m
+[  50% ] [90m[1m_update_scan_actions[22m | star_flare_sheet.png[39m[0m
+[  52% ] [90m[1m_update_scan_actions[22m | surface_grain.png[39m[0m
+[  54% ] [90m[1m_update_scan_actions[22m | campain.svg[39m[0m
+[  56% ] [90m[1m_update_scan_actions[22m | challange.svg[39m[0m
+[  58% ] [90m[1m_update_scan_actions[22m | close.svg[39m[0m
+[  60% ] [90m[1m_update_scan_actions[22m | Experiance.svg[39m[0m
+[  62% ] [90m[1m_update_scan_actions[22m | home.svg[39m[0m
+[  64% ] [90m[1m_update_scan_actions[22m | mode-classic.svg[39m[0m
+[  66% ] [90m[1m_update_scan_actions[22m | mode-precision.svg[39m[0m
+[  67% ] [90m[1m_update_scan_actions[22m | mode-speed.svg[39m[0m
+[  69% ] [90m[1m_update_scan_actions[22m | mode-zen.svg[39m[0m
+[  71% ] [90m[1m_update_scan_actions[22m | restart.svg[39m[0m
+[  73% ] [90m[1m_update_scan_actions[22m | setting.svg[39m[0m
+[  75% ] [90m[1m_update_scan_actions[22m | skin-bricks.svg[39m[0m
+[  77% ] [90m[1m_update_scan_actions[22m | skin-candy.svg[39m[0m
+[  79% ] [90m[1m_update_scan_actions[22m | skin-crystal.svg[39m[0m
+[  81% ] [90m[1m_update_scan_actions[22m | skin-floral.svg[39m[0m
+[  83% ] [90m[1m_update_scan_actions[22m | skin-frost.svg[39m[0m
+[  84% ] [90m[1m_update_scan_actions[22m | skin-glass.svg[39m[0m
+[  86% ] [90m[1m_update_scan_actions[22m | skin-jelly.svg[39m[0m
+[  88% ] [90m[1m_update_scan_actions[22m | skin-marble.svg[39m[0m
+[  90% ] [90m[1m_update_scan_actions[22m | skin-mirror.svg[39m[0m
+[  92% ] [90m[1m_update_scan_actions[22m | skin-sand.svg[39m[0m
+[  94% ] [90m[1m_update_scan_actions[22m | skin-terrazzo.svg[39m[0m
+[  96% ] [90m[1m_update_scan_actions[22m | skin.svg[39m[0m
+[92m[ DONE ][39m [1m_update_scan_actions[22m
+[0m
 [   0% ] [90m[1mexport[22m | Started Exporting for Android (105 steps)[39m[0m
 0 param: --xr_mode_regular
 1 param: --xr-mode
