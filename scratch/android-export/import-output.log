@@ -1,0 +1,213 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+ERROR: Cannot open file 'res://.godot/imported/Poppins-Medium.ttf-8e4b1c762f63ba52afb732bb5e0b8b16.fontdata'.
+   at: load (core/io/resource_format_binary.cpp:1156)
+ERROR: Failed loading resource: res://.godot/imported/Poppins-Medium.ttf-8e4b1c762f63ba52afb732bb5e0b8b16.fontdata.
+   at: _load (core/io/resource_loader.cpp:317)
+ERROR: Failed loading resource: res://fonts/Poppins-Medium.ttf.
+   at: _load (core/io/resource_loader.cpp:317)
+ERROR: Error loading custom project font 'res://fonts/Poppins-Medium.ttf'
+   at: initialize_theme (scene/theme/theme_db.cpp:84)
+ERROR: Could not open 'user://' directory: 'user://'.
+   at: _get_and_create_snapshot_storage_dir (modules/objectdb_profiler/editor/objectdb_profiler_panel.cpp:157)
+Unable to open Android 'build-tools' directory.
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | Started Registering global classes... (6 steps)[39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | StackBox[39m[0m
+[  14% ] [90m[1mupdate_scripts_classes[22m | CubeSlider[39m[0m
+[  28% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  42% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  57% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  71% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[92m[ DONE ][39m [1mupdate_scripts_classes[22m
+[0m
+[   0% ] [90m[1m_update_scan_actions[22m | Started Scanning actions... (55 steps)[39m[0m
+[   0% ] [90m[1m_update_scan_actions[22m | Poppins-Bold.ttf[39m[0m
+[   1% ] [90m[1m_update_scan_actions[22m | Poppins-Medium.ttf[39m[0m
+[   3% ] [90m[1m_update_scan_actions[22m | Poppins-SemiBold.ttf[39m[0m
+[   5% ] [90m[1m_update_scan_actions[22m | cloud_cumulus.png[39m[0m
+[   7% ] [90m[1m_update_scan_actions[22m | cloud_puff.png[39m[0m
+[   8% ] [90m[1m_update_scan_actions[22m | cloud_wispy.png[39m[0m
+[  10% ] [90m[1m_update_scan_actions[22m | cube_albedo.png[39m[0m
+[  12% ] [90m[1m_update_scan_actions[22m | cube_normal.png[39m[0m
+[  14% ] [90m[1m_update_scan_actions[22m | cube_roughness.png[39m[0m
+[  16% ] [90m[1m_update_scan_actions[22m | falling_star_streak.png[39m[0m
+[  17% ] [90m[1m_update_scan_actions[22m | skin_bricks.svg[39m[0m
+[  19% ] [90m[1m_update_scan_actions[22m | skin_candy.svg[39m[0m
+[  21% ] [90m[1m_update_scan_actions[22m | skin_crystal.png[39m[0m
+[  23% ] [90m[1m_update_scan_actions[22m | skin_cyber.png[39m[0m
+[  25% ] [90m[1m_update_scan_actions[22m | skin_dusty.png[39m[0m
+[  26% ] [90m[1m_update_scan_actions[22m | skin_floral.svg[39m[0m
+[  28% ] [90m[1m_update_scan_actions[22m | skin_frosted.png[39m[0m
+[  30% ] [90m[1m_update_scan_actions[22m | skin_glass.png[39m[0m
+[  32% ] [90m[1m_update_scan_actions[22m | skin_jelly.svg[39m[0m
+[  33% ] [90m[1m_update_scan_actions[22m | skin_marble.png[39m[0m
+[  35% ] [90m[1m_update_scan_actions[22m | skin_reflective.png[39m[0m
+[  37% ] [90m[1m_update_scan_actions[22m | skin_terrazzo.png[39m[0m
+[  39% ] [90m[1m_update_scan_actions[22m | skin_terrazzo_chips.svg[39m[0m
+[  41% ] [90m[1m_update_scan_actions[22m | skin_wood.png[39m[0m
+[  42% ] [90m[1m_update_scan_actions[22m | sniper_reticle.png[39m[0m
+[  44% ] [90m[1m_update_scan_actions[22m | stardust_sparkle.png[39m[0m
+[  46% ] [90m[1m_update_scan_actions[22m | star_flare_head.png[39m[0m
+[  48% ] [90m[1m_update_scan_actions[22m | star_flare_sheet.png[39m[0m
+[  50% ] [90m[1m_update_scan_actions[22m | surface_grain.png[39m[0m
+[  51% ] [90m[1m_update_scan_actions[22m | campain.svg[39m[0m
+[  53% ] [90m[1m_update_scan_actions[22m | challange.svg[39m[0m
+[  55% ] [90m[1m_update_scan_actions[22m | close.svg[39m[0m
+[  57% ] [90m[1m_update_scan_actions[22m | Experiance.svg[39m[0m
+[  58% ] [90m[1m_update_scan_actions[22m | home.svg[39m[0m
+[  60% ] [90m[1m_update_scan_actions[22m | mode-classic.svg[39m[0m
+[  62% ] [90m[1m_update_scan_actions[22m | mode-precision.svg[39m[0m
+[  64% ] [90m[1m_update_scan_actions[22m | mode-speed.svg[39m[0m
+[  66% ] [90m[1m_update_scan_actions[22m | mode-zen.svg[39m[0m
+[  67% ] [90m[1m_update_scan_actions[22m | restart.svg[39m[0m
+[  69% ] [90m[1m_update_scan_actions[22m | setting.svg[39m[0m
+[  71% ] [90m[1m_update_scan_actions[22m | skin-bricks.svg[39m[0m
+[  73% ] [90m[1m_update_scan_actions[22m | skin-candy.svg[39m[0m
+[  75% ] [90m[1m_update_scan_actions[22m | skin-crystal.svg[39m[0m
+[  76% ] [90m[1m_update_scan_actions[22m | skin-floral.svg[39m[0m
+[  78% ] [90m[1m_update_scan_actions[22m | skin-frost.svg[39m[0m
+[  80% ] [90m[1m_update_scan_actions[22m | skin-glass.svg[39m[0m
+[  82% ] [90m[1m_update_scan_actions[22m | skin-jelly.svg[39m[0m
+[  83% ] [90m[1m_update_scan_actions[22m | skin-marble.svg[39m[0m
+[  85% ] [90m[1m_update_scan_actions[22m | skin-mirror.svg[39m[0m
+[  87% ] [90m[1m_update_scan_actions[22m | skin-sand.svg[39m[0m
+[  89% ] [90m[1m_update_scan_actions[22m | skin-terrazzo.svg[39m[0m
+[  91% ] [90m[1m_update_scan_actions[22m | skin.svg[39m[0m
+[  92% ] [90m[1m_update_scan_actions[22m | icon.png[39m[0m
+[  94% ] [90m[1m_update_scan_actions[22m | icon.svg[39m[0m
+[  96% ] [90m[1m_update_scan_actions[22m | icon_192.png[39m[0m
+[92m[ DONE ][39m [1m_update_scan_actions[22m
+[0m
+[   0% ] [90m[1mreimport[22m | Started (Re)Importing Assets (55 steps)[39m[0m
+[   0% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   1% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   3% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   5% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   7% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   8% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  10% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  12% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  14% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  16% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  17% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  19% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  21% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  23% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  25% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  26% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  28% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  30% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  32% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  33% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  35% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  37% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  39% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  41% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  42% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  44% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  46% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  48% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  50% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  51% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  53% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  55% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  57% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  58% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  60% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  62% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  64% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  66% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  67% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  69% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  71% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  73% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  75% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  76% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  78% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  80% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  82% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  83% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  85% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  87% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  89% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  91% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  92% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  94% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  96% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   0% ] [90m[1mreimport[22m | Executing pre-reimport operations...[39m[0m
+[   0% ] [90m[1mreimport[22m | Poppins-Bold.ttf[39m[0m
+[   1% ] [90m[1mreimport[22m | Poppins-Medium.ttf[39m[0m
+[   3% ] [90m[1mreimport[22m | Poppins-SemiBold.ttf[39m[0m
+[   5% ] [90m[1mreimport[22m | Poppins-Bold.ttf[39m[0m
+[   7% ] [90m[1mreimport[22m | Poppins-Medium.ttf[39m[0m
+[   8% ] [90m[1mreimport[22m | Poppins-SemiBold.ttf[39m[0m
+[  10% ] [90m[1mreimport[22m | campain.svg[39m[0m
+[  12% ] [90m[1mreimport[22m | challange.svg[39m[0m
+[  14% ] [90m[1mreimport[22m | close.svg[39m[0m
+[  16% ] [90m[1mreimport[22m | Experiance.svg[39m[0m
+[  17% ] [90m[1mreimport[22m | home.svg[39m[0m
+[  19% ] [90m[1mreimport[22m | mode-classic.svg[39m[0m
+[  21% ] [90m[1mreimport[22m | mode-precision.svg[39m[0m
+[  23% ] [90m[1mreimport[22m | mode-speed.svg[39m[0m
+[  25% ] [90m[1mreimport[22m | mode-zen.svg[39m[0m
+[  26% ] [90m[1mreimport[22m | restart.svg[39m[0m
+[  28% ] [90m[1mreimport[22m | setting.svg[39m[0m
+[  30% ] [90m[1mreimport[22m | skin-bricks.svg[39m[0m
+[  32% ] [90m[1mreimport[22m | skin-candy.svg[39m[0m
+[  33% ] [90m[1mreimport[22m | skin-crystal.svg[39m[0m
+[  35% ] [90m[1mreimport[22m | skin-floral.svg[39m[0m
+[  37% ] [90m[1mreimport[22m | skin-frost.svg[39m[0m
+[  39% ] [90m[1mreimport[22m | skin-glass.svg[39m[0m
+[  41% ] [90m[1mreimport[22m | skin-jelly.svg[39m[0m
+[  42% ] [90m[1mreimport[22m | skin-marble.svg[39m[0m
+[  44% ] [90m[1mreimport[22m | skin-mirror.svg[39m[0m
+[  46% ] [90m[1mreimport[22m | skin-sand.svg[39m[0m
+[  48% ] [90m[1mreimport[22m | skin-terrazzo.svg[39m[0m
+[  50% ] [90m[1mreimport[22m | skin.svg[39m[0m
+[  51% ] [90m[1mreimport[22m | icon.png[39m[0m
+[  53% ] [90m[1mreimport[22m | icon.svg[39m[0m
+[  55% ] [90m[1mreimport[22m | icon_192.png[39m[0m
+[  57% ] [90m[1mreimport[22m | cloud_cumulus.png[39m[0m
+[  58% ] [90m[1mreimport[22m | cloud_puff.png[39m[0m
+[  60% ] [90m[1mreimport[22m | cloud_wispy.png[39m[0m
+[  62% ] [90m[1mreimport[22m | cube_albedo.png[39m[0m
+[  64% ] [90m[1mreimport[22m | cube_normal.png[39m[0m
+[  66% ] [90m[1mreimport[22m | cube_roughness.png[39m[0m
+[  67% ] [90m[1mreimport[22m | falling_star_streak.png[39m[0m
+[  69% ] [90m[1mreimport[22m | skin_bricks.svg[39m[0m
+[  71% ] [90m[1mreimport[22m | skin_candy.svg[39m[0m
+[  73% ] [90m[1mreimport[22m | skin_crystal.png[39m[0m
+[  75% ] [90m[1mreimport[22m | skin_cyber.png[39m[0m
+[  76% ] [90m[1mreimport[22m | skin_dusty.png[39m[0m
+[  78% ] [90m[1mreimport[22m | skin_floral.svg[39m[0m
+[  80% ] [90m[1mreimport[22m | skin_frosted.png[39m[0m
+[  82% ] [90m[1mreimport[22m | skin_glass.png[39m[0m
+[  83% ] [90m[1mreimport[22m | skin_jelly.svg[39m[0m
+[  85% ] [90m[1mreimport[22m | skin_marble.png[39m[0m
+[  87% ] [90m[1mreimport[22m | skin_reflective.png[39m[0m
+[  89% ] [90m[1mreimport[22m | skin_terrazzo.png[39m[0m
+[  91% ] [90m[1mreimport[22m | skin_terrazzo_chips.svg[39m[0m
+[  92% ] [90m[1mreimport[22m | skin_wood.png[39m[0m
+[  94% ] [90m[1mreimport[22m | sniper_reticle.png[39m[0m
+[  96% ] [90m[1mreimport[22m | stardust_sparkle.png[39m[0m
+[  98% ] [90m[1mreimport[22m | Finalizing Asset Import...[39m[0m
+[92m[ DONE ][39m [1mreimport[22m
+[0m
+[   0% ] [90m[1mreimport[22m | Started (Re)Importing Assets (55 steps)[39m[0m
+[   0% ] [90m[1mreimport[22m | Executing post-reimport operations...[39m[0m
+[92m[ DONE ][39m [1mreimport[22m
+[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Started Loading editor (5 steps)[39m[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Loading editor layout...[39m[0m
+[  16% ] [90m[1mloading_editor_layout[22m | Loading docks...[39m[0m
+[92m[ DONE ][39m [1mloading_editor_layout[22m
+[0m

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="jelly">
+      <stop stop-color="#fff"/>
+      <stop offset=".48" stop-color="#f6f6f6"/>
+      <stop offset="1" stop-color="#c9c9c9"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#jelly)"/>
+  <g fill="#fff" fill-opacity=".12" stroke="#989898" stroke-opacity=".35" stroke-width="2">
+    <circle cx="61" cy="75" r="8"/>
+    <circle cx="170" cy="58" r="5"/>
+    <circle cx="184" cy="153" r="12"/>
+    <circle cx="95" cy="181" r="6"/>
+  </g>
+</svg>

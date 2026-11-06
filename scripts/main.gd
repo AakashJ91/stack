@@ -4,6 +4,8 @@ const StackBox = preload("res://scripts/box.gd")
 const CubeSlider = preload("res://scripts/cube_slider.gd")
 const FallingStars = preload("res://scripts/falling_stars.gd")
 const GLASS_HIGHLIGHT = preload("res://UI/glass_highlight.gdshader")
+const BOTTOM_RIBBON_HEIGHT: float = 136.0
+const COMPACT_DRAWER_HEIGHT: float = 436.0
 
 enum GameState { MENU, READY, PLAYING, DROPPING, GAME_OVER, LEVEL_CLEARED }
 
@@ -47,6 +49,7 @@ var tower_sway_time: float = 0.0
 const BASE_CAMERA_SIZE: float = 12.8
 const HOME_PLATFORM_CAMERA_OFFSET: float = 2.4 # Lowers platform on Home page and during gameplay
 const PREVIEW_DRAWER_CAMERA_OFFSET: float = -1.6 # Raises platform higher for Skins & Challenges preview
+const PREVIEW_DRAWER_GAP: float = 24.0
 const SINK_PLATFORM_CAMERA_OFFSET: float = 12.0 # Sinks platform below screen for Campaign & Experience tabs
 var target_camera_y: float = 0.0
 var base_camera_pivot_y: float = 0.0
@@ -1863,7 +1866,7 @@ func _set_active_tab(tab_name: String) -> void:
 		if active_ribbon_tab == "home":
 			target_camera_y = base_camera_pivot_y + HOME_PLATFORM_CAMERA_OFFSET
 		elif active_ribbon_tab == "skin" or active_ribbon_tab == "challenge":
-			target_camera_y = base_camera_pivot_y + PREVIEW_DRAWER_CAMERA_OFFSET
+			_update_drawer_preview_camera()
 		elif active_ribbon_tab == "campaign" or active_ribbon_tab == "exp":
 			target_camera_y = base_camera_pivot_y + SINK_PLATFORM_CAMERA_OFFSET
 		else:
@@ -1899,7 +1902,7 @@ func _set_active_tab(tab_name: String) -> void:
 		
 		if lbl:
 			lbl.add_theme_font_override("font", FONT_SEMIBOLD)
-			lbl.add_theme_font_size_override("font_size", 12)
+			lbl.add_theme_font_size_override("font_size", 16)
 		
 		if key == tab_name:
 			btn.flat = false
@@ -1955,6 +1958,17 @@ func _set_home_content_visible(should_show: bool, animate: bool = false) -> void
 		)
 
 
+func _update_drawer_preview_camera() -> void:
+	# Align the lowest visible corner of the platform rim with the final drawer position.
+	var half_rim: Vector3 = pedestal_rim.get_aabb().size * 0.5
+	var front_corner: Vector3 = pedestal_rim.to_global(Vector3(half_rim.x, -half_rim.y, half_rim.z))
+	var corner_y: float = camera.unproject_position(front_corner).y
+	var pixels_per_unit: float = corner_y - camera.unproject_position(front_corner + Vector3.UP).y
+	var clear_y: float = main_menu.size.y - BOTTOM_RIBBON_HEIGHT - COMPACT_DRAWER_HEIGHT - PREVIEW_DRAWER_GAP
+	var clear_screen_y: float = (main_menu.get_global_transform_with_canvas() * Vector2(0.0, clear_y)).y
+	var fitted_camera_y: float = camera_pivot.position.y + (clear_screen_y - corner_y) / pixels_per_unit
+	target_camera_y = minf(base_camera_pivot_y + PREVIEW_DRAWER_CAMERA_OFFSET, fitted_camera_y)
+
 func _open_drawer(title_text: String, is_fullscreen: bool = false, background_opacity: float = 0.24) -> void:
 	if drawer_tween:
 		drawer_tween.kill()
@@ -2001,7 +2015,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 	sb.border_width_top = 1
 	sb.border_color = Color(1.0, 1.0, 1.0, 0.15)
 	
-	var target_top: float = -540.0
+	var target_top: float = -BOTTOM_RIBBON_HEIGHT - COMPACT_DRAWER_HEIGHT
 	var was_already_open = drawer_modal.visible and drawer_modal.modulate.a > 0.05
 	
 	if is_fullscreen:
@@ -2011,7 +2025,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 		drawer_modal.anchor_bottom = 1.0
 		drawer_modal.offset_left = 0.0
 		drawer_modal.offset_right = 0.0
-		drawer_modal.offset_bottom = -104.0
+		drawer_modal.offset_bottom = -BOTTOM_RIBBON_HEIGHT
 		drawer_modal.grow_vertical = Control.GROW_DIRECTION_BOTH
 		target_top = 0.0
 		if is_instance_valid(drawer_scroll):
@@ -2027,9 +2041,9 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 		drawer_modal.anchor_bottom = 1.0
 		drawer_modal.offset_left = 0.0
 		drawer_modal.offset_right = 0.0
-		drawer_modal.offset_bottom = -104.0
+		drawer_modal.offset_bottom = -BOTTOM_RIBBON_HEIGHT
 		drawer_modal.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		target_top = -540.0
+		target_top = -BOTTOM_RIBBON_HEIGHT - COMPACT_DRAWER_HEIGHT
 		if is_instance_valid(drawer_scroll):
 			drawer_scroll.custom_minimum_size = Vector2(0, 320)
 			drawer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -2040,7 +2054,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 	if is_instance_valid(bottom_ribbon):
 		bottom_ribbon.z_index = 20
 		bottom_ribbon.z_as_relative = false
-		bottom_ribbon.offset_top = -104.0
+		bottom_ribbon.offset_top = -BOTTOM_RIBBON_HEIGHT
 		bottom_ribbon.offset_bottom = 0.0
 		if is_instance_valid(main_menu):
 			main_menu.move_child(bottom_ribbon, -1)
@@ -2062,7 +2076,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 		if is_fullscreen:
 			drawer_modal.offset_top = 280.0
 		else:
-			drawer_modal.offset_top = -104.0
+			drawer_modal.offset_top = -BOTTOM_RIBBON_HEIGHT
 		
 		drawer_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		drawer_tween.tween_property(drawer_modal, "offset_top", target_top, 0.28)
@@ -2096,17 +2110,17 @@ func _close_drawer(immediate: bool = false) -> void:
 		_set_home_content_visible(true)
 		drawer_modal.visible = false
 		drawer_modal.modulate.a = 0.0
-		drawer_modal.offset_top = -104.0
+		drawer_modal.offset_top = -BOTTOM_RIBBON_HEIGHT
 		return
 	
-	var close_target_top = 280.0 if drawer_modal.anchor_top == 0.0 else -104.0
+	var close_target_top = 280.0 if drawer_modal.anchor_top == 0.0 else -BOTTOM_RIBBON_HEIGHT
 	drawer_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	drawer_tween.tween_property(drawer_modal, "offset_top", close_target_top, 0.22)
 	drawer_tween.tween_property(drawer_modal, "modulate:a", 0.0, 0.18)
 	drawer_tween.chain().tween_callback(func():
 		_set_home_content_visible(true, true)
 		drawer_modal.visible = false
-		drawer_modal.offset_top = -104.0
+		drawer_modal.offset_top = -BOTTOM_RIBBON_HEIGHT
 	)
 
 var _scroll_is_mouse: bool = false
@@ -4803,13 +4817,15 @@ func _on_window_resized() -> void:
 	if is_instance_valid(bottom_ribbon):
 		bottom_ribbon.z_index = 20
 		bottom_ribbon.z_as_relative = false
-		bottom_ribbon.offset_top = -104.0
+		bottom_ribbon.offset_top = -BOTTOM_RIBBON_HEIGHT
 		bottom_ribbon.offset_bottom = 0.0
 		if is_instance_valid(main_menu):
 			main_menu.move_child(bottom_ribbon, -1)
 	
 	if is_instance_valid(drawer_modal) and drawer_modal.visible:
-		drawer_modal.offset_bottom = -104.0
+		drawer_modal.offset_bottom = -BOTTOM_RIBBON_HEIGHT
+		if state == GameState.MENU and active_ribbon_tab in ["skin", "challenge"]:
+			_update_drawer_preview_camera()
 	
 	if is_instance_valid(level_cleared_overlay) and level_cleared_overlay.visible:
 		for emitter in _active_confetti_emitters:
