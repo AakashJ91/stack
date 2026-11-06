@@ -100,6 +100,7 @@ var active_ribbon_tab: String = "home"
 var tap_pulse_tween: Tween = null
 var play_again_pulse_tween: Tween = null
 var drawer_tween: Tween = null
+var home_content_fade_tween: Tween = null
 var _game_over_time: int = 0
 var _is_restarting: bool = false
 var _restart_tween: Tween = null
@@ -119,7 +120,9 @@ var _scroll_last_drag_time: int = 0
 const EXP_SAVE_PATH: String = "user://exp_data.json"
 var total_exp: int = 0
 var exp_today_date: String = ""
+const LOGIN_REWARD_DAYS: int = 10
 var login_claimed_date: String = ""
+var login_streak_day: int = 0
 var perfect_3_claimed_date: String = ""
 var stack_50_claimed_date: String = ""
 var stack_100_claimed_date: String = ""
@@ -219,6 +222,9 @@ var falling_stars: Node3D = null
 
 # Textured Skins System
 const SKIN_TEXTURES = {
+	"jelly": preload("res://textures/skin_jelly.svg"),
+	"candy": preload("res://textures/skin_candy.svg"),
+	"bricks": preload("res://textures/skin_bricks.svg"),
 	"marble": preload("res://textures/skin_marble.png"),
 	"terrazzo": preload("res://textures/skin_terrazzo.png"),
 	"glass": preload("res://textures/skin_glass.png"),
@@ -232,7 +238,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "classic",
 		"name": "Classic Satin",
-		"icon": "🧊",
+		"icon": preload("res://UI/Icons/skin.svg"),
 		"desc": "Original clean beveled pastel blocks with smooth satin shading and ambient occlusion.",
 		"type": "classic",
 		"strength": 0.0,
@@ -244,7 +250,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "reflective",
 		"name": "Reflective Mirror",
-		"icon": "🪞",
+		"icon": preload("res://UI/Icons/skin-mirror.svg"),
 		"desc": "Liquid mirror chrome cube with real-time environment reflections, studio highlights, and high-gloss sheen.",
 		"type": "textured",
 		"strength": 0.45,
@@ -257,7 +263,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "crystal",
 		"name": "Prismatic Crystal",
-		"icon": "💎",
+		"icon": preload("res://UI/Icons/skin-crystal.svg"),
 		"desc": "Faceted gemstone cube with internal refractive facets, high gloss, and prismatic luster.",
 		"type": "textured",
 		"strength": 0.72,
@@ -270,7 +276,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "marble",
 		"name": "Carrara Marble",
-		"icon": "🏛️",
+		"icon": preload("res://UI/Icons/skin-marble.svg"),
 		"desc": "Polished Italian quartz with high-gloss crystalline veining and fine cracks.",
 		"type": "textured",
 		"strength": 0.70,
@@ -282,7 +288,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "terrazzo",
 		"name": "Modern Terrazzo",
-		"icon": "🪨",
+		"icon": preload("res://UI/Icons/skin-terrazzo.svg"),
 		"desc": "Architectural composite stone with embedded polished quartz and mineral flakes.",
 		"type": "textured",
 		"strength": 0.68,
@@ -294,7 +300,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "glass",
 		"name": "Clear Glass",
-		"icon": "🔷",
+		"icon": preload("res://UI/Icons/skin-glass.svg"),
 		"desc": "Ultra-smooth polished glass surface with faint diagonal specular reflection streaks.",
 		"type": "textured",
 		"strength": 0.60,
@@ -306,7 +312,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "frosted",
 		"name": "Frosted Glass",
-		"icon": "❄️",
+		"icon": preload("res://UI/Icons/skin-frost.svg"),
 		"desc": "Soft milky diffusion surface etched with fine crystalline micro-scratches.",
 		"type": "textured",
 		"strength": 0.72,
@@ -318,7 +324,7 @@ const SKINS: Array[Dictionary] = [
 	{
 		"id": "dusty",
 		"name": "Dusty Sand",
-		"icon": "🏜️",
+		"icon": preload("res://UI/Icons/skin-sand.svg"),
 		"desc": "Warm sandy-beige surface with coarse aggregate grain and fine dust particulate speckling.",
 		"type": "textured",
 		"strength": 0.80,
@@ -326,6 +332,41 @@ const SKINS: Array[Dictionary] = [
 		"roughness": 0.88,
 		"metallic": 0.00,
 		"uv_scale": Vector2(0.75, 0.75)
+	},
+	{
+		"id": "bricks",
+		"name": "Bricks",
+		"icon": preload("res://UI/Icons/skin-bricks.svg"),
+		"desc": "Terracotta bricks with staggered mortar joints and a matte finish.",
+		"type": "textured",
+		"strength": 1.0,
+		"use_texture_color": true,
+		"emission": 0.0,
+		"roughness": 0.88,
+		"metallic": 0.0,
+		"uv_scale": Vector2(0.62, 0.62)
+	},
+	{
+		"id": "jelly",
+		"name": "Jelly",
+		"icon": preload("res://UI/Icons/skin-jelly.svg"),
+		"desc": "Glossy jelly with soft shading and suspended bubbles.",
+		"type": "textured",
+		"strength": 1.0,
+		"roughness": 0.18,
+		"metallic": 0.0,
+		"uv_scale": Vector2(0.52, 0.52)
+	},
+	{
+		"id": "candy",
+		"name": "Candy",
+		"icon": preload("res://UI/Icons/skin-candy.svg"),
+		"desc": "Polished candy with two-tone stripes in your selected colors.",
+		"type": "textured",
+		"strength": 1.0,
+		"roughness": 0.24,
+		"metallic": 0.0,
+		"wrap_diagonal": true
 	},
 ]
 const SKIN_SAVE_PATH: String = "user://skin_data.json"
@@ -750,6 +791,7 @@ func _ready() -> void:
 	_setup_level_cleared_ui()
 	_set_active_tab("home")
 	show_main_menu()
+	_award_daily_login_exp()
 
 func _setup_modern_ui_styling() -> void:
 	# Typography Hierarchy: apply clean Poppins geometric font
@@ -1209,28 +1251,32 @@ void fragment() {
 const CHALLENGES: Array[Dictionary] = [
 	{
 		"id": "classic",
-		"title": "🌈 Classic Stacker",
+		"title": "Classic Stacker",
+		"icon": preload("res://UI/Icons/mode-classic.svg"),
 		"desc": "Original gentle ramp-up speed. Standard precision.",
 		"speed": 1.0,
 		"perf": 1.0
 	},
 	{
 		"id": "speed",
-		"title": "⚡ Speed Rush",
+		"title": "Speed Rush",
+		"icon": preload("res://UI/Icons/mode-speed.svg"),
 		"desc": "1.4x hyper slide speed. For twitch reflex masters!",
 		"speed": 1.4,
 		"perf": 1.0
 	},
 	{
 		"id": "zen",
-		"title": "🧘 Zen Mode",
+		"title": "Zen Mode",
+		"icon": preload("res://UI/Icons/mode-zen.svg"),
 		"desc": "Relaxing lo-fi ambient soundtrack, no Game Over (infinite gentle stacking), & shifting palettes.",
 		"speed": 0.72,
 		"perf": 1.25
 	},
 	{
 		"id": "precision",
-		"title": "💎 Precision Master",
+		"title": "Precision Master",
+		"icon": preload("res://UI/Icons/mode-precision.svg"),
 		"desc": "Stricter perfect threshold with double bonus score (+4 pts)!",
 		"speed": 1.08,
 		"perf": 0.68
@@ -1251,7 +1297,6 @@ func get_current_rank_info() -> Dictionary:
 	return rank
 
 func load_exp_data() -> void:
-	var today = _get_today_date_str()
 	if FileAccess.file_exists(EXP_SAVE_PATH):
 		var file = FileAccess.open(EXP_SAVE_PATH, FileAccess.READ)
 		if file:
@@ -1262,19 +1307,42 @@ func load_exp_data() -> void:
 				total_exp = int(data.get("total_exp", 0))
 				exp_today_date = str(data.get("today_date", ""))
 				login_claimed_date = str(data.get("login_claimed_date", ""))
+				var default_streak = 0 if login_claimed_date.is_empty() else 1
+				login_streak_day = clampi(int(data.get("login_streak_day", default_streak)), 0, LOGIN_REWARD_DAYS)
 				perfect_3_claimed_date = str(data.get("perfect_3_claimed_date", ""))
 				stack_50_claimed_date = str(data.get("stack_50_claimed_date", ""))
 				stack_100_claimed_date = str(data.get("stack_100_claimed_date", ""))
 				daily_best_combo = int(data.get("daily_best_combo", 0))
 				daily_best_stack = int(data.get("daily_best_stack", 0))
 	
+func _award_daily_login_exp() -> void:
+	var today = _get_today_date_str()
 	if exp_today_date != today:
 		exp_today_date = today
 		daily_best_combo = 0
 		daily_best_stack = 0
-		save_exp_data()
-	
-	_update_exp_badge(false)
+
+	if not login_claimed_date.is_empty() and today <= login_claimed_date:
+		return
+
+	var yesterday = Time.get_date_string_from_unix_time(
+		Time.get_unix_time_from_datetime_string(today) - 86400
+	)
+	if login_claimed_date == yesterday and login_streak_day < LOGIN_REWARD_DAYS:
+		login_streak_day += 1
+	else:
+		login_streak_day = 1
+	login_claimed_date = today
+	var reward = _daily_login_reward(login_streak_day)
+	total_exp += reward
+	save_exp_data()
+	_update_exp_badge(true)
+	_show_task_toast("Daily login  +%d EXP  |  Day %d/%d" % [reward, login_streak_day, LOGIN_REWARD_DAYS])
+
+
+func _daily_login_reward(day: int) -> int:
+	return 5 if day == LOGIN_REWARD_DAYS else 1
+
 
 func _setup_exp_badge() -> void:
 	if not is_instance_valid(exp_badge_btn):
@@ -1332,6 +1400,7 @@ func save_exp_data() -> void:
 			"total_exp": total_exp,
 			"today_date": exp_today_date,
 			"login_claimed_date": login_claimed_date,
+			"login_streak_day": login_streak_day,
 			"perfect_3_claimed_date": perfect_3_claimed_date,
 			"stack_50_claimed_date": stack_50_claimed_date,
 			"stack_100_claimed_date": stack_100_claimed_date,
@@ -1345,10 +1414,6 @@ func claim_task_exp(task_id: String) -> void:
 	var earned: int = 0
 	
 	match task_id:
-		"login":
-			if login_claimed_date != today:
-				login_claimed_date = today
-				earned = 1
 		"perfect_3":
 			if perfect_3_claimed_date != today and daily_best_combo >= 3:
 				perfect_3_claimed_date = today
@@ -1373,9 +1438,6 @@ func claim_task_exp(task_id: String) -> void:
 func claim_all_available_exp() -> void:
 	var today = _get_today_date_str()
 	var earned: int = 0
-	if login_claimed_date != today:
-		login_claimed_date = today
-		earned += 1
 	if perfect_3_claimed_date != today and daily_best_combo >= 3:
 		perfect_3_claimed_date = today
 		earned += 2
@@ -1619,7 +1681,7 @@ func _spawn_menu_preview_box() -> void:
 func _start_tap_pulse() -> void:
 	if tap_pulse_tween:
 		tap_pulse_tween.kill()
-	if not is_instance_valid(tap_to_play_btn):
+	if not tap_to_play_btn.visible or (home_content_fade_tween and home_content_fade_tween.is_running()):
 		return
 	tap_to_play_btn.pivot_offset = tap_to_play_btn.size * 0.5
 	tap_pulse_tween = create_tween().set_loops().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -1632,6 +1694,12 @@ func _start_tap_pulse() -> void:
 func start_game_from_menu() -> void:
 	if state != GameState.MENU:
 		return
+
+	if home_content_fade_tween:
+		home_content_fade_tween.kill()
+		home_content_fade_tween = null
+		top_section.modulate.a = 1.0
+		tap_to_play_btn.modulate.a = 1.0
 	
 	sound_mgr.play_click()
 	if tap_pulse_tween:
@@ -1815,7 +1883,7 @@ func _set_active_tab(tab_name: String) -> void:
 		
 		if lbl:
 			lbl.add_theme_font_override("font", FONT_SEMIBOLD)
-			lbl.add_theme_font_size_override("font_size", 10)
+			lbl.add_theme_font_size_override("font_size", 12)
 		
 		if key == tab_name:
 			btn.flat = false
@@ -1842,11 +1910,41 @@ func _set_active_tab(tab_name: String) -> void:
 				lbl.add_theme_color_override("font_color", Color(0.90, 0.93, 0.98, 0.90))
 			_reset_tile_transform(btn)
 
-func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
+func _set_home_content_visible(should_show: bool, animate: bool = false) -> void:
+	if top_section.visible == should_show:
+		return
+	if home_content_fade_tween:
+		home_content_fade_tween.kill()
+		home_content_fade_tween = null
+
+	var home_controls: Array[Control] = [top_section, tap_to_play_btn, sound_btn, exp_badge_btn]
+	for control in home_controls:
+		control.visible = should_show
+	if not should_show:
+		if tap_pulse_tween:
+			tap_pulse_tween.kill()
+			tap_pulse_tween = null
+		return
+
+	for control in home_controls:
+		control.modulate.a = 0.0 if animate else 1.0
+	if animate:
+		home_content_fade_tween = create_tween().set_parallel(true)
+		home_content_fade_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		for control in home_controls:
+			home_content_fade_tween.tween_property(control, "modulate:a", 1.0, 0.28)
+		home_content_fade_tween.chain().tween_callback(func():
+			home_content_fade_tween = null
+			_start_tap_pulse()
+		)
+
+
+func _open_drawer(title_text: String, is_fullscreen: bool = false, background_opacity: float = 0.24) -> void:
 	if drawer_tween:
 		drawer_tween.kill()
 		drawer_tween = null
 	
+	_set_home_content_visible(not is_fullscreen, true)
 	drawer_title.text = title_text
 	drawer_title.add_theme_font_override("font", FONT_BOLD)
 	drawer_modal.clip_contents = true
@@ -1880,7 +1978,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false) -> void:
 	
 	# Translucent white glass drawer
 	var sb = StyleBoxFlat.new()
-	sb.bg_color = Color(1.0, 1.0, 1.0, 0.24)
+	sb.bg_color = Color(1.0, 1.0, 1.0, background_opacity)
 	sb.content_margin_left = 16
 	sb.content_margin_right = 16
 	sb.content_margin_bottom = 12
@@ -1979,6 +2077,7 @@ func _close_drawer(immediate: bool = false) -> void:
 		return
 	
 	if immediate:
+		_set_home_content_visible(true)
 		drawer_modal.visible = false
 		drawer_modal.modulate.a = 0.0
 		drawer_modal.offset_top = -104.0
@@ -1989,6 +2088,7 @@ func _close_drawer(immediate: bool = false) -> void:
 	drawer_tween.tween_property(drawer_modal, "offset_top", close_target_top, 0.22)
 	drawer_tween.tween_property(drawer_modal, "modulate:a", 0.0, 0.18)
 	drawer_tween.chain().tween_callback(func():
+		_set_home_content_visible(true, true)
 		drawer_modal.visible = false
 		drawer_modal.offset_top = -104.0
 	)
@@ -2111,11 +2211,14 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 
 
-func _create_card_container() -> PanelContainer:
+func _create_card_container(transparent: bool = false) -> PanelContainer:
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.11, 0.18, 0.65)
-	style.set_border_width_all(1)
+	style.bg_color = Color(1.0, 1.0, 1.0, 0.06) if transparent else Color(0.08, 0.11, 0.18, 0.65)
+	if transparent:
+		style.border_width_bottom = 1
+	else:
+		style.set_border_width_all(1)
 	style.border_color = Color(1.0, 1.0, 1.0, 0.12)
 	style.content_margin_left = 16
 	style.content_margin_right = 16
@@ -2300,6 +2403,33 @@ func _refresh_pal_tiles() -> void:
 		else:
 			_reset_tile_transform(btn)
 
+func _create_menu_tile_icon(texture: Texture2D, extent: int) -> TextureRect:
+	var icon = TextureRect.new()
+	icon.texture = texture
+	icon.custom_minimum_size = Vector2(extent, extent)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return icon
+
+
+func _add_glass_grid(parent: Container, grid: GridContainer) -> void:
+	var panel = PanelContainer.new()
+	panel.size_flags_horizontal = grid.size_flags_horizontal
+	panel.size_flags_vertical = grid.size_flags_vertical
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 1.0, 1.0, 0.12)
+	style.border_color = Color(1.0, 1.0, 1.0, 0.22)
+	style.set_border_width_all(1)
+	style.set_content_margin_all(4.0)
+	panel.add_theme_stylebox_override("panel", style)
+	parent.add_child(panel)
+	panel.add_child(grid)
+	_add_glass_highlight(panel)
+
+
 func _open_skins_drawer() -> void:
 	_open_drawer("SKINS")
 	_skin_tile_btns.clear()
@@ -2312,7 +2442,7 @@ func _open_skins_drawer() -> void:
 	skins_grid.add_theme_constant_override("h_separation", 8)
 	skins_grid.add_theme_constant_override("v_separation", 8)
 	skins_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	drawer_content.add_child(skins_grid)
+	_add_glass_grid(drawer_content, skins_grid)
 	
 	for s in SKINS:
 		var is_equipped = (active_skin_id == s["id"])
@@ -2338,16 +2468,11 @@ func _open_skins_drawer() -> void:
 		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		tile_btn.add_child(inner)
 		
-		var icon_lbl = Label.new()
-		icon_lbl.text = s["icon"]
-		icon_lbl.add_theme_font_size_override("font_size", 30)
-		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(icon_lbl)
-		
+		inner.add_child(_create_menu_tile_icon(s["icon"], 32))
+
 		var name_lbl = Label.new()
 		name_lbl.text = s["name"].to_upper()
-		name_lbl.add_theme_font_size_override("font_size", 9)
+		name_lbl.add_theme_font_size_override("font_size", 11)
 		name_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 		name_lbl.add_theme_color_override("font_color",
 			Color(0.85, 0.90, 1.0, 0.95) if is_equipped else Color(0.58, 0.65, 0.80, 0.80))
@@ -2576,7 +2701,7 @@ func _open_skins_drawer() -> void:
 	pal_grid.add_theme_constant_override("h_separation", 8)
 	pal_grid.add_theme_constant_override("v_separation", 8)
 	pal_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pal_section.add_child(pal_grid)
+	_add_glass_grid(pal_section, pal_grid)
 	
 	for i in range(PALETTES.size()):
 		var pal = PALETTES[i]
@@ -2642,7 +2767,7 @@ func _open_skins_drawer() -> void:
 		
 		var p_name = Label.new()
 		p_name.text = pal.get("name", "Palette " + str(i + 1))
-		p_name.add_theme_font_size_override("font_size", 9)
+		p_name.add_theme_font_size_override("font_size", 11)
 		p_name.add_theme_font_override("font", FONT_SEMIBOLD)
 		p_name.add_theme_color_override("font_color",
 			Color(0.85, 0.90, 1.0, 0.95) if is_pal_active else Color(0.58, 0.65, 0.80, 0.80))
@@ -2700,7 +2825,7 @@ func _open_challenge_drawer() -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	container.add_child(grid)
+	_add_glass_grid(container, grid)
 	
 	for c in CHALLENGES:
 		var is_active = (c["id"] == active_challenge_id)
@@ -2736,19 +2861,10 @@ func _open_challenge_drawer() -> void:
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		margin.add_child(inner)
 		
-		var parts = c["title"].split(" ", false, 1)
-		var icon_str = parts[0] if parts.size() > 0 else "⚡"
-		var title_str = parts[1] if parts.size() > 1 else c["title"]
-		
-		var icon_lbl = Label.new()
-		icon_lbl.text = icon_str
-		icon_lbl.add_theme_font_size_override("font_size", 34)
-		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(icon_lbl)
-		
+		inner.add_child(_create_menu_tile_icon(c["icon"], 36))
+
 		var title_lbl = Label.new()
-		title_lbl.text = title_str.to_upper()
+		title_lbl.text = c["title"].to_upper()
 		title_lbl.add_theme_font_size_override("font_size", 13)
 		title_lbl.add_theme_font_override("font", FONT_BOLD)
 		title_lbl.add_theme_color_override("font_color",
@@ -3424,25 +3540,85 @@ func _go_to_next_campaign_level() -> void:
 func _open_levels_drawer() -> void:
 	_open_exp_drawer()
 
+func _add_daily_login_track() -> void:
+	var card = _create_card_container(true)
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 6)
+	card.add_child(content)
+
+	var heading = Label.new()
+	heading.text = "Daily login   Day %d/%d   +%d EXP today" % [
+		login_streak_day, LOGIN_REWARD_DAYS, _daily_login_reward(login_streak_day)
+	]
+	heading.add_theme_font_size_override("font_size", 17)
+	heading.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	content.add_child(heading)
+
+	var track = HBoxContainer.new()
+	track.add_theme_constant_override("separation", 0)
+	content.add_child(track)
+	for day in range(1, LOGIN_REWARD_DAYS + 1):
+		var column = VBoxContainer.new()
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		track.add_child(column)
+
+		var color = Color(1.0, 0.85, 0.35) if day <= login_streak_day else Color(0.67, 0.73, 0.83)
+		var number = Label.new()
+		number.text = str(day)
+		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		number.add_theme_font_size_override("font_size", 15)
+		number.add_theme_color_override("font_color", color)
+		column.add_child(number)
+
+		var mark = Control.new()
+		mark.custom_minimum_size.y = 14
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		column.add_child(mark)
+		mark.draw.connect(func():
+			var middle = mark.size * 0.5
+			var left = middle if day == 1 else Vector2(0, middle.y)
+			var right = middle if day == LOGIN_REWARD_DAYS else Vector2(mark.size.x, middle.y)
+			mark.draw_line(left, middle, color, 2.0)
+			var next_color = Color(1.0, 0.85, 0.35) if day < login_streak_day else Color(0.67, 0.73, 0.83)
+			mark.draw_line(middle, right, next_color, 2.0)
+			mark.draw_rect(Rect2(middle - Vector2(3, 4), Vector2(6, 8)), color)
+		)
+		mark.resized.connect(mark.queue_redraw)
+
+		var reward = Label.new()
+		reward.text = "+%d EXP" % _daily_login_reward(day)
+		reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		reward.add_theme_font_size_override("font_size", 12)
+		reward.add_theme_color_override("font_color", color)
+		column.add_child(reward)
+
+	var hint = Label.new()
+	hint.text = "Log in on consecutive days. A missed day restarts the track."
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(hint)
+	drawer_content.add_child(card)
+
+
 func _open_exp_drawer() -> void:
-	_open_drawer("EXPERIENCE & MISSIONS", true)
+	_award_daily_login_exp()
+	_open_drawer("Experience & Missions", true, 0.12)
 	
 	var rank = get_current_rank_info()
 	var current_lvl: int = rank["level"]
 	var current_title: String = rank["name"]
-	var current_icon: String = rank["icon"]
 	var min_exp: int = rank["min_exp"]
 	var next_exp: int = rank["next_exp"]
 	
 	# Current Rank Header Card
-	var summary_card = _create_card_container()
+	var summary_card = _create_card_container(true)
 	var s_vbox = VBoxContainer.new()
 	s_vbox.add_theme_constant_override("separation", 8)
 	summary_card.add_child(s_vbox)
 	
 	var top_row = HBoxContainer.new()
 	var rank_lbl = Label.new()
-	rank_lbl.text = "%s LEVEL %d: %s" % [current_icon, current_lvl, current_title.to_upper()]
+	rank_lbl.text = "Level %d · %s" % [current_lvl, current_title]
 	rank_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rank_lbl.add_theme_font_size_override("font_size", 16)
 	rank_lbl.add_theme_font_override("font", FONT_BOLD)
@@ -3450,7 +3626,7 @@ func _open_exp_drawer() -> void:
 	top_row.add_child(rank_lbl)
 	
 	var exp_badge = Label.new()
-	exp_badge.text = "⭐ %d EXP" % total_exp
+	exp_badge.text = "%d EXP" % total_exp
 	exp_badge.add_theme_font_size_override("font_size", 15)
 	exp_badge.add_theme_font_override("font", FONT_BOLD)
 	exp_badge.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0, 1.0))
@@ -3483,7 +3659,7 @@ func _open_exp_drawer() -> void:
 		p_bar.value = 1.0
 	
 	var bg_style = StyleBoxFlat.new()
-	bg_style.bg_color = Color(0.14, 0.17, 0.25, 0.75)
+	bg_style.bg_color = Color(1.0, 1.0, 1.0, 0.14)
 	var fill_style = StyleBoxFlat.new()
 	fill_style.bg_color = Color(1.0, 0.78, 0.28, 0.95)
 	p_bar.add_theme_stylebox_override("background", bg_style)
@@ -3493,21 +3669,22 @@ func _open_exp_drawer() -> void:
 	
 	drawer_content.add_child(summary_card)
 	
+	_add_daily_login_track()
+
 	var today = _get_today_date_str()
-	var login_ready = (login_claimed_date != today)
 	var perfect_ready = (perfect_3_claimed_date != today and daily_best_combo >= 3)
 	var stack_50_ready = (stack_50_claimed_date != today and daily_best_stack >= 50)
 	var stack_100_ready = (stack_100_claimed_date != today and daily_best_stack >= 100)
-	var ready_count = (1 if login_ready else 0) + (1 if perfect_ready else 0) + (1 if stack_50_ready else 0) + (1 if stack_100_ready else 0)
+	var ready_count = (1 if perfect_ready else 0) + (1 if stack_50_ready else 0) + (1 if stack_100_ready else 0)
 	
 	if ready_count > 1:
 		var claim_all_btn = Button.new()
 		claim_all_btn.custom_minimum_size = Vector2(0, 42)
-		claim_all_btn.text = "★ CLAIM ALL REWARDS (%d TASKS READY) ★" % ready_count
+		claim_all_btn.text = "Claim all (%d)" % ready_count
 		claim_all_btn.add_theme_font_size_override("font_size", 14)
 		claim_all_btn.add_theme_font_override("font", FONT_BOLD)
 		var ca_style = StyleBoxFlat.new()
-		ca_style.bg_color = Color(0.16, 0.65, 0.40, 0.95)
+		ca_style.bg_color = Color(0.40, 0.95, 0.65, 0.20)
 		ca_style.border_width_top = 1
 		ca_style.border_color = Color(0.40, 0.95, 0.65, 0.60)
 		claim_all_btn.add_theme_stylebox_override("normal", ca_style)
@@ -3521,7 +3698,7 @@ func _open_exp_drawer() -> void:
 		drawer_content.add_child(claim_all_btn)
 	
 	var section_lbl = Label.new()
-	section_lbl.text = "DAILY MISSIONS (RESETS DAILY)"
+	section_lbl.text = "Daily missions"
 	section_lbl.add_theme_font_size_override("font_size", 13)
 	section_lbl.add_theme_font_override("font", FONT_BOLD)
 	section_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
@@ -3529,20 +3706,7 @@ func _open_exp_drawer() -> void:
 	
 	var missions = [
 		{
-			"id": "login",
-			"icon": "📅",
-			"name": "Daily Check-in",
-			"exp": 1,
-			"desc": "Check into Stack Adventure each day to earn bonus EXP.",
-			"ready": login_ready,
-			"claimed": login_claimed_date == today,
-			"cur": 1 if (login_claimed_date == today or login_ready) else 0,
-			"target": 1,
-			"unit": "Day"
-		},
-		{
 			"id": "perfect_3",
-			"icon": "🎯",
 			"name": "Triple Precision (Perfect x3)",
 			"exp": 2,
 			"desc": "Land 3 consecutive perfect drops in a single run today.",
@@ -3554,7 +3718,6 @@ func _open_exp_drawer() -> void:
 		},
 		{
 			"id": "stack_50",
-			"icon": "🏗️",
 			"name": "Tower of Fifty",
 			"exp": 1,
 			"desc": "Build a tower reaching at least 50 blocks high today.",
@@ -3566,7 +3729,6 @@ func _open_exp_drawer() -> void:
 		},
 		{
 			"id": "stack_100",
-			"icon": "🚀",
 			"name": "Sky Century",
 			"exp": 2,
 			"desc": "Ascend past the clouds to reach a 100-block tower today.",
@@ -3579,14 +3741,14 @@ func _open_exp_drawer() -> void:
 	]
 	
 	for m in missions:
-		var card = _create_card_container()
+		var card = _create_card_container(true)
 		var vbox = VBoxContainer.new()
 		vbox.add_theme_constant_override("separation", 6)
 		card.add_child(vbox)
 		
 		var header_row = HBoxContainer.new()
 		var title_lbl = Label.new()
-		title_lbl.text = m["icon"] + " " + m["name"]
+		title_lbl.text = m["name"]
 		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title_lbl.add_theme_font_size_override("font_size", 15)
 		title_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
@@ -3610,7 +3772,7 @@ func _open_exp_drawer() -> void:
 		
 		if m["claimed"]:
 			var claimed_lbl = Label.new()
-			claimed_lbl.text = "✓ CLAIMED TODAY"
+			claimed_lbl.text = "Claimed today"
 			claimed_lbl.add_theme_font_size_override("font_size", 13)
 			claimed_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 			claimed_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 1.0))
@@ -3618,11 +3780,11 @@ func _open_exp_drawer() -> void:
 		elif m["ready"]:
 			var claim_btn = Button.new()
 			claim_btn.custom_minimum_size = Vector2(0, 36)
-			claim_btn.text = "★ CLAIM +%d EXP ★" % m["exp"]
+			claim_btn.text = "Claim +%d EXP" % m["exp"]
 			claim_btn.add_theme_font_size_override("font_size", 13)
 			claim_btn.add_theme_font_override("font", FONT_BOLD)
 			var c_style = StyleBoxFlat.new()
-			c_style.bg_color = Color(0.85, 0.65, 0.15, 1.0)
+			c_style.bg_color = Color(1.0, 0.85, 0.35, 0.22)
 			claim_btn.add_theme_stylebox_override("normal", c_style)
 			claim_btn.add_theme_stylebox_override("hover", c_style)
 			claim_btn.add_theme_stylebox_override("pressed", c_style)
@@ -3660,14 +3822,14 @@ func _open_exp_drawer() -> void:
 		drawer_content.add_child(card)
 	
 	# Infinite Heights Mastery Perk Card
-	var perk_card = _create_card_container()
+	var perk_card = _create_card_container(true)
 	var perk_vbox = VBoxContainer.new()
 	perk_vbox.add_theme_constant_override("separation", 6)
 	perk_card.add_child(perk_vbox)
 	
 	var perk_hdr = HBoxContainer.new()
 	var perk_title = Label.new()
-	perk_title.text = "🌌 Infinite Height Mastery"
+	perk_title.text = "Infinite Height Mastery"
 	perk_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	perk_title.add_theme_font_size_override("font_size", 14)
 	perk_title.add_theme_font_override("font", FONT_BOLD)
@@ -3693,13 +3855,13 @@ func _open_exp_drawer() -> void:
 	
 	# Rank Tiers Section
 	var rank_sec_lbl = Label.new()
-	rank_sec_lbl.text = "STACKER RANK TIERS"
+	rank_sec_lbl.text = "Rank tiers"
 	rank_sec_lbl.add_theme_font_size_override("font_size", 13)
 	rank_sec_lbl.add_theme_font_override("font", FONT_BOLD)
 	rank_sec_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
 	drawer_content.add_child(rank_sec_lbl)
 	
-	var tiers_card = _create_card_container()
+	var tiers_card = _create_card_container(true)
 	var t_vbox = VBoxContainer.new()
 	t_vbox.add_theme_constant_override("separation", 6)
 	tiers_card.add_child(t_vbox)
@@ -3707,7 +3869,7 @@ func _open_exp_drawer() -> void:
 	for r in EXP_RANKS:
 		var r_row = HBoxContainer.new()
 		var r_name = Label.new()
-		r_name.text = "%s Lvl %d: %s" % [r["icon"], r["level"], r["name"]]
+		r_name.text = "Level %d · %s" % [r["level"], r["name"]]
 		r_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		r_name.add_theme_font_size_override("font_size", 13)
 		r_name.add_theme_font_override("font", FONT_SEMIBOLD)

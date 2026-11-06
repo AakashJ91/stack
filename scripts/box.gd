@@ -33,6 +33,8 @@ uniform vec4 base_color : source_color = vec4(0.48, 0.76, 0.96, 1.0);
 uniform vec3 box_half_size = vec3(1.2, 0.4, 1.2);
 uniform sampler2D surface_grain : repeat_enable, filter_linear;
 uniform sampler2D skin_texture : repeat_enable, filter_linear;
+uniform bool skin_use_texture_color = false;
+uniform bool skin_wrap_diagonal = false;
 uniform float skin_texture_strength : hint_range(0.0, 1.0) = 0.0;
 uniform float skin_emission_strength : hint_range(0.0, 5.0) = 0.0;
 uniform vec2 uv_scale = vec2(0.65, 0.65);
@@ -116,13 +118,19 @@ void fragment() {
 	vec3 tex_sheen = vec3(0.0);
 	
 	if (skin_texture_strength > 0.001) {
-		vec4 skin_tex_val = texture(skin_texture, uv * uv_scale);
+		vec2 skin_uv = uv * uv_scale;
+		if (skin_wrap_diagonal) {
+			// Project through the block so the stripe meets both sides at the same point.
+			vec3 p = v_local_pos / box_half_size;
+			skin_uv = vec2(0.5 + (p.x + p.z) * 0.85 + (p.y - 1.0) * 0.18, 0.5);
+		}
+		vec4 skin_tex_val = texture(skin_texture, skin_uv);
 		if (reflection_strength > 0.001) {
 			// For reflective mirror: texture contributes chromatic sheen streaks & micro-specular gloss
 			tex_sheen = (skin_tex_val.rgb - 0.5) * (skin_texture_strength * 0.6);
 			skin_spec = mix(1.0, skin_tex_val.a, skin_texture_strength * 0.5);
 		} else {
-			vec3 tinted_tex = base_rgb * skin_tex_val.rgb;
+			vec3 tinted_tex = skin_use_texture_color ? skin_tex_val.rgb : base_rgb * skin_tex_val.rgb;
 			base_rgb = mix(base_rgb, tinted_tex, skin_texture_strength);
 			skin_spec = mix(1.0, skin_tex_val.a, skin_texture_strength * 0.35);
 			if (skin_emission_strength > 0.001) {
@@ -338,6 +346,8 @@ func apply_skin(skin_config: Dictionary) -> void:
 	if tex:
 		material.set_shader_parameter("skin_texture", tex)
 	material.set_shader_parameter("skin_texture_strength", strength)
+	material.set_shader_parameter("skin_use_texture_color", skin_config.get("use_texture_color", false))
+	material.set_shader_parameter("skin_wrap_diagonal", skin_config.get("wrap_diagonal", false))
 	material.set_shader_parameter("skin_emission_strength", emission)
 	material.set_shader_parameter("roughness", rough)
 	material.set_shader_parameter("metallic", metal)

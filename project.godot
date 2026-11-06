@@ -34,7 +34,7 @@ project/assembly_name="Stack Adventure"
 
 [gui]
 
-theme/custom_font="res://fonts/Poppins-Bold.ttf"
+theme/custom_font="res://fonts/Poppins-Medium.ttf"
 
 [input_devices]
 

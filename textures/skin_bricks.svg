@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#b5a28c"/>
+  <g stroke="#743926" stroke-width="3">
+    <path fill="#be6349" d="M4 4h120v56H4z"/>
+    <path fill="#a95039" d="M132 4h120v56H132z"/>
+    <path fill="#b15a42" d="M-60 68H60v56H-60zm256 0h120v56H196z"/>
+    <path fill="#c57051" d="M68 68h120v56H68z"/>
+    <path fill="#ac5039" d="M4 132h120v56H4z"/>
+    <path fill="#bd6349" d="M132 132h120v56H132z"/>
+    <path fill="#c06a4e" d="M-60 196H60v56H-60zm256 0h120v56H196z"/>
+    <path fill="#a95840" d="M68 196h120v56H68z"/>
+  </g>
+  <path fill="none" stroke="#f5a585" stroke-opacity=".5" stroke-width="2"
+        d="M7 8h114m14 0h114M0 72h57m14 0h114m14 0h57M7 136h114m14 0h114M0 200h57m14 0h114m14 0h57"/>
+  <path fill="none" stroke="#783f31" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"
+        d="M13 31l16-2m18 16 25-4m20-17 12 1m38 5 22-1m11 15 16-2m25-16 27 2M6 93l16 1m15 13 15-3m29-14 30 2m10 13 21-3m20-17 11 2m33 7 17-2m13 13 15 1M14 162l18-2m16 15 28-4m13-18 16 3m38 9 25-1m17 10 16-3m14-17 30 2M4 223l20-2m14 14 14-3m29-14 24 3m14 13 20-2m22-15 15 1m28 9 19-4m14 15 15-2"/>
+</svg>
