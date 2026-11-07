@@ -36,6 +36,29 @@ const FONT_MEDIUM = preload("res://fonts/Poppins-Medium.ttf")
 const BOX_SIZE: Vector3 = Vector3(2.4, 0.8, 2.4)
 const PERFECT_THRESHOLD: float = 0.22
 const MAX_OVERHANG_DISTANCE: float = 1.15
+const LASER_BOT_TEXTURE = preload("res://textures/laser/bots_finless.png")
+const LASER_BOT_SHADER = preload("res://UI/laser_bot.gdshader")
+const LASER_BEAM_TEXTURE = preload("res://textures/laser/beam.png")
+const LASER_START_FLOOR: int = 0
+const LASER_HEIGHT: float = 1.05
+const LASER_WIDTH: float = 0.10
+const LASER_CHARGE_TIME: float = 1.0
+const LASER_FIRE_TIME: float = 1.4
+const LASER_COOLDOWN_TIME: float = 1.8
+
+var _moving_laser: MeshInstance3D
+var _laser_sparks: CPUParticles3D
+var _laser_rig: Node3D
+var _laser_bots: Array[Sprite3D] = []
+var _laser_hit_size: Vector3
+var _laser_cycle_time: float = 0.0
+var _laser_firing: bool = false
+var _laser_axis: Vector3
+var _laser_center: Vector3
+var _laser_phase: float = 0.0
+var _laser_hover_time: float = 0.0
+var _laser_floor: int = -1
+var _laser_previous_relative: Vector3
 
 var stack: Array[Node3D] = []
 var base_pedestal: MeshInstance3D
@@ -100,6 +123,7 @@ var active_challenge_id: String = "classic"
 var challenge_speed_multiplier: float = 1.0
 var challenge_perfect_multiplier: float = 1.0
 var active_ribbon_tab: String = "home"
+var _challenge_popup: Control
 var tap_pulse_tween: Tween = null
 var play_again_pulse_tween: Tween = null
 var drawer_tween: Tween = null
@@ -151,13 +175,6 @@ var active_campaign_stage_id: int = 0
 
 static func _generate_50_campaign_stages() -> Array[Dictionary]:
 	var stages: Array[Dictionary] = []
-	var badges = [
-		"🌱", "🌿", "🎵", "🍃", "🥉", "🌸", "🌼", "🌷", "🌹", "🥈",
-		"🏗️", "🏙️", "🗼", "🦅", "🥇", "🪁", "🎈", "🌅", "🔥", "💎",
-		"☁️", "🕊️", "🌈", "✨", "⚡", "🌪️", "💯", "🪐", "🔮", "👑",
-		"🚀", "🛰️", "🌌", "☄️", "🌟", "🌠", "🌑", "🌕", "🌞", "🏆",
-		"🌀", "💫", "💠", "🔱", "🛡️", "⚔️", "🗝️", "⏳", "👁️", "👑"
-	]
 	var titles = [
 		"First Foundation", "Step by Step", "Rhythm Awakening", "Gentle Ascent", "Bronze Milestone",
 		"Spring Momentum", "Balancing Act", "Floral Spire", "Crimson Balance", "Silver Keystone",
@@ -179,11 +196,14 @@ static func _generate_50_campaign_stages() -> Array[Dictionary]:
 		elif (id % 3) == 0 and id > 10:
 			combo = mini(int(id / 15) + 1, 4)
 		var exp_rew: int = 2 + int(i * 0.6)
-		var b = badges[i] if i < badges.size() else "⭐"
 		var t = titles[i] if i < titles.size() else ("Stage " + str(id))
+		var laser_stage: bool = id >= 5 and (id % 5 == 0 or (id >= 20 and id % 3 == 0))
+		var laser_start_floor: int = (3 if id < 15 else 0) if laser_stage else -1
 		var desc = "Reach %d blocks" % blocks
 		if combo > 0:
 			desc += " with %dx streak" % combo
+		if laser_stage:
+			desc += " with laser bots"
 		stages.append({
 			"id": id,
 			"title": "Stage %d: %s" % [id, t],
@@ -191,7 +211,7 @@ static func _generate_50_campaign_stages() -> Array[Dictionary]:
 			"target_blocks": blocks,
 			"target_combo": combo,
 			"exp_reward": exp_rew,
-			"badge": b
+			"laser_start_floor": laser_start_floor
 		})
 	return stages
 
@@ -795,6 +815,10 @@ func _ready() -> void:
 	if slider.has_method("set_sniper_reticle_enabled"):
 		slider.set_sniper_reticle_enabled(sniper_reticle_enabled)
 	sound_btn.pressed.connect(_on_sound_btn_pressed)
+	sound_btn.text = ""
+	sound_btn.expand_icon = true
+	sound_btn.add_theme_constant_override("icon_max_width", 24)
+	_update_sound_icon()
 	if is_instance_valid(play_close_btn):
 		play_close_btn.pressed.connect(_on_play_close_pressed)
 		play_close_btn.visible = false
@@ -1293,12 +1317,12 @@ const CHALLENGES: Array[Dictionary] = [
 		"perf": 1.25
 	},
 	{
-		"id": "precision",
-		"title": "Precision Master",
-		"icon": preload("res://UI/Icons/mode-precision.svg"),
-		"desc": "Stricter perfect threshold with double bonus score (+4 pts)!",
-		"speed": 1.08,
-		"perf": 0.68
+		"id": "laser",
+		"title": "Laser Crossing",
+		"icon": preload("res://UI/Icons/mode-laser.svg"),
+		"desc": "Floating bots fire a laser from the first block. Drop during their cooldown!",
+		"speed": 1.0,
+		"perf": 1.0
 	}
 ]
 
@@ -1389,6 +1413,12 @@ func _setup_exp_badge() -> void:
 	exp_badge_btn.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
 	exp_badge_btn.add_theme_font_size_override("font_size", 14)
 	exp_badge_btn.add_theme_font_override("font", FONT_BOLD)
+	exp_badge_btn.icon = preload("res://UI/Icons/exp-star.svg")
+	exp_badge_btn.expand_icon = true
+	exp_badge_btn.add_theme_constant_override("icon_max_width", 18)
+	exp_badge_btn.add_theme_color_override("icon_normal_color", Color.WHITE)
+	exp_badge_btn.add_theme_color_override("icon_hover_color", Color.WHITE)
+	exp_badge_btn.add_theme_color_override("icon_pressed_color", Color.WHITE)
 	
 	exp_badge_btn.pressed.connect(func():
 		sound_mgr.play_click()
@@ -1405,7 +1435,7 @@ func _setup_exp_badge() -> void:
 func _update_exp_badge(animate: bool = false) -> void:
 	if not is_instance_valid(exp_badge_btn):
 		return
-	exp_badge_btn.text = "⭐ %d EXP" % total_exp
+	exp_badge_btn.text = "%d EXP" % total_exp
 	if animate:
 		var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		exp_badge_btn.pivot_offset = exp_badge_btn.size * 0.5
@@ -1475,7 +1505,7 @@ func claim_all_available_exp() -> void:
 		_show_task_toast("🎉 +%d Total EXP Claimed!" % earned)
 		_open_exp_drawer()
 
-func _show_task_toast(message: String) -> void:
+func _show_task_toast(message: String, glass: bool = false) -> void:
 	if not _toast_panel or not is_instance_valid(_toast_panel):
 		_toast_panel = PanelContainer.new()
 		_toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1511,6 +1541,13 @@ func _show_task_toast(message: String) -> void:
 		_toast_panel.add_child(_toast_label)
 		ui_layer.add_child(_toast_panel)
 	
+	var toast_style = _toast_panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	toast_style.bg_color = Color(1.0, 1.0, 1.0, 0.20) if glass else Color(0.08, 0.10, 0.16, 0.95)
+	toast_style.border_color = Color(1.0, 1.0, 1.0, 0.4) if glass else Color(1.0, 0.82, 0.30, 0.8)
+	toast_style.set_corner_radius_all(0 if glass else 14)
+	_toast_panel.add_theme_stylebox_override("panel", toast_style)
+	_toast_label.add_theme_color_override("font_color", Color.WHITE if glass else Color(1.0, 0.90, 0.35))
+	_toast_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT if glass else Color(0, 0, 0, 0.8))
 	_toast_label.text = message
 	_toast_panel.visible = true
 	_toast_panel.modulate.a = 0.0
@@ -1589,6 +1626,7 @@ func _on_game_over_close_pressed() -> void:
 	show_main_menu()
 
 func show_main_menu() -> void:
+	_clear_moving_laser()
 	state = GameState.MENU
 	if sound_mgr and sound_mgr.has_method("stop_zen_ambient"):
 		sound_mgr.stop_zen_ambient()
@@ -1899,6 +1937,9 @@ func _set_active_tab(tab_name: String) -> void:
 			continue
 		var icon = btn.get_node_or_null("VBox/Icon") as TextureRect
 		var lbl = btn.get_node_or_null("VBox/Label") as Label
+		if icon:
+			_reset_tile_transform(icon)
+			icon.rotation = 0.0
 		
 		if lbl:
 			lbl.add_theme_font_override("font", FONT_SEMIBOLD)
@@ -1970,6 +2011,7 @@ func _update_drawer_preview_camera() -> void:
 	target_camera_y = minf(base_camera_pivot_y + PREVIEW_DRAWER_CAMERA_OFFSET, fitted_camera_y)
 
 func _open_drawer(title_text: String, is_fullscreen: bool = false, background_opacity: float = 0.24) -> void:
+	_close_challenge_popup()
 	if drawer_tween:
 		drawer_tween.kill()
 		drawer_tween = null
@@ -2099,6 +2141,7 @@ func _open_drawer(title_text: String, is_fullscreen: bool = false, background_op
 		c_tw.tween_property(drawer_content, "position:y", 0.0, 0.22)
 
 func _close_drawer(immediate: bool = false) -> void:
+	_close_challenge_popup()
 	if drawer_tween:
 		drawer_tween.kill()
 		drawer_tween = null
@@ -2151,6 +2194,14 @@ func _is_scroll_dragging() -> bool:
 	return false
 
 func _input(event: InputEvent) -> void:
+	if is_instance_valid(_challenge_popup):
+		var pointer_pressed: bool = (
+			(event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed)
+			or (event is InputEventScreenTouch and event.pressed)
+		)
+		if not pointer_pressed or _challenge_popup.get_node("Center/Panel").get_global_rect().has_point(event.position):
+			return
+		_close_challenge_popup()
 	# Only handle positional pointer events (touch/drag/mouse) for drawer scrolling
 	if not ("position" in event):
 		return
@@ -2477,32 +2528,81 @@ func _open_skins_drawer() -> void:
 	skins_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_add_glass_grid(theme_section, skins_grid)
 
-	var edge_row = HBoxContainer.new()
+	var edge_section = VBoxContainer.new()
+	edge_section.add_theme_constant_override("separation", 6)
+	theme_section.add_child(edge_section)
 	var edge_label = Label.new()
-	edge_label.text = "Edge Style"
-	edge_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	edge_label.add_theme_font_size_override("font_size", 14)
-	edge_row.add_child(edge_label)
+	edge_label.text = "EDGE STYLE"
+	edge_label.add_theme_font_size_override("font_size", 12)
+	edge_label.add_theme_font_override("font", FONT_BOLD)
+	edge_label.add_theme_color_override("font_color", Color(0.65, 0.74, 0.90, 0.85))
+	edge_section.add_child(edge_label)
 
-	var edge_options = OptionButton.new()
-	edge_options.name = "EdgeStyle"
-	edge_options.custom_minimum_size = Vector2(150, 40)
-	edge_options.add_theme_stylebox_override("normal", _make_tile_style(false))
-	edge_options.add_theme_stylebox_override("hover", _make_tile_style(true))
-	edge_options.add_theme_stylebox_override("pressed", _make_tile_style(true))
-	edge_options.add_item("Off")
-	edge_options.add_item("Normal")
-	edge_options.add_item("Thick")
-	edge_options.select(_get_skin_edge_style())
-	edge_options.item_selected.connect(func(style: int):
-		skin_edge_styles[active_skin_id] = style
-		sound_mgr.play_click()
-		_update_active_skins_in_scene()
-		save_skin_data()
-	)
-	edge_row.add_child(edge_options)
-	theme_section.add_child(edge_row)
-	
+	var edge_grid = GridContainer.new()
+	edge_grid.name = "EdgeStyle"
+	edge_grid.columns = 3
+	edge_grid.add_theme_constant_override("h_separation", 8)
+	edge_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edge_section.add_child(edge_grid)
+	var edge_buttons: Array[Button] = []
+	var edge_icons = [
+		preload("res://UI/Icons/edge-off.svg"),
+		preload("res://UI/Icons/edge-normal.svg"),
+		preload("res://UI/Icons/edge-thick.svg")
+	]
+	for style: int in range(3):
+		var button = Button.new()
+		button.focus_mode = Control.FOCUS_NONE
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size = Vector2(0, 78)
+		edge_grid.add_child(button)
+		edge_buttons.append(button)
+		var inner = VBoxContainer.new()
+		inner.alignment = BoxContainer.ALIGNMENT_CENTER
+		inner.add_theme_constant_override("separation", 2)
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		button.add_child(inner)
+		inner.add_child(_create_menu_tile_icon(edge_icons[style], 24))
+		var title = Label.new()
+		title.text = ["OFF", "NORMAL", "THICK"][style]
+		title.add_theme_font_size_override("font_size", 10)
+		title.add_theme_font_override("font", FONT_SEMIBOLD)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(title)
+		inner.add_child(_create_selection_square())
+
+	var refresh_edge_options = func():
+		for style: int in range(edge_buttons.size()):
+			var selected: bool = style == _get_skin_edge_style()
+			var button: Button = edge_buttons[style]
+			var normal = _make_tile_style(selected)
+			var hover = normal.duplicate() as StyleBoxFlat
+			hover.bg_color = normal.bg_color.lightened(0.06)
+			button.add_theme_stylebox_override("normal", normal)
+			button.add_theme_stylebox_override("hover", hover)
+			button.add_theme_stylebox_override("pressed", normal)
+			button.add_theme_stylebox_override("focus", normal)
+			var inner = button.get_child(0)
+			inner.get_child(1).add_theme_color_override("font_color",
+				Color(0.92, 0.94, 0.98, 1.0) if selected else Color(0.58, 0.65, 0.80, 0.80))
+			inner.get_child(2).visible = selected
+			_reset_tile_transform(button)
+	refresh_edge_options.call()
+	for style: int in range(edge_buttons.size()):
+		var button: Button = edge_buttons[style]
+		button.pressed.connect(func():
+			if _is_scroll_dragging():
+				return
+			skin_edge_styles[active_skin_id] = style
+			sound_mgr.play_click()
+			_update_active_skins_in_scene()
+			refresh_edge_options.call()
+			_animate_tile_pop(button)
+			save_skin_data()
+		)
+
 	for s in SKINS:
 		var is_equipped = (active_skin_id == s["id"])
 		var tile_btn = Button.new()
@@ -2554,7 +2654,7 @@ func _open_skins_drawer() -> void:
 				_animate_tile_pop(tile_btn)
 				return
 			active_skin_id = skin_id
-			edge_options.select(_get_skin_edge_style())
+			refresh_edge_options.call()
 			sound_mgr.play_click()
 			_update_active_skins_in_scene()
 			_refresh_skin_tiles()
@@ -2602,12 +2702,7 @@ func _open_skins_drawer() -> void:
 	inner_none.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	btn_none.add_child(inner_none)
 	
-	var none_icon = Label.new()
-	none_icon.text = "🚫"
-	none_icon.add_theme_font_size_override("font_size", 22)
-	none_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	none_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner_none.add_child(none_icon)
+	inner_none.add_child(_create_menu_tile_icon(preload("res://UI/Icons/guide-standard.svg"), 24))
 	
 	var none_title = Label.new()
 	none_title.text = "NONE"
@@ -2644,12 +2739,7 @@ func _open_skins_drawer() -> void:
 	inner_sniper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	btn_sniper.add_child(inner_sniper)
 	
-	var sniper_icon = Label.new()
-	sniper_icon.text = "🎯"
-	sniper_icon.add_theme_font_size_override("font_size", 22)
-	sniper_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sniper_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner_sniper.add_child(sniper_icon)
+	inner_sniper.add_child(_create_menu_tile_icon(preload("res://UI/Icons/mode-precision.svg"), 24))
 	
 	var sniper_title = Label.new()
 	sniper_title.text = "SNIPER POINTER"
@@ -2891,8 +2981,6 @@ func _add_skin_tabs(theme_section: Control, pal_section: Control) -> void:
 
 func _open_challenge_drawer() -> void:
 	_open_drawer("CHALLENGE MODES")
-	if is_instance_valid(drawer_scroll):
-		drawer_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	
 	var container = MarginContainer.new()
 	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2949,7 +3037,7 @@ func _open_challenge_drawer() -> void:
 
 		var title_lbl = Label.new()
 		title_lbl.text = c["title"].to_upper()
-		title_lbl.add_theme_font_size_override("font_size", 13)
+		title_lbl.add_theme_font_size_override("font_size", 17)
 		title_lbl.add_theme_font_override("font", FONT_BOLD)
 		title_lbl.add_theme_color_override("font_color",
 			Color(0.94, 0.96, 1.0, 1.0) if is_active else Color(0.70, 0.76, 0.88, 0.85))
@@ -2957,17 +3045,6 @@ func _open_challenge_drawer() -> void:
 		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		title_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inner.add_child(title_lbl)
-		
-		var desc_lbl = Label.new()
-		desc_lbl.text = c["desc"]
-		desc_lbl.add_theme_font_size_override("font_size", 10)
-		desc_lbl.add_theme_font_override("font", FONT_MEDIUM)
-		desc_lbl.add_theme_color_override("font_color",
-			Color(0.75, 0.82, 0.94, 0.90) if is_active else Color(0.52, 0.60, 0.74, 0.80))
-		desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(desc_lbl)
 		
 		var badge = _create_selection_square()
 		badge.modulate.a = 1.0 if is_active else 0.0
@@ -2978,11 +3055,13 @@ func _open_challenge_drawer() -> void:
 		var cid = c["id"]
 		var c_speed = c["speed"]
 		var c_perf = c["perf"]
+		var challenge_info: Dictionary = c
 		tile_btn.pressed.connect(func():
 			if _is_scroll_dragging():
 				return
 			if active_challenge_id == cid:
 				_animate_tile_pop(tile_btn)
+				_show_challenge_popup(challenge_info)
 				return
 			active_challenge_id = cid
 			challenge_speed_multiplier = c_speed
@@ -2994,10 +3073,108 @@ func _open_challenge_drawer() -> void:
 				sound_mgr.stop_zen_ambient()
 			if state == GameState.MENU:
 				slider.speed_multiplier = 0.85 * challenge_speed_multiplier
-			_open_challenge_drawer()
+			_refresh_challenge_tiles(grid)
+			_show_challenge_popup(challenge_info)
 		)
 		
 		grid.add_child(tile_btn)
+
+func _refresh_challenge_tiles(grid: GridContainer) -> void:
+	for i in range(CHALLENGES.size()):
+		var selected: bool = CHALLENGES[i]["id"] == active_challenge_id
+		var button = grid.get_child(i) as Button
+		var normal = _make_tile_style(selected)
+		var hover = normal.duplicate() as StyleBoxFlat
+		hover.bg_color = normal.bg_color.lightened(0.06)
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", hover)
+		button.add_theme_stylebox_override("pressed", normal)
+		button.add_theme_stylebox_override("focus", normal)
+		var inner = button.get_child(0).get_child(0)
+		inner.get_child(1).add_theme_color_override("font_color",
+			Color(0.94, 0.96, 1.0, 1.0) if selected else Color(0.70, 0.76, 0.88, 0.85))
+		inner.get_child(2).modulate.a = 1.0 if selected else 0.0
+		if selected:
+			_animate_tile_pop(button)
+		else:
+			_reset_tile_transform(button)
+
+func _close_challenge_popup() -> void:
+	if is_instance_valid(_challenge_popup):
+		_challenge_popup.hide()
+		_challenge_popup.queue_free()
+	_challenge_popup = null
+
+func _show_challenge_popup(challenge: Dictionary) -> void:
+	_close_challenge_popup()
+	_scroll_touch_active = false
+	_scroll_is_dragging = false
+	_scroll_velocity_y = 0.0
+	var overlay = Control.new()
+	overlay.name = "ChallengeInfoPopup"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.z_index = 40
+	overlay.z_as_relative = false
+	main_menu.add_child(overlay)
+	_challenge_popup = overlay
+	var center = CenterContainer.new()
+	center.name = "Center"
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.offset_bottom = -BOTTOM_RIBBON_HEIGHT - COMPACT_DRAWER_HEIGHT - 16.0
+	overlay.add_child(center)
+	var panel = PanelContainer.new()
+	panel.name = "Panel"
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	center.add_child(panel)
+	var fit_width = func():
+		panel.custom_minimum_size.x = minf(560.0, maxf(200.0, overlay.size.x - 48.0))
+	overlay.resized.connect(fit_width)
+	fit_width.call()
+	var glass = StyleBoxFlat.new()
+	glass.bg_color = Color(1.0, 1.0, 1.0, 0.22)
+	glass.set_border_width_all(1)
+	glass.border_color = Color(1.0, 1.0, 1.0, 0.5)
+	glass.set_content_margin_all(24.0)
+	panel.add_theme_stylebox_override("panel", glass)
+	_add_glass_highlight(panel)
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 18)
+	panel.add_child(content)
+	content.add_child(_create_menu_tile_icon(challenge["icon"], 44))
+	var title = Label.new()
+	title.text = challenge["title"].to_upper()
+	title.add_theme_font_override("font", FONT_BOLD)
+	title.add_theme_font_size_override("font_size", 24)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(title)
+	var description = Label.new()
+	description.name = "Description"
+	description.text = challenge["desc"]
+	description.add_theme_font_override("font", FONT_BOLD)
+	description.add_theme_font_size_override("font_size", 22)
+	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(description)
+	var dismiss = Button.new()
+	dismiss.text = "GOT IT"
+	dismiss.custom_minimum_size.y = 48
+	dismiss.add_theme_font_override("font", FONT_SEMIBOLD)
+	dismiss.add_theme_font_size_override("font_size", 16)
+	dismiss.add_theme_stylebox_override("normal", _make_tile_style(true))
+	dismiss.add_theme_stylebox_override("hover", _make_tile_style(true))
+	dismiss.add_theme_stylebox_override("pressed", _make_tile_style(true))
+	dismiss.pressed.connect(_close_challenge_popup)
+	content.add_child(dismiss)
+
+func _campaign_stage_icon(stage: Dictionary) -> Texture2D:
+	if int(stage.get("laser_start_floor", -1)) >= 0:
+		return preload("res://UI/Icons/mode-laser.svg")
+	if stage["target_combo"] > 0:
+		return preload("res://UI/Icons/mode-precision.svg")
+	return preload("res://UI/Icons/mode-classic.svg")
 
 func _open_campaign_drawer() -> void:
 	_open_drawer("CAMPAIGN STAGES", true)
@@ -3012,8 +3189,9 @@ func _open_campaign_drawer() -> void:
 	summary_card.add_child(s_vbox)
 	
 	var header_row = HBoxContainer.new()
+	header_row.add_child(_create_menu_tile_icon(preload("res://UI/Icons/campain.svg"), 24))
 	var chap_lbl = Label.new()
-	chap_lbl.text = "👑 CAMPAIGN: %d / %d CLEARED" % [campaign_completed_stages.size(), CAMPAIGN_STAGES.size()]
+	chap_lbl.text = "CAMPAIGN: %d / %d CLEARED" % [campaign_completed_stages.size(), CAMPAIGN_STAGES.size()]
 	chap_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chap_lbl.add_theme_font_size_override("font_size", 14)
 	chap_lbl.add_theme_font_override("font", FONT_BOLD)
@@ -3047,7 +3225,8 @@ func _open_campaign_drawer() -> void:
 	m_info_vbox.add_theme_constant_override("separation", 2)
 	
 	var m_title = Label.new()
-	m_title.text = "%s %s" % [sel_st["badge"], sel_st["title"]]
+	m_title.text = sel_st["title"]
+	m_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	m_title.add_theme_font_size_override("font_size", 13)
 	m_title.add_theme_font_override("font", FONT_BOLD)
 	m_title.add_theme_color_override("font_color", Color(0.95, 0.96, 1.0, 1.0))
@@ -3056,29 +3235,33 @@ func _open_campaign_drawer() -> void:
 	var m_desc = Label.new()
 	var goal_str = "Target: %d Blocks" % sel_st["target_blocks"]
 	if sel_st["target_combo"] > 0:
-		goal_str += " • Streak x%d" % sel_st["target_combo"]
-	goal_str += " • ⭐ +%d EXP" % sel_st["exp_reward"]
+		goal_str += " | Streak x%d" % sel_st["target_combo"]
+	if int(sel_st.get("laser_start_floor", -1)) >= 0:
+		goal_str += " | Laser bots"
+	goal_str += " | +%d EXP" % sel_st["exp_reward"]
 	m_desc.text = goal_str
+	m_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	m_desc.add_theme_font_size_override("font_size", 10)
 	m_desc.add_theme_font_override("font", FONT_MEDIUM)
 	m_desc.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0, 0.85))
 	m_info_vbox.add_child(m_desc)
+	mission_row.add_child(_create_menu_tile_icon(_campaign_stage_icon(sel_st), 28))
 	mission_row.add_child(m_info_vbox)
 	
 	var play_btn = Button.new()
-	play_btn.custom_minimum_size = Vector2(88, 34)
+	play_btn.custom_minimum_size = Vector2(110, 34)
+	play_btn.expand_icon = true
+	play_btn.add_theme_constant_override("icon_max_width", 16)
 	play_btn.add_theme_font_size_override("font_size", 11)
 	play_btn.add_theme_font_override("font", FONT_BOLD)
 	var p_btn_st = StyleBoxFlat.new()
 	if not sel_is_unlocked:
 		play_btn.text = "LOCKED"
+		play_btn.icon = preload("res://UI/Icons/campaign-lock.svg")
 		play_btn.disabled = true
-		p_btn_st.bg_color = Color(0.12, 0.14, 0.20, 0.60)
-		play_btn.add_theme_color_override("font_color", Color(0.48, 0.54, 0.65, 0.6))
 	elif sel_is_cleared:
 		play_btn.text = "REPLAY"
-		p_btn_st.bg_color = Color(0.15, 0.45, 0.32, 0.90)
-		play_btn.add_theme_color_override("font_color", Color(0.90, 0.98, 0.92, 1.0))
+		play_btn.icon = preload("res://UI/Icons/restart.svg")
 		var chosen_id = _campaign_selected_stage_id
 		play_btn.pressed.connect(func():
 			if _is_scroll_dragging():
@@ -3087,17 +3270,35 @@ func _open_campaign_drawer() -> void:
 		)
 	else:
 		play_btn.text = "PLAY"
-		p_btn_st.bg_color = Color(0.18, 0.45, 0.85, 0.95)
-		play_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		play_btn.icon = preload("res://UI/Icons/campaign-play.svg")
 		var chosen_id = _campaign_selected_stage_id
 		play_btn.pressed.connect(func():
 			if _is_scroll_dragging():
 				return
 			start_campaign_stage(chosen_id)
 		)
+	p_btn_st.bg_color = Color(1.0, 1.0, 1.0, 0.16)
+	p_btn_st.set_border_width_all(1)
+	p_btn_st.border_color = Color(1.0, 1.0, 1.0, 0.35)
+	p_btn_st.content_margin_left = 12
+	p_btn_st.content_margin_right = 12
+	var hover_style = p_btn_st.duplicate() as StyleBoxFlat
+	hover_style.bg_color = Color(1.0, 1.0, 1.0, 0.25)
+	var pressed_style = p_btn_st.duplicate() as StyleBoxFlat
+	pressed_style.bg_color = Color(1.0, 1.0, 1.0, 0.32)
+	var disabled_style = p_btn_st.duplicate() as StyleBoxFlat
+	disabled_style.bg_color = Color(1.0, 1.0, 1.0, 0.06)
+	disabled_style.border_color.a = 0.12
+	play_btn.add_theme_color_override("font_color", Color.WHITE)
+	play_btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	play_btn.add_theme_color_override("font_pressed_color", Color.WHITE)
+	play_btn.add_theme_color_override("font_disabled_color", Color(1.0, 1.0, 1.0, 0.4))
 	play_btn.add_theme_stylebox_override("normal", p_btn_st)
-	play_btn.add_theme_stylebox_override("hover", p_btn_st)
-	play_btn.add_theme_stylebox_override("pressed", p_btn_st)
+	play_btn.add_theme_stylebox_override("hover", hover_style)
+	play_btn.add_theme_stylebox_override("pressed", pressed_style)
+	play_btn.add_theme_stylebox_override("disabled", disabled_style)
+	play_btn.add_theme_stylebox_override("focus", hover_style)
+	_add_glass_highlight(play_btn)
 	mission_row.add_child(play_btn)
 	s_vbox.add_child(mission_row)
 	
@@ -3154,17 +3355,10 @@ func _open_campaign_drawer() -> void:
 		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		tile_btn.add_child(inner)
 		
-		var icon_lbl = Label.new()
-		if not is_unlocked:
-			icon_lbl.text = "🔒"
-			icon_lbl.add_theme_font_size_override("font_size", 16)
-		else:
-			icon_lbl.text = st["badge"]
-			icon_lbl.add_theme_font_size_override("font_size", 18)
-		icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(icon_lbl)
-		
+		var stage_icon = _create_menu_tile_icon(_campaign_stage_icon(st) if is_unlocked else preload("res://UI/Icons/campaign-lock.svg"), 24)
+		stage_icon.modulate = Color.WHITE if is_unlocked else Color(0.6, 0.65, 0.75, 0.6)
+		inner.add_child(stage_icon)
+
 		var num_lbl = Label.new()
 		num_lbl.text = str(st_id)
 		num_lbl.add_theme_font_size_override("font_size", 11)
@@ -3186,22 +3380,17 @@ func _open_campaign_drawer() -> void:
 			inner.add_child(badge)
 			_animate_tile_pop(tile_btn)
 		elif is_cleared:
-			var clr_lbl = Label.new()
-			clr_lbl.text = "✓"
-			clr_lbl.add_theme_font_size_override("font_size", 8)
-			clr_lbl.add_theme_font_override("font", FONT_BOLD)
-			clr_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 0.9))
-			clr_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			clr_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			inner.add_child(clr_lbl)
-		
+			var cleared_icon = _create_menu_tile_icon(preload("res://UI/Icons/campaign-check.svg"), 12)
+			cleared_icon.modulate = Color(0.35, 0.90, 0.55, 0.9)
+			inner.add_child(cleared_icon)
+
 		var target_id = st_id
 		tile_btn.pressed.connect(func():
 			if _is_scroll_dragging():
 				return
 			if not is_unlocked:
 				sound_mgr.play_click()
-				_show_task_toast("🔒 Stage %d is locked! Clear Stage %d first." % [target_id, target_id - 1])
+				_show_task_toast("Stage %d is locked. Clear Stage %d first." % [target_id, target_id - 1], true)
 				return
 			if _campaign_selected_stage_id == target_id:
 				_animate_tile_pop(tile_btn)
@@ -3337,12 +3526,13 @@ func _setup_level_cleared_ui() -> void:
 	vbox.gui_input.connect(_on_level_cleared_overlay_gui_input)
 	level_cleared_card.add_child(vbox)
 	
+	vbox.add_child(_create_menu_tile_icon(preload("res://UI/Icons/campaign-check.svg"), 32))
 	level_cleared_title_lbl = Label.new()
 	level_cleared_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_cleared_title_lbl.add_theme_font_size_override("font_size", 28)
 	level_cleared_title_lbl.add_theme_font_override("font", FONT_BOLD)
 	level_cleared_title_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35, 1.0))
-	level_cleared_title_lbl.text = "👑 LEVEL CLEARED!"
+	level_cleared_title_lbl.text = "LEVEL CLEARED!"
 	level_cleared_title_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(level_cleared_title_lbl)
 	
@@ -3360,7 +3550,7 @@ func _setup_level_cleared_ui() -> void:
 	level_cleared_exp_lbl.add_theme_font_size_override("font_size", 14)
 	level_cleared_exp_lbl.add_theme_font_override("font", FONT_BOLD)
 	level_cleared_exp_lbl.add_theme_color_override("font_color", Color(0.35, 0.95, 0.72, 1.0))
-	level_cleared_exp_lbl.text = "⭐ +2 EXP EARNED • STAGE 2 UNLOCKED"
+	level_cleared_exp_lbl.text = "+2 EXP EARNED • STAGE 2 UNLOCKED"
 	level_cleared_exp_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_child(level_cleared_exp_lbl)
 	
@@ -3370,7 +3560,10 @@ func _setup_level_cleared_ui() -> void:
 	vbox.add_child(spacer)
 	
 	level_cleared_action_btn = Button.new()
-	level_cleared_action_btn.text = "▶ GOTO NEXT LEVEL"
+	level_cleared_action_btn.icon = preload("res://UI/Icons/campaign-play.svg")
+	level_cleared_action_btn.expand_icon = true
+	level_cleared_action_btn.add_theme_constant_override("icon_max_width", 20)
+	level_cleared_action_btn.text = "GOTO NEXT LEVEL"
 	level_cleared_action_btn.custom_minimum_size = Vector2(260, 48)
 	level_cleared_action_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	level_cleared_action_btn.pivot_offset = Vector2(130, 24)
@@ -3409,21 +3602,20 @@ func _show_level_cleared_ui(st: Dictionary, exp_gained: int, next_id: int, is_fi
 		_setup_level_cleared_ui()
 	
 	var stage_id: int = st["id"]
-	var stage_badge: String = st.get("badge", "👑")
 	var stage_title: String = st.get("title", "Stage %d" % stage_id)
 	
-	level_cleared_title_lbl.text = "%s LEVEL CLEARED!" % stage_badge
+	level_cleared_title_lbl.text = "LEVEL CLEARED!"
 	level_cleared_subtitle_lbl.text = stage_title.to_upper()
 	
 	if is_first_clear:
-		level_cleared_exp_lbl.text = "⭐ +%d EXP EARNED  •  STAGE %d UNLOCKED" % [exp_gained, next_id]
+		level_cleared_exp_lbl.text = "+%d EXP EARNED  •  STAGE %d UNLOCKED" % [exp_gained, next_id]
 	else:
-		level_cleared_exp_lbl.text = "⭐ +%d EXP (REPLAY BONUS)" % exp_gained
+		level_cleared_exp_lbl.text = "+%d EXP (REPLAY BONUS)" % exp_gained
 	
 	if stage_id >= CAMPAIGN_STAGES.size():
-		level_cleared_action_btn.text = "▶ GOTO NEXT LEVEL (STAGE 1)"
+		level_cleared_action_btn.text = "GOTO NEXT LEVEL (STAGE 1)"
 	else:
-		level_cleared_action_btn.text = "▶ GOTO NEXT LEVEL"
+		level_cleared_action_btn.text = "GOTO NEXT LEVEL"
 	
 	level_cleared_card.reset_size()
 	level_cleared_card.pivot_offset = level_cleared_card.size * 0.5
@@ -3624,19 +3816,26 @@ func _go_to_next_campaign_level() -> void:
 func _open_levels_drawer() -> void:
 	_open_exp_drawer()
 
-func _add_daily_login_track() -> void:
+func _add_daily_login_track(parent: Container) -> void:
 	var card = _create_card_container(true)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var content = VBoxContainer.new()
 	content.add_theme_constant_override("separation", 6)
 	card.add_child(content)
 
 	var heading = Label.new()
-	heading.text = "Daily login   Day %d/%d   +%d EXP today" % [
+	heading.text = "Daily login"
+	heading.add_theme_font_size_override("font_size", 20)
+	heading.add_theme_font_override("font", FONT_BOLD)
+	content.add_child(heading)
+	var status = Label.new()
+	status.text = "Day %d of %d   |   +%d EXP earned today" % [
 		login_streak_day, LOGIN_REWARD_DAYS, _daily_login_reward(login_streak_day)
 	]
-	heading.add_theme_font_size_override("font_size", 17)
-	heading.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
-	content.add_child(heading)
+	status.add_theme_font_size_override("font_size", 14)
+	status.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(status)
 
 	var track = HBoxContainer.new()
 	track.add_theme_constant_override("separation", 0)
@@ -3670,18 +3869,18 @@ func _add_daily_login_track() -> void:
 		mark.resized.connect(mark.queue_redraw)
 
 		var reward = Label.new()
-		reward.text = "+%d EXP" % _daily_login_reward(day)
+		reward.text = "+%d" % _daily_login_reward(day)
 		reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		reward.add_theme_font_size_override("font_size", 12)
 		reward.add_theme_color_override("font_color", color)
 		column.add_child(reward)
 
 	var hint = Label.new()
-	hint.text = "Log in on consecutive days. A missed day restarts the track."
+	hint.text = "Rewards in EXP. Day 10 earns +5. A missed day restarts the track."
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(hint)
-	drawer_content.add_child(card)
+	parent.add_child(card)
 
 
 func _open_exp_drawer() -> void:
@@ -3694,24 +3893,34 @@ func _open_exp_drawer() -> void:
 	var min_exp: int = rank["min_exp"]
 	var next_exp: int = rank["next_exp"]
 	
+	var overview = GridContainer.new()
+	overview.name = "ExperienceOverview"
+	overview.columns = 1
+	overview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	overview.add_theme_constant_override("h_separation", 12)
+	overview.add_theme_constant_override("v_separation", 10)
+	drawer_content.add_child(overview)
+
 	# Current Rank Header Card
 	var summary_card = _create_card_container(true)
 	var s_vbox = VBoxContainer.new()
 	s_vbox.add_theme_constant_override("separation", 8)
+	summary_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary_card.add_child(s_vbox)
 	
 	var top_row = HBoxContainer.new()
 	var rank_lbl = Label.new()
-	rank_lbl.text = "Level %d · %s" % [current_lvl, current_title]
+	rank_lbl.text = "Level %d  |  %s" % [current_lvl, current_title]
 	rank_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rank_lbl.add_theme_font_size_override("font_size", 16)
+	rank_lbl.add_theme_font_size_override("font_size", 20)
+	rank_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rank_lbl.add_theme_font_override("font", FONT_BOLD)
 	rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
 	top_row.add_child(rank_lbl)
 	
 	var exp_badge = Label.new()
 	exp_badge.text = "%d EXP" % total_exp
-	exp_badge.add_theme_font_size_override("font_size", 15)
+	exp_badge.add_theme_font_size_override("font_size", 22)
 	exp_badge.add_theme_font_override("font", FONT_BOLD)
 	exp_badge.add_theme_color_override("font_color", Color(0.45, 0.85, 1.0, 1.0))
 	top_row.add_child(exp_badge)
@@ -3726,8 +3935,9 @@ func _open_exp_drawer() -> void:
 		var exp_needed = next_exp - min_exp
 		next_lbl.text = "Progress to Level %d: %d / %d EXP" % [current_lvl + 1, exp_in_lvl, exp_needed]
 	else:
-		next_lbl.text = "Max Stacker Rank Achieved 👑"
-	next_lbl.add_theme_font_size_override("font_size", 12)
+		next_lbl.text = "Maximum rank reached"
+	next_lbl.add_theme_font_size_override("font_size", 14)
+	next_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	next_lbl.add_theme_font_override("font", FONT_MEDIUM)
 	next_lbl.add_theme_color_override("font_color", Color(0.75, 0.82, 0.95, 0.8))
 	p_vbox.add_child(next_lbl)
@@ -3751,9 +3961,9 @@ func _open_exp_drawer() -> void:
 	p_vbox.add_child(p_bar)
 	s_vbox.add_child(p_vbox)
 	
-	drawer_content.add_child(summary_card)
+	overview.add_child(summary_card)
 	
-	_add_daily_login_track()
+	_add_daily_login_track(overview)
 
 	var today = _get_today_date_str()
 	var perfect_ready = (perfect_3_claimed_date != today and daily_best_combo >= 3)
@@ -3761,9 +3971,19 @@ func _open_exp_drawer() -> void:
 	var stack_100_ready = (stack_100_claimed_date != today and daily_best_stack >= 100)
 	var ready_count = (1 if perfect_ready else 0) + (1 if stack_50_ready else 0) + (1 if stack_100_ready else 0)
 	
+	var mission_heading = HBoxContainer.new()
+	mission_heading.add_theme_constant_override("separation", 12)
+	drawer_content.add_child(mission_heading)
+	var section_lbl = Label.new()
+	section_lbl.text = "Daily missions"
+	section_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section_lbl.add_theme_font_size_override("font_size", 20)
+	section_lbl.add_theme_font_override("font", FONT_BOLD)
+	mission_heading.add_child(section_lbl)
+
 	if ready_count > 1:
 		var claim_all_btn = Button.new()
-		claim_all_btn.custom_minimum_size = Vector2(0, 42)
+		claim_all_btn.custom_minimum_size = Vector2(150, 44)
 		claim_all_btn.text = "Claim all (%d)" % ready_count
 		claim_all_btn.add_theme_font_size_override("font_size", 14)
 		claim_all_btn.add_theme_font_override("font", FONT_BOLD)
@@ -3779,21 +3999,14 @@ func _open_exp_drawer() -> void:
 				return
 			claim_all_available_exp()
 		)
-		drawer_content.add_child(claim_all_btn)
-	
-	var section_lbl = Label.new()
-	section_lbl.text = "Daily missions"
-	section_lbl.add_theme_font_size_override("font_size", 13)
-	section_lbl.add_theme_font_override("font", FONT_BOLD)
-	section_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
-	drawer_content.add_child(section_lbl)
+		mission_heading.add_child(claim_all_btn)
 	
 	var missions = [
 		{
 			"id": "perfect_3",
-			"name": "Triple Precision (Perfect x3)",
+			"name": "Perfect streak",
 			"exp": 2,
-			"desc": "Land 3 consecutive perfect drops in a single run today.",
+			"desc": "Land 3 perfect drops in a row.",
 			"ready": perfect_ready,
 			"claimed": perfect_3_claimed_date == today,
 			"cur": min(daily_best_combo, 3),
@@ -3804,7 +4017,7 @@ func _open_exp_drawer() -> void:
 			"id": "stack_50",
 			"name": "Tower of Fifty",
 			"exp": 1,
-			"desc": "Build a tower reaching at least 50 blocks high today.",
+			"desc": "Reach 50 blocks in one run.",
 			"ready": stack_50_ready,
 			"claimed": stack_50_claimed_date == today,
 			"cur": min(daily_best_stack, 50),
@@ -3815,7 +4028,7 @@ func _open_exp_drawer() -> void:
 			"id": "stack_100",
 			"name": "Sky Century",
 			"exp": 2,
-			"desc": "Ascend past the clouds to reach a 100-block tower today.",
+			"desc": "Reach 100 blocks in one run.",
 			"ready": stack_100_ready,
 			"claimed": stack_100_claimed_date == today,
 			"cur": min(daily_best_stack, 100),
@@ -3824,8 +4037,16 @@ func _open_exp_drawer() -> void:
 		}
 	]
 	
+	var mission_grid = GridContainer.new()
+	mission_grid.name = "DailyMissionGrid"
+	mission_grid.columns = 1
+	mission_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mission_grid.add_theme_constant_override("h_separation", 12)
+	mission_grid.add_theme_constant_override("v_separation", 8)
+	drawer_content.add_child(mission_grid)
 	for m in missions:
 		var card = _create_card_container(true)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var vbox = VBoxContainer.new()
 		vbox.add_theme_constant_override("separation", 6)
 		card.add_child(vbox)
@@ -3834,7 +4055,8 @@ func _open_exp_drawer() -> void:
 		var title_lbl = Label.new()
 		title_lbl.text = m["name"]
 		title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		title_lbl.add_theme_font_size_override("font_size", 15)
+		title_lbl.add_theme_font_size_override("font_size", 17)
+		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		title_lbl.add_theme_font_override("font", FONT_SEMIBOLD)
 		title_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 		header_row.add_child(title_lbl)
@@ -3849,7 +4071,8 @@ func _open_exp_drawer() -> void:
 		
 		var desc_lbl = Label.new()
 		desc_lbl.text = m["desc"]
-		desc_lbl.add_theme_font_size_override("font_size", 12)
+		desc_lbl.add_theme_font_size_override("font_size", 14)
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.add_theme_font_override("font", FONT_MEDIUM)
 		desc_lbl.add_theme_color_override("font_color", Color(0.68, 0.73, 0.85, 0.75))
 		vbox.add_child(desc_lbl)
@@ -3863,7 +4086,7 @@ func _open_exp_drawer() -> void:
 			vbox.add_child(claimed_lbl)
 		elif m["ready"]:
 			var claim_btn = Button.new()
-			claim_btn.custom_minimum_size = Vector2(0, 36)
+			claim_btn.custom_minimum_size = Vector2(0, 44)
 			claim_btn.text = "Claim +%d EXP" % m["exp"]
 			claim_btn.add_theme_font_size_override("font_size", 13)
 			claim_btn.add_theme_font_override("font", FONT_BOLD)
@@ -3882,9 +4105,9 @@ func _open_exp_drawer() -> void:
 		else:
 			var prog_row = HBoxContainer.new()
 			var prog_lbl = Label.new()
-			prog_lbl.text = "In Progress: %d / %d %s" % [m["cur"], m["target"], m["unit"]]
+			prog_lbl.text = "%d / %d %s" % [m["cur"], m["target"], m["unit"]]
 			prog_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			prog_lbl.add_theme_font_size_override("font_size", 12)
+			prog_lbl.add_theme_font_size_override("font_size", 14)
 			prog_lbl.add_theme_font_override("font", FONT_MEDIUM)
 			prog_lbl.add_theme_color_override("font_color", Color(0.65, 0.70, 0.82, 0.75))
 			prog_row.add_child(prog_lbl)
@@ -3903,7 +4126,7 @@ func _open_exp_drawer() -> void:
 			m_bar.add_theme_stylebox_override("fill", m_fill)
 			vbox.add_child(m_bar)
 		
-		drawer_content.add_child(card)
+		mission_grid.add_child(card)
 	
 	# Infinite Heights Mastery Perk Card
 	var perk_card = _create_card_container(true)
@@ -3915,13 +4138,14 @@ func _open_exp_drawer() -> void:
 	var perk_title = Label.new()
 	perk_title.text = "Infinite Height Mastery"
 	perk_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	perk_title.add_theme_font_size_override("font_size", 14)
+	perk_title.add_theme_font_size_override("font_size", 17)
+	perk_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	perk_title.add_theme_font_override("font", FONT_BOLD)
 	perk_title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.0, 1.0))
 	perk_hdr.add_child(perk_title)
 	
 	var perk_badge = Label.new()
-	perk_badge.text = "+1 EXP / 20 STACKS"
+	perk_badge.text = "+1 EXP / 20 blocks"
 	perk_badge.add_theme_font_size_override("font_size", 12)
 	perk_badge.add_theme_font_override("font", FONT_BOLD)
 	perk_badge.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
@@ -3929,8 +4153,8 @@ func _open_exp_drawer() -> void:
 	perk_vbox.add_child(perk_hdr)
 	
 	var perk_desc = Label.new()
-	perk_desc.text = "Reach past 100 blocks to continuously earn +1 EXP for every 20 stacks climbed in any run (120, 140, 160, 180...)."
-	perk_desc.add_theme_font_size_override("font_size", 12)
+	perk_desc.text = "After 100 blocks, earn +1 EXP at 120, 140, 160 and every 20 blocks beyond."
+	perk_desc.add_theme_font_size_override("font_size", 14)
 	perk_desc.add_theme_font_override("font", FONT_MEDIUM)
 	perk_desc.add_theme_color_override("font_color", Color(0.70, 0.76, 0.88, 0.80))
 	perk_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3940,46 +4164,53 @@ func _open_exp_drawer() -> void:
 	# Rank Tiers Section
 	var rank_sec_lbl = Label.new()
 	rank_sec_lbl.text = "Rank tiers"
-	rank_sec_lbl.add_theme_font_size_override("font_size", 13)
+	rank_sec_lbl.add_theme_font_size_override("font_size", 20)
 	rank_sec_lbl.add_theme_font_override("font", FONT_BOLD)
 	rank_sec_lbl.add_theme_color_override("font_color", Color(0.55, 0.72, 0.95, 0.85))
 	drawer_content.add_child(rank_sec_lbl)
 	
-	var tiers_card = _create_card_container(true)
-	var t_vbox = VBoxContainer.new()
-	t_vbox.add_theme_constant_override("separation", 6)
-	tiers_card.add_child(t_vbox)
-	
+	var tier_grid = GridContainer.new()
+	tier_grid.name = "RankTierGrid"
+	tier_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tier_grid.add_theme_constant_override("h_separation", 8)
+	tier_grid.add_theme_constant_override("v_separation", 8)
+	drawer_content.add_child(tier_grid)
+
 	for r in EXP_RANKS:
-		var r_row = HBoxContainer.new()
+		var tile = _create_card_container(true)
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var details = VBoxContainer.new()
+		details.add_theme_constant_override("separation", 4)
+		tile.add_child(details)
 		var r_name = Label.new()
-		r_name.text = "Level %d · %s" % [r["level"], r["name"]]
-		r_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		r_name.add_theme_font_size_override("font_size", 13)
+		r_name.text = "Level %d  |  %s" % [r["level"], r["name"]]
+		r_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		r_name.add_theme_font_size_override("font_size", 15)
 		r_name.add_theme_font_override("font", FONT_SEMIBOLD)
-		
+		details.add_child(r_name)
 		var r_req = Label.new()
-		r_req.add_theme_font_size_override("font_size", 12)
-		r_req.add_theme_font_override("font", FONT_MEDIUM)
-		
+		r_req.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		r_req.add_theme_font_size_override("font_size", 13)
+		details.add_child(r_req)
 		if r["level"] == current_lvl:
-			r_name.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
-			r_req.text = "▶ CURRENT (%d+ EXP)" % r["min_exp"]
-			r_req.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 1.0))
+			r_name.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+			r_req.text = "Current rank  |  %d+ EXP" % r["min_exp"]
 		elif total_exp >= r["min_exp"]:
-			r_name.add_theme_color_override("font_color", Color(0.85, 0.90, 0.95, 0.9))
-			r_req.text = "✓ UNLOCKED"
-			r_req.add_theme_color_override("font_color", Color(0.35, 0.90, 0.55, 0.9))
+			r_req.text = "Unlocked  |  %d+ EXP" % r["min_exp"]
+			r_req.add_theme_color_override("font_color", Color(0.4, 0.9, 0.65))
 		else:
-			r_name.add_theme_color_override("font_color", Color(0.50, 0.55, 0.65, 0.7))
-			r_req.text = "🔒 %d EXP" % r["min_exp"]
-			r_req.add_theme_color_override("font_color", Color(0.50, 0.55, 0.65, 0.7))
-		
-		r_row.add_child(r_name)
-		r_row.add_child(r_req)
-		t_vbox.add_child(r_row)
-	
-	drawer_content.add_child(tiers_card)
+			r_req.text = "%d EXP to unlock" % r["min_exp"]
+			r_req.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85, 0.85))
+		tier_grid.add_child(tile)
+
+	var fit_layout = func():
+		var width: float = drawer_content.size.x
+		overview.columns = 2 if width >= 1050.0 else 1
+		mission_grid.columns = 3 if width >= 1050.0 else 1
+		tier_grid.columns = clampi(int(width / 270.0), 1, 4)
+	# The grid owns this connection, so reopening the drawer also removes its resize handler.
+	tier_grid.resized.connect(fit_layout)
+	fit_layout.call()
 
 func reset_game() -> void:
 	if _is_restarting:
@@ -4007,6 +4238,11 @@ func _spawn_next_box() -> void:
 	slider.attach_box(new_box)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_instance_valid(_challenge_popup):
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_close_challenge_popup()
+		get_viewport().set_input_as_handled()
+		return
 	if _is_restarting:
 		return
 	
@@ -4102,6 +4338,198 @@ func _drop_current_box() -> void:
 	var box = slider.release_box()
 	if box:
 		box.drop(Vector3(0, -2.0, 0), current_top_y)
+		if is_instance_valid(_moving_laser):
+			_laser_previous_relative = box.global_position - _moving_laser.global_position
+
+func _physics_process(delta: float) -> void:
+	var laser_start_floor: int = LASER_START_FLOOR if active_challenge_id == "laser" else -1
+	if active_campaign_stage_id > 0:
+		laser_start_floor = int(CAMPAIGN_STAGES[active_campaign_stage_id - 1].get("laser_start_floor", -1))
+	if laser_start_floor < 0 or _is_restarting \
+			or state not in [GameState.READY, GameState.PLAYING, GameState.DROPPING] or stack.size() < laser_start_floor:
+		_clear_moving_laser()
+		return
+
+	if _laser_floor != stack.size():
+		_clear_moving_laser(false)
+		_spawn_moving_laser()
+
+	var was_firing: bool = _laser_firing
+	_laser_hover_time += delta
+	_laser_cycle_time = fmod(_laser_cycle_time + delta, LASER_CHARGE_TIME + LASER_FIRE_TIME + LASER_COOLDOWN_TIME)
+	_laser_phase += delta * slider.base_speed * slider.speed_multiplier * 0.72
+	_laser_rig.global_position = _laser_center + _laser_axis * slider.slide_amplitude * sin(_laser_phase)
+	_update_laser_bots()
+	if _laser_firing and not was_firing and is_instance_valid(active_box):
+		_laser_previous_relative = active_box.global_position - _moving_laser.global_position
+	if state == GameState.DROPPING and _check_laser_collision(active_box):
+		return
+	if is_instance_valid(active_box):
+		_laser_previous_relative = active_box.global_position - _moving_laser.global_position
+
+func _clear_moving_laser(reset_cycle: bool = true) -> void:
+	if is_instance_valid(_laser_rig):
+		_laser_rig.queue_free()
+	_laser_rig = null
+	_moving_laser = null
+	_laser_sparks = null
+	_laser_bots.clear()
+	_laser_firing = false
+	if reset_cycle:
+		_laser_cycle_time = 0.0
+		_laser_hover_time = 0.0
+	_laser_floor = -1
+
+func _spawn_moving_laser() -> void:
+	_laser_floor = stack.size()
+	_laser_axis = Vector3.RIGHT if slider.current_axis == 0 else Vector3.BACK
+	_laser_center = Vector3(current_target_pos.x, current_top_y + LASER_HEIGHT, current_target_pos.z)
+	_laser_phase = 0.65
+	_laser_rig = Node3D.new()
+	_laser_rig.name = "LaserBotRig"
+	add_child(_laser_rig)
+	_moving_laser = MeshInstance3D.new()
+	var beam_axis = Vector3.BACK if slider.current_axis == 0 else Vector3.RIGHT
+	_laser_hit_size = Vector3(LASER_WIDTH, LASER_WIDTH, BOX_SIZE.z + 0.8) if slider.current_axis == 0 \
+			else Vector3(BOX_SIZE.x + 0.8, LASER_WIDTH, LASER_WIDTH)
+	var beam = QuadMesh.new()
+	beam.size = Vector2(3.2, 0.65)
+	_moving_laser.mesh = beam
+	var material = StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.albedo_texture = LASER_BEAM_TEXTURE
+	_moving_laser.material_override = material
+	_moving_laser.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_laser_rig.add_child(_moving_laser)
+	_laser_rig.global_position = _laser_center + _laser_axis * slider.slide_amplitude * sin(_laser_phase)
+	# Face the beam toward the camera while keeping its length aligned with the emitter pair.
+	var facing: Vector3 = (camera.global_basis.z - beam_axis * camera.global_basis.z.dot(beam_axis)).normalized()
+	_moving_laser.basis = Basis(beam_axis, facing.cross(beam_axis).normalized(), facing)
+	_create_laser_sparks(beam_axis)
+	for side: float in [-1.0, 1.0]:
+		var nozzle_position: Vector3 = beam_axis * side * 1.6
+		var screen_side: float = camera.unproject_position(_laser_rig.global_position + nozzle_position).x \
+				- camera.unproject_position(_laser_rig.global_position).x
+		var bot = _create_laser_bot(screen_side < 0.0)
+		_laser_rig.add_child(bot)
+		bot.position = nozzle_position
+		_laser_bots.append(bot)
+	_update_laser_bots()
+	_laser_previous_relative = active_box.global_position - _moving_laser.global_position
+	var first_laser_floor: int = LASER_START_FLOOR
+	if active_campaign_stage_id > 0:
+		first_laser_floor = int(CAMPAIGN_STAGES[active_campaign_stage_id - 1].get("laser_start_floor", -1))
+	if stack.size() == first_laser_floor:
+		_show_task_toast("Bots charging! Drop when their laser switches off.")
+
+func _create_laser_sparks(beam_axis: Vector3) -> void:
+	_laser_sparks = CPUParticles3D.new()
+	_laser_sparks.name = "LaserGlowParticles"
+	_laser_sparks.emitting = false
+	_laser_sparks.amount = 24
+	_laser_sparks.lifetime = 0.45
+	_laser_sparks.local_coords = false
+	_laser_sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_laser_sparks.emission_box_extents = beam_axis * 1.55 + Vector3.ONE * 0.015
+	_laser_sparks.direction = Vector3.UP
+	_laser_sparks.spread = 100.0
+	_laser_sparks.initial_velocity_min = 0.15
+	_laser_sparks.initial_velocity_max = 0.55
+	_laser_sparks.gravity = Vector3(0.0, 0.15, 0.0)
+	_laser_sparks.scale_amount_min = 0.6
+	_laser_sparks.scale_amount_max = 1.4
+	var fade = Gradient.new()
+	fade.offsets = PackedFloat32Array([0.0, 0.25, 1.0])
+	fade.colors = PackedColorArray([Color(1.0, 0.85, 0.7), Color(1.0, 0.18, 0.25), Color(1.0, 0.05, 0.1, 0.0)])
+	_laser_sparks.color_ramp = fade
+	var spark = QuadMesh.new()
+	spark.size = Vector2(0.07, 0.07)
+	var glow = StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	glow.vertex_color_use_as_albedo = true
+	glow.albedo_texture = preload("res://textures/cloud_puff.png")
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.15, 0.08)
+	glow.emission_energy_multiplier = 0.8
+	spark.material = glow
+	_laser_sparks.mesh = spark
+	_laser_sparks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_laser_rig.add_child(_laser_sparks)
+
+func _create_laser_bot(on_left: bool) -> Sprite3D:
+	var bot = Sprite3D.new()
+	var back_view: bool = on_left if slider.current_axis == 0 else not on_left
+	bot.texture = LASER_BOT_TEXTURE
+	bot.hframes = 2
+	bot.vframes = 3
+	bot.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	bot.flip_h = slider.current_axis == 1
+	bot.shaded = false
+	bot.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	bot.frame_coords = Vector2i(0 if back_view else 1, 0)
+	bot.pixel_size = 0.0020
+	var bot_material = ShaderMaterial.new()
+	bot_material.shader = LASER_BOT_SHADER
+	bot_material.set_shader_parameter("bot_texture", LASER_BOT_TEXTURE)
+	bot_material.set_shader_parameter("lens_center", Vector2(405.0, 191.0) if back_view else Vector2(649.0, 321.0))
+	bot_material.set_shader_parameter("lens_radius", Vector2(25.0, 46.0) if back_view else Vector2(53.0, 64.0))
+	bot_material.set_shader_parameter("side_light_center", Vector2(352.0, 295.0) if back_view else Vector2(851.0, 310.0))
+	bot.material_override = bot_material
+	var lens_offset = Vector2(-149.0, -65.0) if back_view else Vector2(119.0, 65.0)
+	if bot.flip_h:
+		lens_offset.x = -lens_offset.x
+	bot.offset = lens_offset
+	return bot
+
+func _update_laser_bots() -> void:
+	_laser_firing = _laser_cycle_time >= LASER_CHARGE_TIME and _laser_cycle_time < LASER_CHARGE_TIME + LASER_FIRE_TIME
+	_moving_laser.visible = _laser_firing
+	var lens_color = Color(0.1, 0.85, 1.0)
+	var pulse: float = 0.9 + sin(_laser_hover_time * 3.0) * 0.1
+	var side_glow: float = 1.0
+	if _laser_cycle_time >= LASER_CHARGE_TIME + LASER_FIRE_TIME:
+		var idle_time: float = _laser_cycle_time - LASER_CHARGE_TIME - LASER_FIRE_TIME
+		side_glow = smoothstep(0.15, 0.85, 0.5 + 0.5 * cos(TAU * idle_time / 1.2))
+	if _laser_firing:
+		lens_color = Color(1.0, 0.05, 0.09)
+		pulse = 1.15
+	elif _laser_cycle_time < LASER_CHARGE_TIME:
+		lens_color = Color(1.0, 0.55, 0.05)
+		pulse = lerpf(0.75, 1.15, _laser_cycle_time / LASER_CHARGE_TIME)
+	var hover_offset: float = sin(_laser_hover_time * 2.4) * 0.035
+	_moving_laser.position.y = hover_offset
+	_laser_sparks.position.y = hover_offset
+	_laser_sparks.emitting = _laser_firing
+	for bot in _laser_bots:
+		var bot_material = bot.material_override as ShaderMaterial
+		bot_material.set_shader_parameter("lens_color", lens_color)
+		bot_material.set_shader_parameter("pulse", pulse)
+		bot_material.set_shader_parameter("side_glow", side_glow)
+		bot.position.y = hover_offset
+
+func _check_laser_collision(box: Node3D) -> bool:
+	if not _laser_firing or not is_instance_valid(_moving_laser) or not is_instance_valid(box):
+		return false
+	var relative: Vector3 = box.global_position - _moving_laser.global_position
+	var half_size: Vector3 = (_laser_hit_size + box.box_size) * 0.5
+	var bounds = AABB(-half_size, half_size * 2.0)
+	# Sweep relative motion to detect a beam crossed between physics frames.
+	var hit: bool = bounds.has_point(relative) or bounds.intersects_segment(_laser_previous_relative, relative) != null
+	_laser_previous_relative = relative
+	if not hit:
+		return false
+	state = GameState.GAME_OVER
+	box.destroy_by_laser()
+	sound_mgr.play_game_over()
+	trigger_screen_shake(0.7)
+	_trigger_game_over()
+	_show_task_toast("Laser hit!")
+	_clear_moving_laser()
+	return true
 
 func _on_box_released(_box: Node3D, _pos: Vector3, _vel: Vector3) -> void:
 	pass
@@ -4110,6 +4538,9 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 	if state != GameState.DROPPING or box != active_box:
 		return
 	
+	if _check_laser_collision(box):
+		return
+
 	var drop_x = box.global_position.x
 	var drop_z = box.global_position.z
 	var target_x = current_target_pos.x
@@ -4124,7 +4555,7 @@ func _on_box_landed(box: Node3D, _hit: bool) -> void:
 		combo += 1
 		if combo > best_combo:
 			best_combo = combo
-		score += (4 if active_challenge_id == "precision" else 2)
+		score += 2
 		
 		# EXP Tracking: Perfect stack of 3 (daily task)
 		if combo >= 3:
@@ -4534,6 +4965,7 @@ func _animate_game_over_tower_reveal() -> void:
 func restart_game() -> void:
 	if _is_restarting:
 		return
+	_clear_moving_laser()
 	_is_restarting = true
 	
 	sound_mgr.play_click()
@@ -4795,9 +5227,14 @@ func _finish_restart_game() -> void:
 	_spawn_next_box()
 
 
+func _update_sound_icon() -> void:
+	sound_btn.icon = preload("res://UI/Icons/volume-muted.svg") if sound_mgr.is_muted \
+			else preload("res://UI/Icons/volume-on.svg")
+	sound_btn.tooltip_text = "Unmute sound" if sound_mgr.is_muted else "Mute sound"
+
 func _on_sound_btn_pressed() -> void:
-	var muted = sound_mgr.toggle_mute()
-	sound_btn.text = "🔇" if muted else "🔊"
+	sound_mgr.toggle_mute()
+	_update_sound_icon()
 	_animate_tile_pop(sound_btn)
 
 func save_high_score() -> void:

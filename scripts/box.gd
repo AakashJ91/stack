@@ -1,7 +1,7 @@
 extends Node3D
 class_name StackBox
 
-enum BoxState { ATTACHED, FALLING, LANDED, TOPPLING }
+enum BoxState { ATTACHED, FALLING, LANDED, TOPPLING, DESTROYED }
 
 var state: BoxState = BoxState.ATTACHED
 var box_size: Vector3 = Vector3(2.4, 0.8, 2.4)
@@ -662,6 +662,66 @@ func start_topple(direction: Vector3) -> void:
 	
 	velocity = Vector3(direction.x * 2.8, 1.8, direction.z * 2.8)
 	topple_speed = 7.5
+
+func destroy_by_laser() -> void:
+	if state == BoxState.DESTROYED:
+		return
+	state = BoxState.DESTROYED
+	velocity = Vector3.ZERO
+	set_physics_process(false)
+	trail_particles.emitting = false
+	drop_particles.emitting = false
+	for animation in [settle_tween, flash_tween, absorb_tween]:
+		if animation:
+			animation.kill()
+
+	material.set_shader_parameter("emission_color", Color(1.0, 0.18, 0.08))
+	material.set_shader_parameter("emission_energy", 4.0)
+	var fragments = CPUParticles3D.new()
+	fragments.name = "LaserFragments"
+	fragments.emitting = false
+	fragments.one_shot = true
+	fragments.amount = 36
+	fragments.lifetime = 0.85
+	fragments.explosiveness = 1.0
+	fragments.local_coords = false
+	fragments.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	fragments.emission_box_extents = box_size * 0.45
+	fragments.direction = Vector3.UP
+	fragments.spread = 150.0
+	fragments.initial_velocity_min = 2.0
+	fragments.initial_velocity_max = 5.0
+	fragments.gravity = Vector3(0.0, -9.0, 0.0)
+	fragments.angular_velocity_min = -240.0
+	fragments.angular_velocity_max = 240.0
+	fragments.scale_amount_min = 0.16
+	fragments.scale_amount_max = 0.34
+
+	var fade = Gradient.new()
+	fade.offsets = PackedFloat32Array([0.0, 0.25, 1.0])
+	fade.colors = PackedColorArray([
+		Color(1.0, 0.88, 0.65),
+		box_color.lightened(0.25),
+		Color(box_color.r, box_color.g, box_color.b, 0.0)
+	])
+	fragments.color_ramp = fade
+
+	var fragment_mesh = BoxMesh.new()
+	var fragment_material = StandardMaterial3D.new()
+	fragment_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fragment_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fragment_material.vertex_color_use_as_albedo = true
+	fragment_mesh.material = fragment_material
+	fragments.mesh = fragment_mesh
+	add_child(fragments)
+	fragments.finished.connect(fragments.queue_free)
+
+	flash_tween = create_tween()
+	flash_tween.tween_interval(0.07)
+	flash_tween.tween_callback(func():
+		mesh_instance.hide()
+		fragments.emitting = true
+	)
 
 func _play_land_flash() -> void:
 	pass # Keep pastel colors clean and saturated on normal land
