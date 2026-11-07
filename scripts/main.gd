@@ -42,6 +42,7 @@ const LASER_BEAM_TEXTURE = preload("res://textures/laser/beam.png")
 const LASER_START_FLOOR: int = 0
 const LASER_HEIGHT: float = 1.05
 const LASER_WIDTH: float = 0.10
+const LASER_BOT_CLEARANCE: float = 1.6
 const LASER_CHARGE_TIME: float = 1.0
 const LASER_FIRE_TIME: float = 1.4
 const LASER_COOLDOWN_TIME: float = 1.8
@@ -1732,6 +1733,7 @@ func _spawn_menu_preview_box() -> void:
 	var box_color = _get_box_shade(0)
 	new_box.set_color(box_color)
 	new_box.apply_skin(get_current_skin_config())
+	slider.hover_height = 1.8
 	slider.set_target_level(current_top_y, current_target_pos, 0, true)
 	slider.attach_box(new_box)
 
@@ -1792,6 +1794,7 @@ func start_game_from_menu() -> void:
 	score = 0
 	combo = 0
 	state = GameState.READY
+	slider.hover_height = 2.2 if _get_laser_start_floor() == 0 else 1.8
 	_last_awarded_bonus_stack = 100
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
@@ -4233,6 +4236,8 @@ func _spawn_next_box() -> void:
 	# Update slider level and slide axis (alternates X and Z)
 	# When first block appears, slide in smoothly from the side
 	var is_first_block = (stack.size() == 0)
+	var laser_start_floor: int = _get_laser_start_floor()
+	slider.hover_height = 2.2 if laser_start_floor >= 0 and stack.size() >= laser_start_floor else 1.8
 	slider.set_target_level(current_top_y, current_target_pos, stack.size(), is_first_block)
 	slider.speed_multiplier = clamp((1.0 + (stack.size() * 0.03)) * challenge_speed_multiplier, 0.65, 3.2)
 	slider.attach_box(new_box)
@@ -4341,10 +4346,13 @@ func _drop_current_box() -> void:
 		if is_instance_valid(_moving_laser):
 			_laser_previous_relative = box.global_position - _moving_laser.global_position
 
-func _physics_process(delta: float) -> void:
-	var laser_start_floor: int = LASER_START_FLOOR if active_challenge_id == "laser" else -1
+func _get_laser_start_floor() -> int:
 	if active_campaign_stage_id > 0:
-		laser_start_floor = int(CAMPAIGN_STAGES[active_campaign_stage_id - 1].get("laser_start_floor", -1))
+		return int(CAMPAIGN_STAGES[active_campaign_stage_id - 1].get("laser_start_floor", -1))
+	return LASER_START_FLOOR if active_challenge_id == "laser" else -1
+
+func _physics_process(delta: float) -> void:
+	var laser_start_floor: int = _get_laser_start_floor()
 	if laser_start_floor < 0 or _is_restarting \
 			or state not in [GameState.READY, GameState.PLAYING, GameState.DROPPING] or stack.size() < laser_start_floor:
 		_clear_moving_laser()
@@ -4390,10 +4398,11 @@ func _spawn_moving_laser() -> void:
 	add_child(_laser_rig)
 	_moving_laser = MeshInstance3D.new()
 	var beam_axis = Vector3.BACK if slider.current_axis == 0 else Vector3.RIGHT
-	_laser_hit_size = Vector3(LASER_WIDTH, LASER_WIDTH, BOX_SIZE.z + 0.8) if slider.current_axis == 0 \
-			else Vector3(BOX_SIZE.x + 0.8, LASER_WIDTH, LASER_WIDTH)
+	var beam_length: float = (BOX_SIZE.z if slider.current_axis == 0 else BOX_SIZE.x) + LASER_BOT_CLEARANCE * 2.0
+	_laser_hit_size = Vector3(LASER_WIDTH, LASER_WIDTH, beam_length) if slider.current_axis == 0 \
+			else Vector3(beam_length, LASER_WIDTH, LASER_WIDTH)
 	var beam = QuadMesh.new()
-	beam.size = Vector2(3.2, 0.65)
+	beam.size = Vector2(beam_length, 0.65)
 	_moving_laser.mesh = beam
 	var material = StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -4407,9 +4416,9 @@ func _spawn_moving_laser() -> void:
 	# Face the beam toward the camera while keeping its length aligned with the emitter pair.
 	var facing: Vector3 = (camera.global_basis.z - beam_axis * camera.global_basis.z.dot(beam_axis)).normalized()
 	_moving_laser.basis = Basis(beam_axis, facing.cross(beam_axis).normalized(), facing)
-	_create_laser_sparks(beam_axis)
+	_create_laser_sparks(beam_axis, beam_length)
 	for side: float in [-1.0, 1.0]:
-		var nozzle_position: Vector3 = beam_axis * side * 1.6
+		var nozzle_position: Vector3 = beam_axis * side * beam_length * 0.5
 		var screen_side: float = camera.unproject_position(_laser_rig.global_position + nozzle_position).x \
 				- camera.unproject_position(_laser_rig.global_position).x
 		var bot = _create_laser_bot(screen_side < 0.0)
@@ -4418,13 +4427,11 @@ func _spawn_moving_laser() -> void:
 		_laser_bots.append(bot)
 	_update_laser_bots()
 	_laser_previous_relative = active_box.global_position - _moving_laser.global_position
-	var first_laser_floor: int = LASER_START_FLOOR
-	if active_campaign_stage_id > 0:
-		first_laser_floor = int(CAMPAIGN_STAGES[active_campaign_stage_id - 1].get("laser_start_floor", -1))
+	var first_laser_floor: int = _get_laser_start_floor()
 	if stack.size() == first_laser_floor:
 		_show_task_toast("Bots charging! Drop when their laser switches off.")
 
-func _create_laser_sparks(beam_axis: Vector3) -> void:
+func _create_laser_sparks(beam_axis: Vector3, beam_length: float) -> void:
 	_laser_sparks = CPUParticles3D.new()
 	_laser_sparks.name = "LaserGlowParticles"
 	_laser_sparks.emitting = false
@@ -4432,7 +4439,7 @@ func _create_laser_sparks(beam_axis: Vector3) -> void:
 	_laser_sparks.lifetime = 0.45
 	_laser_sparks.local_coords = false
 	_laser_sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_laser_sparks.emission_box_extents = beam_axis * 1.55 + Vector3.ONE * 0.015
+	_laser_sparks.emission_box_extents = beam_axis * (beam_length * 0.5 - 0.05) + Vector3.ONE * 0.015
 	_laser_sparks.direction = Vector3.UP
 	_laser_sparks.spread = 100.0
 	_laser_sparks.initial_velocity_min = 0.15
@@ -5167,6 +5174,7 @@ func _finish_restart_game() -> void:
 	score = 0
 	combo = 0
 	state = GameState.READY
+	slider.hover_height = 2.2 if _get_laser_start_floor() == 0 else 1.8
 	_last_awarded_bonus_stack = 100
 	current_top_y = 0.0
 	current_target_pos = Vector3.ZERO
